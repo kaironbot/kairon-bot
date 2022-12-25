@@ -1,0 +1,56 @@
+package org.wagham.commands
+
+import dev.kord.common.entity.Snowflake
+import dev.kord.core.Kord
+import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
+import dev.kord.rest.builder.interaction.role
+import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import dev.kord.rest.builder.message.modify.embed
+import org.wagham.annotations.BotCommand
+import org.wagham.components.CacheManager
+import org.wagham.config.Colors
+import org.wagham.db.KabotMultiDBClient
+import org.wagham.exceptions.*
+
+@BotCommand
+class SetAdminGroupCommand(
+    override val kord: Kord,
+    override val db: KabotMultiDBClient,
+    override val cacheManager: CacheManager
+) : SlashCommand() {
+
+    override val commandName = "set_admin_role"
+
+    override suspend fun registerCommand() {
+        kord.createGlobalChatInputCommand(
+            commandName,
+            "Use this command to configure the admin role for this server"
+        ) {
+            role("role", "The admin role") {
+                autocomplete = true
+                required = true
+            }
+        }
+    }
+
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
+        val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
+        val serverConfig = db.serverConfigScope.getGuildConfig(guildId.toString())
+        if(!isUserAuthorized(guildId, event.interaction, serverConfig.adminRoleId?.let { listOf(Snowflake(it)) } ?: emptyList()))
+            throw UnauthorizedException()
+        return event.interaction.command.roles["role"]?.let {
+            db.serverConfigScope.setGuildConfig(
+                guildId.toString(),
+                serverConfig.copy(adminRoleId = it.id.toString())
+            )
+            fun InteractionResponseModifyBuilder.() {
+                embed {
+                    title = "Operation executed successfully"
+                    description = "Current admin role is: <@&${it.id}>"
+                    color = Colors.DEFAULT.value
+                }
+            }
+        } ?: throw InvalidCommandArgumentException()
+    }
+
+}
