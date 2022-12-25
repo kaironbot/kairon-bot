@@ -1,0 +1,69 @@
+name: Deploy
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - 'main'
+
+
+jobs:
+  deploy_on_docker:
+    name: Deploy
+    if: github.event.pull_request.merged == true && (contains(github.event.pull_request.labels.*.name, 'SemVer.major') || contains(github.event.pull_request.labels.*.name, 'SemVer.minor') || contains(github.event.pull_request.labels.*.name, 'SemVer.patch'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: Setup JDK
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+
+      - name: Build
+        run: gradle build
+
+      - name: Creation new version (Major)
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'SemVer.major') }}
+        run: gradle incrementVersion --versionIncrementType=MAJOR --versionIncrementBranch=main -PgitUserName=TestaDiRapa -PgitUserEmail=v.c.pierro@gmail.com
+      - name: Creation new version (Minor)
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'SemVer.minor') }}
+        run: gradle incrementVersion --versionIncrementType=MINOR --versionIncrementBranch=main -PgitUserName=TestaDiRapa -PgitUserEmail=v.c.pierro@gmail.com
+      - name: Creation new version (Patch)
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'SemVer.patch') }}
+        run: gradle incrementVersion --versionIncrementType=PATCH --versionIncrementBranch=main -PgitUserName=TestaDiRapa -PgitUserEmail=v.c.pierro@gmail.com
+
+      - name: Save version to env
+        run: echo "NEW_VERSION=$(gradle printLibVersion | grep -o '[0-9]\+.[0-9]\+.[0-9]\+')" >> $GITHUB_ENV
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Build Image and Publish to Docker Hub
+        run: |
+          gradle bootBuildImage --imageName=testadirapa/wagham-bot:${{ env.NEW_VERSION }}
+          docker push testadirapa/wagham-bot:${{ env.NEW_VERSION }}
+
+      - name: Run Api on Remote Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            docker rm -f -v wagham-bot
+            docker image prune -a -f
+            docker run -d --name wagham-bot --env-file /home/waghambot/waghambot.env testadirapa/wagham-bot:${{ env.NEW_VERSION }}
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ env.NEW_VERSION }}
+          token: ${{ secrets.GITHUB_TOKEN }}
