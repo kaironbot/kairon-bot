@@ -1,1 +1,1 @@
-# wagham-bot
+# WaghamBot
