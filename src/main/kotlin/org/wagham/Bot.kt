@@ -9,7 +9,13 @@ import dev.kord.core.event.gateway.ReadyEvent
 import dev.kord.core.on
 import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
+import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
+import org.reflections.Reflections
+import org.reflections.scanners.SubTypesScanner
+import org.wagham.annotations.BotCommand
 import org.wagham.commands.Command
+import org.wagham.commands.MSCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
@@ -32,19 +38,14 @@ class WaghamBot(
         )
     )
     private val cacheManager = CacheManager(database)
+    private val logger = KotlinLogging.logger {}
     private val commands: List<Command>
 
-    private fun autowireCommands() = File("src/main/kotlin/org/wagham/commands")
-        .walk()
-        .toList()
-        .filter { it.name.endsWith(".kt") }
-        .map { Class.forName("org.wagham.commands.${it.name.replace(".kt", "")}").kotlin }
-        .filter {
-            it.annotations.firstOrNull { ann ->
-                ann.annotationClass.simpleName == "BotCommand"
-            } != null
-        }.map {
-            it.primaryConstructor?.call(kord, database, cacheManager) as Command
+    private fun autowireCommands() = Reflections("org.wagham.commands")
+        .getTypesAnnotatedWith(BotCommand::class.java)
+        .map { it.kotlin }
+        .map {
+            it.primaryConstructor!!.call(kord, database, cacheManager) as Command
         }
 
     init {
@@ -65,9 +66,11 @@ class WaghamBot(
 
     @OptIn(PrivilegedIntent::class)
     suspend fun start() {
+        logger.info { "Starting WaghamBot" }
         commands.forEach{
             it.registerCommand()
             it.registerCallback()
+            logger.info { "Registered ${it.commandName} command" }
         }
         kord.login {
             intents += Intent.GuildMembers

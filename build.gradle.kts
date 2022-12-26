@@ -1,10 +1,10 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("org.springframework.boot") version "2.7.4"
-    id("io.spring.dependency-management") version "1.0.14.RELEASE"
     kotlin("jvm") version "1.7.20"
-    kotlin("plugin.spring") version "1.7.20"
+    id("com.github.johnrengelman.shadow") version "7.1.2"
+    application
 }
 
 buildscript {
@@ -40,11 +40,20 @@ dependencies {
     implementation(group="org.slf4j", name="slf4j-api", version = "2.0.5")
     implementation(group="org.slf4j", name="slf4j-simple", version = "2.0.5")
     implementation(group = "com.github.ben-manes.caffeine", name = "caffeine", version = "2.9.1")
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    implementation(group="io.github.microutils", name="kotlin-logging-jvm", version="2.0.11")
+    implementation(group="org.reflections", name="reflections", version="0.10.2")
     testImplementation(group="org.junit.jupiter", name="junit-jupiter", version="5.4.2")
     testImplementation(group="io.kotest", name="kotest-assertions-core-jvm", version="5.5.3")
     testImplementation(group="io.kotest", name="kotest-framework-engine-jvm", version="5.5.3")
     testImplementation(group = "io.kotest.extensions", name = "kotest-extensions-spring", version = "1.1.2")
+}
+
+application {
+    mainClass.set("org.wagham.BotKt")
+}
+
+tasks.withType<ShadowJar> {
+    archiveFileName.set("application.jar")
 }
 
 tasks.withType<KotlinCompile> {
@@ -56,10 +65,6 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-}
-
-tasks.bootBuildImage {
-    imageName = "testadirapa/wagham-bot:${version.toString().replace("-SNAPSHOT", "")}"
 }
 
 tasks.register("printLibVersion") {
