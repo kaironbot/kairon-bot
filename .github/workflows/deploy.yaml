@@ -45,10 +45,12 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-      - name: Build Image and Publish to Docker Hub
-        run: |
-          gradle bootBuildImage --imageName=testadirapa/wagham-bot:${{ env.NEW_VERSION }}
-          docker push testadirapa/wagham-bot:${{ env.NEW_VERSION }}
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: testadirapa/wagham-bot:${{ env.CURRENT_VERSION }},testadirapa/wagham-bot:latest
 
       - name: Run Api on Remote Server
         uses: appleboy/ssh-action@master
