@@ -1,6 +1,5 @@
 package org.wagham.commands
 
-import dev.kord.common.Color
 import dev.kord.core.Kord
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.user

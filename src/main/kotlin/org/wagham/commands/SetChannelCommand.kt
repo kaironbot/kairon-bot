@@ -46,11 +46,11 @@ class SetChannelCommand(
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
-        val serverConfig = db.serverConfigScope.getGuildConfig(guildId.toString())
+        val serverConfig = cacheManager.getConfig(guildId, true)
         if(!isUserAuthorized(guildId, event.interaction, serverConfig.adminRoleId?.let { listOf(Snowflake(it)) } ?: emptyList()))
             throw UnauthorizedException()
-        db.serverConfigScope.setGuildConfig(
-            guildId.toString(),
+        cacheManager.setConfig(
+            guildId,
             serverConfig.copy(
                channels = serverConfig.channels +
                        (event.interaction.command.strings["channel_type"]!!
