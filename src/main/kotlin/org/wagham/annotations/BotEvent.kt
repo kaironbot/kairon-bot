@@ -1,3 +1,3 @@
 package org.wagham.annotations
 
-annotation class BotEvent
+annotation class BotEvent(val profile: String)

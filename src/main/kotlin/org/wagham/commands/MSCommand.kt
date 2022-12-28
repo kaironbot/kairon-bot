@@ -12,7 +12,7 @@ import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.exceptions.GuildNotFoundException
 
-@BotCommand
+@BotCommand("wagham")
 class MSCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,

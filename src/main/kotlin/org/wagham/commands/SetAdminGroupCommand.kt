@@ -12,7 +12,7 @@ import org.wagham.config.Colors
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.exceptions.*
 
-@BotCommand
+@BotCommand("all")
 class SetAdminGroupCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,

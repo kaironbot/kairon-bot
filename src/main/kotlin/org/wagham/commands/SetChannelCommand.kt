@@ -16,7 +16,7 @@ import org.wagham.db.KabotMultiDBClient
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.exceptions.UnauthorizedException
 
-@BotCommand
+@BotCommand("all")
 class SetChannelCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,

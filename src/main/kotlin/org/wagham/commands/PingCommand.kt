@@ -10,7 +10,7 @@ import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.db.KabotMultiDBClient
 
-@BotCommand
+@BotCommand("all")
 class PingCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
