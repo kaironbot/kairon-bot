@@ -85,14 +85,16 @@ class WaghamBot(
     @OptIn(PrivilegedIntent::class)
     suspend fun start() {
         logger.info { "Starting WaghamBot with profile $profile" }
+        events.forEach {
+            it.register()
+            cacheManager.registerEvent(it.eventId)
+            logger.info { "Registered ${it.eventId} event" }
+        }
         commands.forEach {
             it.registerCommand()
             it.registerCallback()
+            cacheManager.registerCommand(it.commandName)
             logger.info { "Registered ${it.commandName} command" }
-        }
-        events.forEach {
-            it.register()
-            logger.info { "Registered ${it.name} event" }
         }
         kord.login {
             intents += Intent.GuildMembers

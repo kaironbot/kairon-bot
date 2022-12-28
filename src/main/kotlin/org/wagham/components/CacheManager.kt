@@ -20,6 +20,9 @@ class CacheManager(private val db: KabotMultiDBClient) {
             .expireAfterWrite(1, TimeUnit.DAYS)
             .build()
 
+    private val guildCommands = mutableListOf<String>()
+    private val guildEvents = mutableListOf<String>()
+
     suspend fun getExpTable(guildId: Snowflake): ExpTable =
         expTableCache.getIfPresent(guildId) ?:
             db.utilityScope.getExpTable(guildId.toString()).also {
@@ -38,5 +41,11 @@ class CacheManager(private val db: KabotMultiDBClient) {
             )
         }
 
+    fun getCommands() = guildCommands.toList()
 
+    fun registerCommand(command: String) = guildCommands.add(command)
+
+    fun getEvents() = guildEvents.toList()
+
+    fun registerEvent(event: String) = guildEvents.add(event)
 }

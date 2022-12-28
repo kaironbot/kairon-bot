@@ -8,7 +8,7 @@ interface Event {
     val kord: Kord
     val db: KabotMultiDBClient
     val cacheManager: CacheManager
-    val name: String
+    val eventId: String
 
     fun register()
 }

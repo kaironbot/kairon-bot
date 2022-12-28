@@ -24,7 +24,7 @@ class MSCommand(
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            "Show your level and ms"
+            "Shows your level and ms"
         ) {
             user("target", "The user to show the MS for the active character") {
                 required = false
@@ -52,12 +52,12 @@ class MSCommand(
                     }
                     field {
                         name = "Level"
-                        value = "${expTable.expToLevel(ms.toFloat())}"
+                        value = expTable.expToLevel(ms.toFloat())
                         inline = true
                     }
                     field {
                         name = "Tier"
-                        value = "${expTable.expToTier(ms.toFloat())}"
+                        value = expTable.expToTier(ms.toFloat())
                         inline = true
                     }
                 }
