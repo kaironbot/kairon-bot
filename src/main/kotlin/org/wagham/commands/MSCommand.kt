@@ -39,7 +39,6 @@ class MSCommand(
         val target = event.interaction.command.users["target"]?.id ?: event.interaction.user.id
         return try {
             val character = db.charactersScope.getActiveCharacter(guildId.toString(), target.toString())
-            val ms = listOf(character.errataMS, character.masterMS, character.pbcMS, character.sessionMS).sum()
             fun InteractionResponseModifyBuilder.() {
                 embed {
                     color = Colors.DEFAULT.value
@@ -47,17 +46,17 @@ class MSCommand(
                     description = character.characterClass
                     field {
                         name = "MS"
-                        value = "$ms"
+                        value = "${character.ms()}"
                         inline = true
                     }
                     field {
                         name = "Level"
-                        value = expTable.expToLevel(ms.toFloat())
+                        value = expTable.expToLevel(character.ms().toFloat())
                         inline = true
                     }
                     field {
                         name = "Tier"
-                        value = expTable.expToTier(ms.toFloat())
+                        value = expTable.expToTier(character.ms().toFloat())
                         inline = true
                     }
                 }

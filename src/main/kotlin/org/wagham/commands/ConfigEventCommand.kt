@@ -14,6 +14,7 @@ import org.wagham.annotations.BotCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.exceptions.UnauthorizedException
 
 @BotCommand("all")
 class ConfigEventCommand(
@@ -26,7 +27,7 @@ class ConfigEventCommand(
 
     private suspend fun buildAllowedChannelsList(guildId: Snowflake, event: String) =
         cacheManager.getConfig(guildId).eventChannels[event]?.ifEmpty { listOf("All channels") }?.let { channels ->
-            channels.joinToString(separator = "") { "$it\n" }
+            channels.joinToString(separator = "") { "<#$it>\n" }
         } ?: "All channels"
 
     override suspend fun registerCommand() {
@@ -78,6 +79,9 @@ class ConfigEventCommand(
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val command = event.interaction.command as SubCommand
+        val serverConfig = cacheManager.getConfig(event.interaction.guildId, true)
+        if(!isUserAuthorized(event.interaction.guildId, event.interaction, serverConfig.adminRoleId?.let { listOf(Snowflake(it)) } ?: emptyList()))
+            throw UnauthorizedException()
         return when (command.name) {
             "info" -> {
                 val channelList = buildAllowedChannelsList(event.interaction.guildId, event.interaction.command.strings["event"]!!)
@@ -90,12 +94,11 @@ class ConfigEventCommand(
                 }
             }
             "add_channel" -> {
-                val config = cacheManager.getConfig(event.interaction.guildId, true)
-                val currentChannels = config.eventChannels[event.interaction.command.strings["event"]!!] ?: emptyList()
+                val currentChannels = serverConfig.eventChannels[event.interaction.command.strings["event"]!!] ?: emptyList()
                 cacheManager.setConfig(
                     event.interaction.guildId,
-                    config.copy(
-                        eventChannels = config.eventChannels +
+                    serverConfig.copy(
+                        eventChannels = serverConfig.eventChannels +
                                 (event.interaction.command.strings["event"]!! to
                                         (currentChannels + event.interaction.command.channels["channel"]!!.id.toString()))
                     )
@@ -108,12 +111,11 @@ class ConfigEventCommand(
                 }
             }
             else -> {
-                val config = cacheManager.getConfig(event.interaction.guildId, true)
-                val currentChannels = config.eventChannels[event.interaction.command.strings["event"]!!] ?: emptyList()
+                val currentChannels = serverConfig.eventChannels[event.interaction.command.strings["event"]!!] ?: emptyList()
                 cacheManager.setConfig(
                     event.interaction.guildId,
-                    config.copy(
-                        eventChannels = config.eventChannels +
+                    serverConfig.copy(
+                        eventChannels = serverConfig.eventChannels +
                                 (event.interaction.command.strings["event"]!! to
                                         (currentChannels - event.interaction.command.channels["channel"]!!.id.toString()))
                     )
