@@ -6,6 +6,7 @@ import dev.kord.common.entity.Snowflake
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.ExpTable
 import org.wagham.db.models.ServerConfig
+import org.wagham.utils.ActiveUsersReport
 import java.util.concurrent.TimeUnit
 
 class CacheManager(private val db: KabotMultiDBClient) {
@@ -18,6 +19,11 @@ class CacheManager(private val db: KabotMultiDBClient) {
     private val serverConfigCache: Cache<Snowflake, ServerConfig> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.DAYS)
+            .build()
+
+    private val activeUsersCache: Cache<Snowflake, ActiveUsersReport> =
+        Caffeine.newBuilder()
+            .expireAfterWrite(2, TimeUnit.DAYS)
             .build()
 
     private val guildCommands = mutableListOf<String>()
@@ -48,4 +54,10 @@ class CacheManager(private val db: KabotMultiDBClient) {
     fun getEvents() = guildEvents.toList()
 
     fun registerEvent(event: String) = guildEvents.add(event)
+
+    fun getUsersReport(guildId: Snowflake) = activeUsersCache.getIfPresent(guildId)
+
+    fun storeUsersReport(guildId: Snowflake, usersReport: ActiveUsersReport) =
+        activeUsersCache.put(guildId, usersReport)
+
 }
