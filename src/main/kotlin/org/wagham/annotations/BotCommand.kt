@@ -1,3 +1,3 @@
 package org.wagham.annotations
 
-annotation class BotCommand
+annotation class BotCommand(val profile: String)

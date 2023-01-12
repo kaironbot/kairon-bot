@@ -1,6 +1,5 @@
 package org.wagham.commands
 
-import dev.kord.common.Color
 import dev.kord.core.Kord
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.user
@@ -13,7 +12,7 @@ import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.exceptions.GuildNotFoundException
 
-@BotCommand
+@BotCommand("wagham")
 class MSCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
@@ -25,7 +24,7 @@ class MSCommand(
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            "Show your level and ms"
+            "Shows your level and ms"
         ) {
             user("target", "The user to show the MS for the active character") {
                 required = false
@@ -40,7 +39,6 @@ class MSCommand(
         val target = event.interaction.command.users["target"]?.id ?: event.interaction.user.id
         return try {
             val character = db.charactersScope.getActiveCharacter(guildId.toString(), target.toString())
-            val ms = listOf(character.errataMS, character.masterMS, character.pbcMS, character.sessionMS).sum()
             fun InteractionResponseModifyBuilder.() {
                 embed {
                     color = Colors.DEFAULT.value
@@ -48,17 +46,17 @@ class MSCommand(
                     description = character.characterClass
                     field {
                         name = "MS"
-                        value = "$ms"
+                        value = "${character.ms()}"
                         inline = true
                     }
                     field {
                         name = "Level"
-                        value = "${expTable.expToLevel(ms.toFloat())}"
+                        value = expTable.expToLevel(character.ms().toFloat())
                         inline = true
                     }
                     field {
                         name = "Tier"
-                        value = "${expTable.expToTier(ms.toFloat())}"
+                        value = expTable.expToTier(character.ms().toFloat())
                         inline = true
                     }
                 }

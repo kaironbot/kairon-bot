@@ -9,21 +9,20 @@ import dev.kord.core.event.gateway.ReadyEvent
 import dev.kord.core.on
 import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.reflections.Reflections
-import org.reflections.scanners.SubTypesScanner
 import org.wagham.annotations.BotCommand
+import org.wagham.annotations.BotEvent
 import org.wagham.commands.Command
-import org.wagham.commands.MSCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.MongoCredentials
-import java.io.File
+import org.wagham.events.Event
 import kotlin.reflect.full.primaryConstructor
 
 class WaghamBot(
+    private val profile: String,
     private val kord: Kord
 ) {
 
@@ -40,12 +39,30 @@ class WaghamBot(
     private val cacheManager = CacheManager(database)
     private val logger = KotlinLogging.logger {}
     private val commands: List<Command>
+    private val events: List<Event>
 
     private fun autowireCommands() = Reflections("org.wagham.commands")
         .getTypesAnnotatedWith(BotCommand::class.java)
         .map { it.kotlin }
+        .filter {
+            it.annotations.any { ann ->
+                ann is BotCommand && (ann.profile == "all" || ann.profile == profile)
+            }
+        }
         .map {
             it.primaryConstructor!!.call(kord, database, cacheManager) as Command
+        }
+
+    private fun autowireEvents() = Reflections("org.wagham.events")
+        .getTypesAnnotatedWith(BotEvent::class.java)
+        .map { it.kotlin }
+        .filter {
+            it.annotations.any { ann ->
+                ann is BotEvent && (ann.profile == "all" || ann.profile == profile)
+            }
+        }
+        .map {
+            it.primaryConstructor!!.call(kord, database, cacheManager) as Event
         }
 
     init {
@@ -62,14 +79,21 @@ class WaghamBot(
             }
         }
         commands = autowireCommands()
+        events = autowireEvents()
     }
 
     @OptIn(PrivilegedIntent::class)
     suspend fun start() {
-        logger.info { "Starting WaghamBot" }
-        commands.forEach{
+        logger.info { "Starting WaghamBot with profile $profile" }
+        events.forEach {
+            it.register()
+            cacheManager.registerEvent(it.eventId)
+            logger.info { "Registered ${it.eventId} event" }
+        }
+        commands.forEach {
             it.registerCommand()
             it.registerCallback()
+            cacheManager.registerCommand(it.commandName)
             logger.info { "Registered ${it.commandName} command" }
         }
         kord.login {
@@ -83,6 +107,6 @@ class WaghamBot(
 
 suspend fun main() {
     val kord = Kord(System.getenv("BOT_TOKEN")!!)
-    val bot = WaghamBot(kord)
+    val bot = WaghamBot("wagham", kord)
     bot.start()
 }

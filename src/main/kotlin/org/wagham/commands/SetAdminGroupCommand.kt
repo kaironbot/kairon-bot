@@ -12,7 +12,7 @@ import org.wagham.config.Colors
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.exceptions.*
 
-@BotCommand
+@BotCommand("all")
 class SetAdminGroupCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
@@ -35,12 +35,12 @@ class SetAdminGroupCommand(
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
-        val serverConfig = db.serverConfigScope.getGuildConfig(guildId.toString())
+        val serverConfig = cacheManager.getConfig(guildId, true)
         if(!isUserAuthorized(guildId, event.interaction, serverConfig.adminRoleId?.let { listOf(Snowflake(it)) } ?: emptyList()))
             throw UnauthorizedException()
         return event.interaction.command.roles["role"]?.let {
-            db.serverConfigScope.setGuildConfig(
-                guildId.toString(),
+            cacheManager.setConfig(
+                guildId,
                 serverConfig.copy(adminRoleId = it.id.toString())
             )
             fun InteractionResponseModifyBuilder.() {

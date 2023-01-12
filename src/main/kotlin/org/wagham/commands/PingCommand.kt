@@ -10,7 +10,7 @@ import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.db.KabotMultiDBClient
 
-@BotCommand
+@BotCommand("all")
 class PingCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
@@ -22,15 +22,18 @@ class PingCommand(
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            "Check if the bot is online"
+            "Checks if the bot is online"
         )
     }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         return fun InteractionResponseModifyBuilder.() {
+            val commands = cacheManager.getCommands().ifEmpty { listOf("No commands found in this guild") }
+            val events = cacheManager.getEvents().ifEmpty { listOf("No events found in this guild") }
             embed {
                 color = Colors.DEFAULT.value
                 title = "WaghamBot is online"
+                description = "**Commands**\n${commands.joinToString(separator = "") { "\\$it\n" }}\n**Events**\n${events.joinToString(separator = "") { it+"\n" }}"
             }
         }
     }

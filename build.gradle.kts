@@ -35,7 +35,7 @@ dependencies {
     implementation(group="dev.kord", name="kord-core", version="0.8.0-M17")
     implementation(group="org.jetbrains.kotlinx", name="kotlinx-coroutines-core", version="1.6.4")
     implementation(group="org.jetbrains.kotlinx", name="kotlinx-coroutines-reactor", version="1.6.4")
-    implementation(group="org.wagham", name="kabot-db-connector", version="0.4.1")
+    implementation(group="org.wagham", name="kabot-db-connector", version="0.5.0")
     implementation(group="com.fasterxml.jackson.module", name="jackson-module-kotlin", version="2.13.4")
     implementation(group="org.slf4j", name="slf4j-api", version = "2.0.5")
     implementation(group="org.slf4j", name="slf4j-simple", version = "2.0.5")
