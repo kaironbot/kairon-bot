@@ -63,7 +63,7 @@ class CountActiveUsersEvent(
         val calendar = Calendar.getInstance()
         val startingDate = LocalDateTime.of(
             calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.MONTH)+1,
             calendar.get(Calendar.DAY_OF_MONTH),
             23,59, 59
         )
