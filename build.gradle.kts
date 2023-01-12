@@ -32,6 +32,7 @@ repositories {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation(group="org.litote.kmongo", name="kmongo-coroutine", version="4.7.0")
     implementation(group="dev.kord", name="kord-core", version="0.8.0-M17")
     implementation(group="org.jetbrains.kotlinx", name="kotlinx-coroutines-core", version="1.6.4")
     implementation(group="org.jetbrains.kotlinx", name="kotlinx-coroutines-reactor", version="1.6.4")
