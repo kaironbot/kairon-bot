@@ -8,9 +8,11 @@ import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
+import org.wagham.config.locale.LocaleEnum
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.exceptions.GuildNotFoundException
+import org.wagham.utils.createGenericEmbedError
 
 @BotCommand("wagham")
 class MSCommand(
@@ -62,13 +64,7 @@ class MSCommand(
                 }
             }
         } catch (e: NoActiveCharacterException) {
-            fun InteractionResponseModifyBuilder.() {
-                embed {
-                    color = Colors.WARNING.value
-                    title = "Error"
-                    description = "Player has no active character"
-                }
-            }
+            createGenericEmbedError("Player has no active character")
         }
     }
 

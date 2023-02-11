@@ -56,6 +56,7 @@ class WaghamCheckTierEvent(
                             ?.let {
                                 supplier.getChannel(it).asChannelOf<MessageChannel>()
                             } ?: supplier.getGuild(guild).getSystemChannel())
+                            ?.takeIf { updates.second.isNotEmpty() }
                             ?.sendTextMessage(
                                 "WARNING: The following users do not exist\n${
                                     updates.second.joinToString(separator = "") { "(<@!${it.player}>) - ${it.name}\n" }

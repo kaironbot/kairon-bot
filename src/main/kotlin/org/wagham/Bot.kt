@@ -36,7 +36,7 @@ class WaghamBot(
             System.getenv("DB_ADMIN_PORT").toInt()
         )
     )
-    private val cacheManager = CacheManager(database)
+    private val cacheManager = CacheManager(database, profile)
     private val logger = KotlinLogging.logger {}
     private val commands: List<Command>
     private val events: List<Event>

@@ -32,11 +32,11 @@ repositories {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation(group="org.litote.kmongo", name="kmongo-coroutine", version="4.7.0")
+    implementation(group="org.litote.kmongo", name="kmongo-coroutine", version="4.8.0")
     implementation(group="dev.kord", name="kord-core", version="0.8.0-M17")
     implementation(group="org.jetbrains.kotlinx", name="kotlinx-coroutines-core", version="1.6.4")
     implementation(group="org.jetbrains.kotlinx", name="kotlinx-coroutines-reactor", version="1.6.4")
-    implementation(group="org.wagham", name="kabot-db-connector", version="0.5.0")
+    implementation(group="org.wagham", name="kabot-db-connector", version="0.6.1")
     implementation(group="com.fasterxml.jackson.module", name="jackson-module-kotlin", version="2.13.4")
     implementation(group="org.slf4j", name="slf4j-api", version = "2.0.5")
     implementation(group="org.slf4j", name="slf4j-simple", version = "2.0.5")
