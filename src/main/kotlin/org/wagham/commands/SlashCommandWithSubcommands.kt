@@ -37,7 +37,7 @@ abstract class SlashCommandWithSubcommands(
         }
     }
 
-    override fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent) {
+    override suspend fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent) {
         val subCommand = event.interaction.command as SubCommand
         subcommandsMap[subCommand.name]?.handleResponse(msg, event)
     }

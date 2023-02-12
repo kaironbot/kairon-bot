@@ -18,5 +18,5 @@ interface SubCommand {
     fun create(ctx: RootInputChatBuilder)
     suspend fun init()
     suspend fun handle(command: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit
-    fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent)
+    suspend fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent)
 }

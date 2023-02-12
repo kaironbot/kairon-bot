@@ -180,7 +180,7 @@ class WaghamBuyProficiency(
         return ret
     }
 
-    override fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent) =
+    override suspend fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent) =
         interactionCache.put(
             msg.message.id,
             event.interaction.user.id
