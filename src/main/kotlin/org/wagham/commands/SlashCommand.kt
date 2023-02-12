@@ -41,7 +41,7 @@ abstract class SlashCommand : Command {
         return caller.userId == ownerId || roles.any{ caller.roles.contains(it) }
     }
 
-    open fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent) { }
+    open suspend fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent) { }
 
     override fun registerCallback() {
         kord.on<GuildChatInputCommandInteractionCreateEvent> {

@@ -18,11 +18,12 @@ class PingCommand(
 ) : SlashCommand() {
 
     override val commandName = "ping"
+    override val commandDescription = "Checks if the bot is online"
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            "Checks if the bot is online"
+            commandDescription
         )
     }
 

@@ -24,6 +24,7 @@ class ConfigEventCommand(
 ) : SlashCommand() {
 
     override val commandName = "config_event"
+    override val commandDescription = "Configures the channels for the events"
 
     private suspend fun buildAllowedChannelsList(guildId: Snowflake, event: String) =
         cacheManager.getConfig(guildId).eventChannels[event]?.ifEmpty { listOf("All channels") }?.let { channels ->
@@ -33,7 +34,7 @@ class ConfigEventCommand(
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            "Configures the channels for the events"
+            commandDescription
         ) {
 
             subCommand("info", "Gets the channel info of an event") {
