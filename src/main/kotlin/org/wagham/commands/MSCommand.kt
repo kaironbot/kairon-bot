@@ -22,11 +22,12 @@ class MSCommand(
 ) : SlashCommand() {
 
     override val commandName = "ms"
+    override val commandDescription = "Shows your level and ms"
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            "Shows your level and ms"
+            commandDescription
         ) {
             user("target", "The user to show the MS for the active character") {
                 required = false

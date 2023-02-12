@@ -38,6 +38,7 @@ class WaghamBuyProficiency(
     override val cacheManager: CacheManager
 ) : SubCommand {
 
+    override val subcommandName = "proficiency"
     override val subcommandDescription: Map<String, String> = mapOf(
         "it" to "Cerca una competenza e acquistala",
         "en" to "Search for a proficiency and buy it"
@@ -80,8 +81,6 @@ class WaghamBuyProficiency(
             override fun locale(language: String) = localeMap[language] ?: localeMap["en"]!!
         }
     }
-
-    override val subcommandName = "proficiency"
     private val giveMoneyBadge = listOf(
         "Cartographer's tools",
         "Cobbler's tools",

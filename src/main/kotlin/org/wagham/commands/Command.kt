@@ -9,6 +9,7 @@ interface Command {
     val db: KabotMultiDBClient
     val cacheManager: CacheManager
     val commandName: String
+    val commandDescription: String
 
     suspend fun registerCommand()
     fun registerCallback()

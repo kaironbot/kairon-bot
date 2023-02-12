@@ -24,11 +24,12 @@ class SetChannelCommand(
 ) : SlashCommand() {
 
     override val commandName = "set_channel"
+    override val commandDescription = "Use this command to configure the channels for the bot"
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            "Use this command to configure the channels for the bot"
+            commandDescription
         ) {
             string("channel_type", "The channel type") {
                 required = true

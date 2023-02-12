@@ -20,11 +20,12 @@ class SetAdminGroupCommand(
 ) : SlashCommand() {
 
     override val commandName = "set_admin_role"
+    override val commandDescription = "Use this command to configure the admin role for this server"
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            "Use this command to configure the admin role for this server"
+            commandDescription
         ) {
             role("role", "The admin role") {
                 autocomplete = true
