@@ -238,7 +238,7 @@ class MasterStats(
     override suspend fun handle(command: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val locale = command.interaction.locale?.language ?: command.interaction.guildLocale?.language ?: "en"
         val guildId = command.interaction.guildId
-        val user = command.interaction.command.users["target"] ?: command.interaction.user
+        val user = command.interaction.command.users["master"] ?: command.interaction.user
         val sessions = PaginatedList(db.sessionScope.getAllMasteredSessions(guildId.toString(), user.id.toString()).toList().sortedBy { it.date }.reversed())
         return if (!sessions.isEmpty()) {
             generateSessionEmbed(sessions, user, locale)
