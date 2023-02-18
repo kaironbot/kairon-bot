@@ -33,3 +33,24 @@ fun String.levenshteinDistance(other:String) =
     levenshtein(this.subSequence(0, this.length), other.subSequence(0, other.length))
         .takeIf { it > 0 }
         ?.let { 1.0 / it } ?: 1.0
+
+fun List<List<Any>>.toListOfMap(header: Map<String, Int>, guaranteedIndex: Int? = null): List<Map<String, String>> =
+    this.filter {
+            guaranteedIndex == null ||
+                    (guaranteedIndex < it.size &&
+                            !(it[guaranteedIndex] as? String).isNullOrBlank())
+        }.fold(emptyList()) { finalList, it ->
+            finalList + header.keys.fold(emptyMap()) { acc, key ->
+                if(header[key]!! < it.size)
+                    acc + (key to (it[header[key]!!] as String))
+                else acc + (key to "")
+            }
+        }
+
+fun String.formatToFloat() = try {
+        this.replace(",", ".").toFloat()
+    } catch(e: NumberFormatException) {
+        0.0f
+    }
+
+fun String.formatToInt() = try { this.toInt() } catch(e: NumberFormatException) { 0 }
