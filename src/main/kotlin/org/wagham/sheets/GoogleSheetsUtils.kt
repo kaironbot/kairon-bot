@@ -16,7 +16,7 @@ object GoogleSheetsUtils {
             .fromPkcs8(
                 System.getenv("GOOGLE_CLIENT_ID")!!,
                 System.getenv("GOOGLE_SERVICE_EMAIL")!!,
-                System.getenv("GOOGLE_PRIVATE_KEY")!!.replace("\\\\n", "\n"),
+                System.getenv("GOOGLE_PRIVATE_KEY")!!.replace("\\\\n", "\n").also{ println(it) },
                 System.getenv("GOOGLE_PRIVATE_KEY_ID")!!,
                 listOf("https://www.googleapis.com/auth/iam")
             ).let {

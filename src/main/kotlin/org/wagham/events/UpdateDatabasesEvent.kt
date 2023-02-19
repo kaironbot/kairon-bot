@@ -191,7 +191,7 @@ class UpdateDatabasesEvent(
             calendar.get(Calendar.MONTH)+1,
             calendar.get(Calendar.DAY_OF_MONTH),
             3,0, 0
-        ).plusDays(1)
+        )
         logger.info { "$eventId task will start on $startingDate" }
         Timer(eventId).schedule(
             Date.from(startingDate.toInstant(ZoneOffset.UTC)),
