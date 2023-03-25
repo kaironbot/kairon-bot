@@ -54,3 +54,12 @@ fun String.formatToFloat() = try {
     }
 
 fun String.formatToInt() = try { this.toInt() } catch(e: NumberFormatException) { 0 }
+
+fun splitMessage(msg: String, separator: String = "\n", maxLength: Int = 2000): List<String> = msg.split(separator).fold(emptyList()) { acc, it ->
+    val last = acc.lastOrNull() ?: ""
+    if ((last + separator + it).length < maxLength) {
+        acc.dropLast(1) + listOf((last + separator + it))
+    } else {
+        acc + listOf(it)
+    }
+}
