@@ -189,7 +189,7 @@ class UpdateDatabasesEvent(
         val startingDate = LocalDateTime.of(
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH)+1,
-            calendar.get(Calendar.DAY_OF_MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)+1,
             3,0, 0
         )
         logger.info { "$eventId task will start on $startingDate" }
