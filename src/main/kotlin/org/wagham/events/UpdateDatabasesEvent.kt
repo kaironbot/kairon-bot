@@ -4,10 +4,7 @@ import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.asChannelOf
 import dev.kord.core.entity.channel.MessageChannel
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Instant
 import mu.KotlinLogging
 import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager

@@ -60,7 +60,7 @@ class BountiesRow(
                                 guaranteedObjectDelta = row["GiveTake Item_Qty"]!!.formatToInt(),
                                 announceId = try {
                                     AnnouncementType.valueOf(row["AnnuncioPremio"]!!)
-                                } catch (_: Exception) {
+                                } catch (_: IllegalArgumentException) {
                                     null
                                 },
                                 prizeList = prizeLists[row["GiveItemFrom Premi_Lista"]] ?: emptyList()

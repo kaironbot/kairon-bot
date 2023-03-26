@@ -18,7 +18,6 @@ import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Announcement
 import org.wagham.db.models.AnnouncementType
 import org.wagham.utils.sendTextMessage
-import org.wagham.utils.splitMessage
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
 import java.time.LocalDateTime
@@ -171,12 +170,8 @@ class WaghamWeeklyRewardsEvent(
 
         getLogChannel(guildId).let { channel ->
             channel.sendTextMessage("Dlin-Dlon! TBadge, premi master e stipendi sono stati assegnati! Godetevi le vostre ricchezze, maledetti! :moneybag:")
-            splitMessage(updatedLog.rewardsMessage()).forEach { part ->
-                channel.sendTextMessage(part)
-            }
-            splitMessage(updatedLog.jackpotMessage()).forEach { part ->
-                channel.sendTextMessage(part)
-            }
+            channel.sendTextMessage(updatedLog.rewardsMessage())
+            channel.sendTextMessage(updatedLog.jackpotMessage())
         }
 
     }
