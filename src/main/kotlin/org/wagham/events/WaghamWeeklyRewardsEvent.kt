@@ -109,6 +109,7 @@ class WaghamWeeklyRewardsEvent(
 
         // For each active player
         val updatedLog = db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
+            .filter { it.buildings.isNotEmpty() }
             .fold(rewardsLog) { log, character ->
                 val tier = expTable.expToTier(character.ms().toFloat())
 
@@ -229,8 +230,8 @@ class WaghamWeeklyRewardsEvent(
         }
 
         fun rewardsMessage() = buildString {
-            val dateFormatter = SimpleDateFormat("dd/mm")
-            append("**Premi della settimana dal ${dateFormatter.format(weekStart)} al {rewards['week_end'].strftime('%d/%m')}**\n\n")
+            val dateFormatter = SimpleDateFormat("dd/MM")
+            append("**Premi della settimana dal ${dateFormatter.format(weekStart)} al ${dateFormatter.format(weekEnd)}**\n\n")
             append("*TBadge assegnati*: ${tBadge}\n\n")
             append("**Premi master**\n")
             master.entries.forEach {
@@ -244,7 +245,7 @@ class WaghamWeeklyRewardsEvent(
             playerRewards.entries.forEach{ (player, buildingsReport) ->
                 append("<@!$player>\n")
                 val totalMo = buildingsReport.values.map { it.money }.sum()
-                append("\t*MO Totali: $totalMo\n")
+                append("\t*MO Totali: $totalMo*\n")
                 buildingsReport.entries.forEach { (buildingType, prize) ->
                     append("\t*$buildingType ")
                     prize.announcementType?.let { append("($it): ") } ?: append(": ")
