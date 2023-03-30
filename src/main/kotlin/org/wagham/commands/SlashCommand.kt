@@ -16,20 +16,6 @@ import kotlin.reflect.full.primaryConstructor
 
 abstract class SlashCommand : Command {
 
-    fun autowireSubcommands() = Reflections("org.wagham.commands.subcommands")
-        .getTypesAnnotatedWith(BotSubcommand::class.java)
-        .map { it.kotlin }
-        .filter {
-            it.annotations.any { ann ->
-                ann is BotSubcommand
-                    && (ann.profile == "all" || ann.profile == cacheManager.profile)
-                    && (ann.baseCommand == this::class)
-            }
-        }
-        .map {
-            it.primaryConstructor!!.call(kord, cacheManager.db, cacheManager) as SubCommand
-        }
-
     suspend fun isUserAuthorized(guildId: Snowflake, interaction: GuildChatInputCommandInteraction, roles: Collection<Snowflake>): Boolean {
         val ownerId = kord.getGuildOrNull(guildId)?.ownerId ?: throw GuildOwnerNotFoundException()
         val caller = interaction.data.member.value ?: throw CallerNotFoundException()

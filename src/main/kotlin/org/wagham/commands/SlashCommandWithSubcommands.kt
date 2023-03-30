@@ -8,9 +8,12 @@ import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
 import mu.KotlinLogging
+import org.reflections.Reflections
+import org.wagham.annotations.BotSubcommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.db.KabotMultiDBClient
+import kotlin.reflect.full.primaryConstructor
 
 abstract class SlashCommandWithSubcommands(
     override val kord: Kord,
@@ -20,6 +23,20 @@ abstract class SlashCommandWithSubcommands(
 
     private val logger = KotlinLogging.logger {}
     private val subcommandsMap = autowireSubcommands().associateBy { it.commandName }
+
+    private fun autowireSubcommands() = Reflections("org.wagham.commands.subcommands")
+        .getTypesAnnotatedWith(BotSubcommand::class.java)
+        .map { it.kotlin }
+        .filter {
+            it.annotations.any { ann ->
+                ann is BotSubcommand
+                        && (ann.profile == "all" || ann.profile == cacheManager.profile)
+                        && (ann.baseCommand == this::class)
+            }
+        }
+        .map {
+            it.primaryConstructor!!.call(kord, cacheManager.db, cacheManager) as org.wagham.commands.SubCommand
+        }
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
