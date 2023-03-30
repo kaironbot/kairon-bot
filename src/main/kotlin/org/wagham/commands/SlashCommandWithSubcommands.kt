@@ -19,7 +19,7 @@ abstract class SlashCommandWithSubcommands(
 ) : SlashCommand() {
 
     private val logger = KotlinLogging.logger {}
-    private val subcommandsMap = autowireSubcommands().associateBy { it.subcommandName }
+    private val subcommandsMap = autowireSubcommands().associateBy { it.commandName }
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
@@ -33,7 +33,7 @@ abstract class SlashCommandWithSubcommands(
             subCommand("help", "Shows all the subcommands with their descriptions")
         }
         subcommandsMap.forEach {
-            it.value.init()
+            it.value.registerCommand()
         }
     }
 
@@ -44,7 +44,7 @@ abstract class SlashCommandWithSubcommands(
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val subCommand = event.interaction.command as SubCommand
-        return subcommandsMap[subCommand.name]?.handle(event) ?: generateHelpMessage(event)
+        return subcommandsMap[subCommand.name]?.execute(event) ?: generateHelpMessage(event)
     }
 
     private fun generateHelpMessage(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
@@ -56,10 +56,8 @@ abstract class SlashCommandWithSubcommands(
                 title = "/$commandName"
                 description = subcommandsMap.values
                     .joinToString(separator = "\n\n") {
-                        "</$commandName ${it.subcommandName}:${commandId}> ${it.subcommandDescription[locale]}"
+                        "</$commandName ${it.commandName}:${commandId}> ${it.subcommandDescription[locale]}"
                     }
-
-
             }
             components = mutableListOf()
         }

@@ -6,20 +6,15 @@ import dev.kord.core.entity.interaction.GuildChatInputCommandInteraction
 import dev.kord.core.entity.interaction.response.PublicMessageInteractionResponse
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
-import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
 import org.reflections.Reflections
-import org.wagham.annotations.BotCommand
 import org.wagham.annotations.BotSubcommand
-import org.wagham.commands.subcommands.SubCommand
 import org.wagham.config.Colors
 import org.wagham.exceptions.CallerNotFoundException
 import org.wagham.exceptions.GuildOwnerNotFoundException
 import kotlin.reflect.full.primaryConstructor
 
 abstract class SlashCommand : Command {
-
-    abstract suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit
 
     fun autowireSubcommands() = Reflections("org.wagham.commands.subcommands")
         .getTypesAnnotatedWith(BotSubcommand::class.java)
@@ -41,7 +36,10 @@ abstract class SlashCommand : Command {
         return caller.userId == ownerId || roles.any{ caller.roles.contains(it) }
     }
 
-    open suspend fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent) { }
+    override suspend fun handleResponse(
+        msg: PublicMessageInteractionResponse,
+        event: GuildChatInputCommandInteractionCreateEvent
+    ) {}
 
     override fun registerCallback() {
         kord.on<GuildChatInputCommandInteractionCreateEvent> {

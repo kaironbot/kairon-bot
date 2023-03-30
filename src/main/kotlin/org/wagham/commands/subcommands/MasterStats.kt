@@ -13,17 +13,16 @@ import dev.kord.core.entity.interaction.response.PublicMessageInteractionRespons
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
-import dev.kord.rest.NamedFile
 import dev.kord.rest.builder.interaction.RootInputChatBuilder
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.actionRow
 import dev.kord.rest.builder.message.modify.embed
-import io.ktor.client.request.forms.*
 import kotlinx.coroutines.flow.toList
 import org.wagham.annotations.BotSubcommand
-import org.wagham.commands.StatsCommand
+import org.wagham.commands.impl.StatsCommand
+import org.wagham.commands.SubCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
@@ -117,7 +116,8 @@ class MasterStats(
         }
     }
 
-    override val subcommandName = "master"
+    override val commandName = "master"
+    override val commandDescription = ""
     override val subcommandDescription: Map<String, String> = mapOf(
         "it" to "Visualizza le sessioni masterate da te o da un altro giocatore",
         "en" to "Show the session mastered by you or by another player"
@@ -130,14 +130,14 @@ class MasterStats(
         if(!File(it).exists()) File(it).mkdirs()
     }
 
-    override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(subcommandName, "Show the session mastered by you or by another player") {
+    override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, "Show the session mastered by you or by another player") {
         user("master", "The user to show the stats for") {
             required = false
             autocomplete = true
         }
     }
 
-    override suspend fun init() {
+    override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
             val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
             if(interaction.componentId.startsWith("${this@MasterStats::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id)?.first == interaction.user.id) {
@@ -235,10 +235,10 @@ class MasterStats(
         }
 
 
-    override suspend fun handle(command: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val locale = command.interaction.locale?.language ?: command.interaction.guildLocale?.language ?: "en"
-        val guildId = command.interaction.guildId
-        val user = command.interaction.command.users["master"] ?: command.interaction.user
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
+        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+        val guildId = event.interaction.guildId
+        val user = event.interaction.command.users["master"] ?: event.interaction.user
         val sessions = PaginatedList(db.sessionScope.getAllMasteredSessions(guildId.toString(), user.id.toString()).toList().sortedBy { it.date }.reversed())
         return if (!sessions.isEmpty()) {
             generateSessionEmbed(sessions, user, locale)

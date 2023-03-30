@@ -18,7 +18,8 @@ import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.actionRow
 import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotSubcommand
-import org.wagham.commands.BuyCommand
+import org.wagham.commands.impl.BuyCommand
+import org.wagham.commands.SubCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
@@ -38,7 +39,8 @@ class WaghamBuyProficiency(
     override val cacheManager: CacheManager
 ) : SubCommand {
 
-    override val subcommandName = "proficiency"
+    override val commandName = "proficiency"
+    override val commandDescription = ""
     override val subcommandDescription: Map<String, String> = mapOf(
         "it" to "Cerca una competenza e acquistala",
         "en" to "Search for a proficiency and buy it"
@@ -103,13 +105,13 @@ class WaghamBuyProficiency(
             .expireAfterWrite(5, TimeUnit.MINUTES)
             .build()
 
-    override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(subcommandName, "Buy a proficiency with the current character") {
+    override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, "Buy a proficiency with the current character") {
         string("search", "A name to search") {
             required = true
         }
     }
 
-    override suspend fun init() {
+    override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
             val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
             if(interaction.componentId.startsWith("WaghamBuyProficiency") && interactionCache.getIfPresent(interaction.message.id) == interaction.user.id) {
@@ -155,10 +157,10 @@ class WaghamBuyProficiency(
         }
     }
 
-    override suspend fun handle(command: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val locale = command.interaction.locale?.language ?: command.interaction.guildLocale?.language ?: "en"
-        val guildId = command.interaction.guildId
-        val query = command.interaction.command.strings["search"]!!
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
+        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+        val guildId = event.interaction.guildId
+        val query = event.interaction.command.strings["search"]!!
         val options = cacheManager.getProficiencies(guildId)
             .filter { it.isPurchasable }
             .sortedBy { query.levenshteinDistance(it.name) }

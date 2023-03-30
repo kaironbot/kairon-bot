@@ -1,4 +1,4 @@
-package org.wagham.commands
+package org.wagham.commands.impl
 
 import dev.kord.common.entity.ChannelType
 import dev.kord.common.entity.Snowflake
@@ -11,6 +11,7 @@ import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotCommand
+import org.wagham.commands.SlashCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.db.KabotMultiDBClient
