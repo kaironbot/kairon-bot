@@ -49,7 +49,7 @@ class WaghamWeeklyRewardsEvent(
         calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
         calendar.add(Calendar.DAY_OF_WEEK, -7)
         val firstDay = calendar.time
-        calendar.add(Calendar.DAY_OF_WEEK, 6)
+        calendar.add(Calendar.DAY_OF_WEEK, 7)
         val lastDay = calendar.time
         return Pair(firstDay, lastDay)
     }
