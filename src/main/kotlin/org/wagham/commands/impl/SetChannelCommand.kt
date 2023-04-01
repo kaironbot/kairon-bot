@@ -1,4 +1,4 @@
-package org.wagham.commands
+package org.wagham.commands.impl
 
 import dev.kord.common.entity.ChannelType
 import dev.kord.common.entity.Snowflake
@@ -9,6 +9,8 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotCommand
+import org.wagham.commands.SimpleResponseSlashCommand
+import org.wagham.commands.SlashCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.config.Colors
@@ -21,7 +23,7 @@ class SetChannelCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : SlashCommand() {
+) : SimpleResponseSlashCommand() {
 
     override val commandName = "set_channel"
     override val commandDescription = "Use this command to configure the channels for the bot"

@@ -13,10 +13,9 @@ import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.utils.ActiveUsersReport
+import org.wagham.utils.getStartingInstantOnNextDay
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.Calendar
-import java.util.Date
 import java.util.Timer
 import kotlin.concurrent.schedule
 
@@ -60,16 +59,10 @@ class CountActiveUsersEvent(
         }
 
     override fun register() {
-        val calendar = Calendar.getInstance()
-        val startingDate = LocalDateTime.of(
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH)+1,
-            calendar.get(Calendar.DAY_OF_MONTH),
-            23,59, 59
-        )
-        logger.info { "$eventId task will start on $startingDate" }
         Timer(eventId).schedule(
-            Date.from(startingDate.toInstant(ZoneOffset.UTC)),
+            getStartingInstantOnNextDay(0, 0, 0).also {
+                logger.info { "$eventId will start on $it"  }
+            },
             24 * 60 * 60 * 1000
         ) {
             runBlocking {

@@ -4,19 +4,15 @@ import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.asChannelOf
 import dev.kord.core.entity.channel.MessageChannel
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Instant
 import mu.KotlinLogging
 import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.sheets.data.*
+import org.wagham.utils.getStartingInstantOnNextDay
 import org.wagham.utils.sendTextMessage
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 import java.util.*
 import kotlin.concurrent.schedule
 
@@ -185,16 +181,10 @@ class UpdateDatabasesEvent(
         }
 
     override fun register() {
-        val calendar = Calendar.getInstance()
-        val startingDate = LocalDateTime.of(
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH)+1,
-            calendar.get(Calendar.DAY_OF_MONTH)+1,
-            3,0, 0
-        )
-        logger.info { "$eventId task will start on $startingDate" }
         Timer(eventId).schedule(
-            Date.from(startingDate.toInstant(ZoneOffset.UTC)),
+            getStartingInstantOnNextDay(1, 0, 0).also {
+                logger.info { "$eventId will start on $it"  }
+            },
             24 * 60 * 60 * 1000
         ) {
             runBlocking {

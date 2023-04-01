@@ -58,7 +58,11 @@ class BountiesRow(
                                 moDelta = row["GiveTakeMoney Money_Qty"]!!.formatToInt(),
                                 guaranteedObjectId = row["GiveTake Item_ID"]!!.takeIf { it.isNotBlank() },
                                 guaranteedObjectDelta = row["GiveTake Item_Qty"]!!.formatToInt(),
-                                announceId = AnnouncementType.valueOf(row["AnnuncioPremio"]!!),
+                                announceId = try {
+                                    AnnouncementType.valueOf(row["AnnuncioPremio"]!!)
+                                } catch (_: IllegalArgumentException) {
+                                    null
+                                },
                                 prizeList = prizeLists[row["GiveItemFrom Premi_Lista"]] ?: emptyList()
                             )
                             acc + (id to

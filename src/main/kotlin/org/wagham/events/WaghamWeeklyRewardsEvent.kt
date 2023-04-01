@@ -17,12 +17,10 @@ import org.wagham.config.Channels
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Announcement
 import org.wagham.db.models.AnnouncementType
+import org.wagham.utils.getStartingInstantOnNextDay
 import org.wagham.utils.sendTextMessage
-import org.wagham.utils.splitMessage
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 import java.time.temporal.TemporalAdjusters
 import java.util.*
 import kotlin.concurrent.schedule
@@ -50,7 +48,7 @@ class WaghamWeeklyRewardsEvent(
         calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
         calendar.add(Calendar.DAY_OF_WEEK, -7)
         val firstDay = calendar.time
-        calendar.add(Calendar.DAY_OF_WEEK, 6)
+        calendar.add(Calendar.DAY_OF_WEEK, 7)
         val lastDay = calendar.time
         return Pair(firstDay, lastDay)
     }
@@ -110,6 +108,7 @@ class WaghamWeeklyRewardsEvent(
 
         // For each active player
         val updatedLog = db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
+            .filter { it.buildings.isNotEmpty() }
             .fold(rewardsLog) { log, character ->
                 val tier = expTable.expToTier(character.ms().toFloat())
 
@@ -171,12 +170,8 @@ class WaghamWeeklyRewardsEvent(
 
         getLogChannel(guildId).let { channel ->
             channel.sendTextMessage("Dlin-Dlon! TBadge, premi master e stipendi sono stati assegnati! Godetevi le vostre ricchezze, maledetti! :moneybag:")
-            splitMessage(updatedLog.rewardsMessage()).forEach { part ->
-                channel.sendTextMessage(part)
-            }
-            splitMessage(updatedLog.jackpotMessage()).forEach { part ->
-                channel.sendTextMessage(part)
-            }
+            channel.sendTextMessage(updatedLog.rewardsMessage())
+            channel.sendTextMessage(updatedLog.jackpotMessage())
         }
 
     }
@@ -189,17 +184,12 @@ class WaghamWeeklyRewardsEvent(
             ?: throw Exception("Log channel not found")
 
     override fun register() {
-        val calendar = Calendar.getInstance()
-        val startingDate = LocalDateTime.of(
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH)+1,
-            calendar.get(Calendar.DAY_OF_MONTH),
-            18,0, 0
-        )
-        val nextTuesday = startingDate.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
-        logger.info { "$eventId task will start on $nextTuesday" }
         Timer(eventId).schedule(
-            Date.from(nextTuesday.toInstant(ZoneOffset.UTC)),
+            getStartingInstantOnNextDay(19, 0,0){
+                it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
+            }.also {
+                logger.info { "$eventId will start on $it"  }
+            },
             7 * 24 * 60 * 60 * 1000
         ) {
             runBlocking {
@@ -234,8 +224,8 @@ class WaghamWeeklyRewardsEvent(
         }
 
         fun rewardsMessage() = buildString {
-            val dateFormatter = SimpleDateFormat("dd/mm")
-            append("**Premi della settimana dal ${dateFormatter.format(weekStart)} al {rewards['week_end'].strftime('%d/%m')}**\n\n")
+            val dateFormatter = SimpleDateFormat("dd/MM")
+            append("**Premi della settimana dal ${dateFormatter.format(weekStart)} al ${dateFormatter.format(weekEnd)}**\n\n")
             append("*TBadge assegnati*: ${tBadge}\n\n")
             append("**Premi master**\n")
             master.entries.forEach {
@@ -249,7 +239,7 @@ class WaghamWeeklyRewardsEvent(
             playerRewards.entries.forEach{ (player, buildingsReport) ->
                 append("<@!$player>\n")
                 val totalMo = buildingsReport.values.map { it.money }.sum()
-                append("\t*MO Totali: $totalMo\n")
+                append("\t*MO Totali: $totalMo*\n")
                 buildingsReport.entries.forEach { (buildingType, prize) ->
                     append("\t*$buildingType ")
                     prize.announcementType?.let { append("($it): ") } ?: append(": ")

@@ -1,39 +1,17 @@
 package org.wagham.commands
 
 import dev.kord.common.entity.Snowflake
-import dev.kord.core.behavior.interaction.response.respond
+import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.entity.interaction.GuildChatInputCommandInteraction
-import dev.kord.core.entity.interaction.response.PublicMessageInteractionResponse
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
-import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.embed
-import org.reflections.Reflections
-import org.wagham.annotations.BotCommand
-import org.wagham.annotations.BotSubcommand
-import org.wagham.commands.subcommands.SubCommand
+import dev.kord.rest.builder.RequestBuilder
+import dev.kord.rest.builder.message.create.embed
 import org.wagham.config.Colors
 import org.wagham.exceptions.CallerNotFoundException
 import org.wagham.exceptions.GuildOwnerNotFoundException
-import kotlin.reflect.full.primaryConstructor
 
-abstract class SlashCommand : Command {
-
-    abstract suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit
-
-    fun autowireSubcommands() = Reflections("org.wagham.commands.subcommands")
-        .getTypesAnnotatedWith(BotSubcommand::class.java)
-        .map { it.kotlin }
-        .filter {
-            it.annotations.any { ann ->
-                ann is BotSubcommand
-                    && (ann.profile == "all" || ann.profile == cacheManager.profile)
-                    && (ann.baseCommand == this::class)
-            }
-        }
-        .map {
-            it.primaryConstructor!!.call(kord, cacheManager.db, cacheManager) as SubCommand
-        }
+abstract class SlashCommand<T: RequestBuilder<*>> : Command<T> {
 
     suspend fun isUserAuthorized(guildId: Snowflake, interaction: GuildChatInputCommandInteraction, roles: Collection<Snowflake>): Boolean {
         val ownerId = kord.getGuildOrNull(guildId)?.ownerId ?: throw GuildOwnerNotFoundException()
@@ -41,22 +19,19 @@ abstract class SlashCommand : Command {
         return caller.userId == ownerId || roles.any{ caller.roles.contains(it) }
     }
 
-    open suspend fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent) { }
-
     override fun registerCallback() {
         kord.on<GuildChatInputCommandInteractionCreateEvent> {
             if (interaction.invokedCommandName == commandName) {
-                val response = interaction.deferPublicResponse()
                 try {
-                    val sentMsg = response.respond(execute(this))
-                    handleResponse(sentMsg, this)
+                    val builder = execute(this)
+                    handleResponse(builder, this)
                 } catch (e: Exception) {
-                    response.respond {
-                        embed {
-                            title = "Error"
-                            description = e.message ?: e.stackTraceToString()
-                            color = Colors.ERROR.value
-                        }
+                   interaction.channel.createMessage {
+                       embed {
+                           title = "Error"
+                           description = e.message ?: e.stackTraceToString()
+                           color = Colors.ERROR.value
+                       }
                     }
                 }
             }
