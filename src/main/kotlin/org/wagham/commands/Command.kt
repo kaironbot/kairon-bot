@@ -17,5 +17,7 @@ interface Command {
     suspend fun registerCommand()
     fun registerCallback()
     suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit
-    suspend fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent)
+    suspend fun handleResponse(
+        builder: InteractionResponseModifyBuilder.() -> Unit,
+        event: GuildChatInputCommandInteractionCreateEvent)
 }

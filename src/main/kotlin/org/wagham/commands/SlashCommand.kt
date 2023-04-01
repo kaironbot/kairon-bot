@@ -1,12 +1,11 @@
 package org.wagham.commands
 
 import dev.kord.common.entity.Snowflake
-import dev.kord.core.behavior.interaction.response.respond
+import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.entity.interaction.GuildChatInputCommandInteraction
-import dev.kord.core.entity.interaction.response.PublicMessageInteractionResponse
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.create.embed
 import org.wagham.config.Colors
 import org.wagham.exceptions.CallerNotFoundException
 import org.wagham.exceptions.GuildOwnerNotFoundException
@@ -19,25 +18,19 @@ abstract class SlashCommand : Command {
         return caller.userId == ownerId || roles.any{ caller.roles.contains(it) }
     }
 
-    override suspend fun handleResponse(
-        msg: PublicMessageInteractionResponse,
-        event: GuildChatInputCommandInteractionCreateEvent
-    ) {}
-
     override fun registerCallback() {
         kord.on<GuildChatInputCommandInteractionCreateEvent> {
             if (interaction.invokedCommandName == commandName) {
-                val response = interaction.deferPublicResponse()
                 try {
-                    val sentMsg = response.respond(execute(this))
-                    handleResponse(sentMsg, this)
+                    val builder = execute(this)
+                    handleResponse(builder, this)
                 } catch (e: Exception) {
-                    response.respond {
-                        embed {
-                            title = "Error"
-                            description = e.message ?: e.stackTraceToString()
-                            color = Colors.ERROR.value
-                        }
+                   interaction.channel.createMessage {
+                       embed {
+                           title = "Error"
+                           description = e.message ?: e.stackTraceToString()
+                           color = Colors.ERROR.value
+                       }
                     }
                 }
             }

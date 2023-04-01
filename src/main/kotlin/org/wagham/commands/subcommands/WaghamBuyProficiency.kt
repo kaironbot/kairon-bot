@@ -182,10 +182,16 @@ class WaghamBuyProficiency(
         return ret
     }
 
-    override suspend fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent) =
+    override suspend fun handleResponse(
+        builder: InteractionResponseModifyBuilder.() -> Unit,
+        event: GuildChatInputCommandInteractionCreateEvent
+    ) {
+        val response = event.interaction.deferPublicResponse()
+        val msg = response.respond(builder)
         interactionCache.put(
             msg.message.id,
             event.interaction.user.id
         )
+    }
 
 }

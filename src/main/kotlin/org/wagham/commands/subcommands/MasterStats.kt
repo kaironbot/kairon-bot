@@ -253,9 +253,11 @@ class MasterStats(
     }
 
     override suspend fun handleResponse(
-        msg: PublicMessageInteractionResponse,
+        builder: InteractionResponseModifyBuilder.() -> Unit,
         event: GuildChatInputCommandInteractionCreateEvent
     ) {
+        val response = event.interaction.deferPublicResponse()
+        val msg = response.respond(builder)
         val guildId = event.interaction.guildId
         val user = event.interaction.command.users["target"] ?: event.interaction.user
         val sessions = PaginatedList(db.sessionScope.getAllMasteredSessions(guildId.toString(), user.id.toString()).toList().sortedBy { it.date }.reversed())

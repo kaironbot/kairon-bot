@@ -1,8 +1,8 @@
 package org.wagham.commands
 
 import dev.kord.core.Kord
+import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.entity.interaction.SubCommand
-import dev.kord.core.entity.interaction.response.PublicMessageInteractionResponse
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
@@ -54,9 +54,10 @@ abstract class SlashCommandWithSubcommands(
         }
     }
 
-    override suspend fun handleResponse(msg: PublicMessageInteractionResponse, event: GuildChatInputCommandInteractionCreateEvent) {
+    override suspend fun handleResponse(builder: InteractionResponseModifyBuilder.() -> Unit, event: GuildChatInputCommandInteractionCreateEvent) {
         val subCommand = event.interaction.command as SubCommand
-        subcommandsMap[subCommand.name]?.handleResponse(msg, event)
+        subcommandsMap[subCommand.name]?.handleResponse(builder, event)
+            ?: event.interaction.deferPublicResponse().respond(builder)
     }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {

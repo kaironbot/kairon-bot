@@ -7,6 +7,7 @@ import dev.kord.rest.builder.interaction.role
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotCommand
+import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.commands.SlashCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
@@ -18,7 +19,7 @@ class SetAdminGroupCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : SlashCommand() {
+) : SimpleResponseSlashCommand() {
 
     override val commandName = "set_admin_role"
     override val commandDescription = "Use this command to configure the admin role for this server"
