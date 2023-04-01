@@ -68,7 +68,7 @@ class WaghamCheckTierEvent(
                             "Dlin Dlon! ${singleInsults.random().replaceFirstChar { it.uppercase() }} di <@!${updates.first()}> è salito di tier. Congratulazioni!"
                         } else if (updates.size > 1) {
                             val concatenated = updates.subList(0, updates.size-1).joinToString { "${singleInsults.random()} di <@!${updates.first()}>" } +
-                                    "e ${singleInsults.random()} di <@!${updates.last()}>"
+                                    " e ${singleInsults.random()} di <@!${updates.last()}>"
                             "Dlin Dlon! ${concatenated.replaceFirstChar { it.uppercase() }} sono saliti di tier. Congratulazioni!"
                         } else null
                     }?.let { message ->

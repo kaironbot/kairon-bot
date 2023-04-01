@@ -17,11 +17,10 @@ import org.wagham.config.Channels
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Announcement
 import org.wagham.db.models.AnnouncementType
+import org.wagham.utils.getStartingInstantOnNextDay
 import org.wagham.utils.sendTextMessage
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 import java.time.temporal.TemporalAdjusters
 import java.util.*
 import kotlin.concurrent.schedule
@@ -185,17 +184,12 @@ class WaghamWeeklyRewardsEvent(
             ?: throw Exception("Log channel not found")
 
     override fun register() {
-        val calendar = Calendar.getInstance()
-        val startingDate = LocalDateTime.of(
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH)+1,
-            calendar.get(Calendar.DAY_OF_MONTH),
-            18,0, 0
-        )
-        val nextTuesday = startingDate.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
-        logger.info { "$eventId task will start on $nextTuesday" }
         Timer(eventId).schedule(
-            Date.from(nextTuesday.toInstant(ZoneOffset.UTC)),
+            getStartingInstantOnNextDay(19, 0,0){
+                it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
+            }.also {
+                logger.info { "$eventId will start on $it"  }
+            },
             7 * 24 * 60 * 60 * 1000
         ) {
             runBlocking {

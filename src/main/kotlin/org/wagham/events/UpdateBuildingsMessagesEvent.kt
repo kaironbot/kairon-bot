@@ -7,7 +7,6 @@ import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.edit
 import dev.kord.core.entity.channel.GuildMessageChannel
 import dev.kord.core.entity.channel.MessageChannel
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -21,10 +20,9 @@ import org.wagham.db.models.Building
 import org.wagham.db.models.BuildingMessage
 import org.wagham.db.models.PlayerBuildingsMessages
 import org.wagham.exceptions.ChannelNotFoundException
+import org.wagham.utils.getStartingInstantOnNextDay
 import org.wagham.utils.sendTextMessage
 import java.lang.IllegalStateException
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 import java.util.*
 import kotlin.concurrent.schedule
 
@@ -187,16 +185,10 @@ class UpdateBuildingsMessagesEvent(
     }
 
     override fun register() {
-        val calendar = Calendar.getInstance()
-        val startingDate = LocalDateTime.of(
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH)+1,
-            calendar.get(Calendar.DAY_OF_MONTH),
-            1,0, 0
-        )
-        logger.info { "$eventId task will start on $startingDate UTC" }
         Timer(eventId).schedule(
-            Date.from(startingDate.toInstant(ZoneOffset.UTC)),
+            getStartingInstantOnNextDay(0, 10, 0).also {
+                logger.info { "$eventId will start on $it"  }
+            },
             24 * 60 * 60 * 1000
         ) {
             runBlocking {

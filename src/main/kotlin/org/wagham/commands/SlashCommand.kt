@@ -7,12 +7,9 @@ import dev.kord.core.entity.interaction.response.PublicMessageInteractionRespons
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.rest.builder.message.modify.embed
-import org.reflections.Reflections
-import org.wagham.annotations.BotSubcommand
 import org.wagham.config.Colors
 import org.wagham.exceptions.CallerNotFoundException
 import org.wagham.exceptions.GuildOwnerNotFoundException
-import kotlin.reflect.full.primaryConstructor
 
 abstract class SlashCommand : Command {
 
