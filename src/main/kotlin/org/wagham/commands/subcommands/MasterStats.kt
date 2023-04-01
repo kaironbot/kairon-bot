@@ -9,7 +9,6 @@ import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.interaction.response.edit
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.entity.User
-import dev.kord.core.entity.interaction.response.PublicMessageInteractionResponse
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
@@ -41,7 +40,7 @@ class MasterStats(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : SubCommand {
+) : SubCommand<InteractionResponseModifyBuilder> {
 
     companion object {
         private enum class MasterStarsLocale(private val localeMap: Map<String, String>) : LocaleEnum {

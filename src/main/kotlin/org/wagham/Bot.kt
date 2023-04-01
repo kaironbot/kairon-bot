@@ -9,6 +9,7 @@ import dev.kord.core.event.gateway.ReadyEvent
 import dev.kord.core.on
 import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
+import dev.kord.rest.builder.RequestBuilder
 import kotlinx.coroutines.flow.collect
 import mu.KotlinLogging
 import org.reflections.Reflections
@@ -39,7 +40,7 @@ class WaghamBot(
     )
     private val cacheManager = CacheManager(database, profile)
     private val logger = KotlinLogging.logger {}
-    private val commands: List<Command>
+    private val commands: List<Command<RequestBuilder<*>>>
     private val events: List<Event>
 
     private fun autowireCommands() = Reflections("org.wagham.commands")
@@ -51,7 +52,7 @@ class WaghamBot(
             }
         }
         .map {
-            it.primaryConstructor!!.call(kord, database, cacheManager) as Command
+            it.primaryConstructor!!.call(kord, database, cacheManager) as Command<RequestBuilder<*>>
         }
 
     private fun autowireEvents() = Reflections("org.wagham.events")

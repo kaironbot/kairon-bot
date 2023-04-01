@@ -4,6 +4,7 @@ import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.entity.interaction.SubCommand
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
+import dev.kord.rest.builder.RequestBuilder
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
@@ -19,7 +20,7 @@ abstract class SlashCommandWithSubcommands(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : SlashCommand() {
+) : SlashCommand<RequestBuilder<Any>>() {
 
     private val logger = KotlinLogging.logger {}
     private val subcommandsMap = autowireSubcommands().associateBy { it.commandName }
@@ -35,7 +36,8 @@ abstract class SlashCommandWithSubcommands(
             }
         }
         .map {
-            it.primaryConstructor!!.call(kord, cacheManager.db, cacheManager) as org.wagham.commands.SubCommand
+            it.primaryConstructor!!.call(kord, cacheManager.db, cacheManager)
+                    as org.wagham.commands.SubCommand<RequestBuilder<Any>>
         }
 
     override suspend fun registerCommand() {
@@ -54,18 +56,18 @@ abstract class SlashCommandWithSubcommands(
         }
     }
 
-    override suspend fun handleResponse(builder: InteractionResponseModifyBuilder.() -> Unit, event: GuildChatInputCommandInteractionCreateEvent) {
+    override suspend fun handleResponse(builder: RequestBuilder<Any>.() -> Unit, event: GuildChatInputCommandInteractionCreateEvent) {
         val subCommand = event.interaction.command as SubCommand
         subcommandsMap[subCommand.name]?.handleResponse(builder, event)
             ?: event.interaction.deferPublicResponse().respond(builder)
     }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): RequestBuilder<Any>.() -> Unit {
         val subCommand = event.interaction.command as SubCommand
         return subcommandsMap[subCommand.name]?.execute(event) ?: generateHelpMessage(event)
     }
 
-    private fun generateHelpMessage(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
+    private fun generateHelpMessage(event: GuildChatInputCommandInteractionCreateEvent): RequestBuilder<Any>.() -> Unit {
         val commandId = event.interaction.invokedCommandId.value
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
         return fun InteractionResponseModifyBuilder.() {
@@ -78,7 +80,7 @@ abstract class SlashCommandWithSubcommands(
                     }
             }
             components = mutableListOf()
-        }
+        } as RequestBuilder<Any>.() -> Unit
     }
 
 

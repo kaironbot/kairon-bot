@@ -37,7 +37,7 @@ class WaghamBuyProficiency(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : SubCommand {
+) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "proficiency"
     override val commandDescription = ""
