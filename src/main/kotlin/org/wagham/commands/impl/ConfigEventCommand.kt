@@ -1,5 +1,6 @@
 package org.wagham.commands.impl
 
+import dev.kord.common.Locale
 import dev.kord.common.entity.ChannelType
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
@@ -12,11 +13,13 @@ import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
-import org.wagham.commands.SlashCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
+import org.wagham.config.locale.CommonLocale
+import org.wagham.config.locale.commands.ConfigEventLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.exceptions.UnauthorizedException
+import org.wagham.utils.createGenericEmbedSuccess
 
 @BotCommand("all")
 class ConfigEventCommand(
@@ -26,7 +29,11 @@ class ConfigEventCommand(
 ) : SimpleResponseSlashCommand() {
 
     override val commandName = "config_event"
-    override val commandDescription = "Configures the channels for the events"
+    override val defaultDescription = "Configures the channels for the events"
+    override val localeDescriptions: Map<Locale, String> = mapOf(
+        Locale.ENGLISH_GREAT_BRITAIN to "Configures the channels for the events",
+        Locale.ITALIAN to "Configura il canale di attivazione per un evento"
+    )
 
     private suspend fun buildAllowedChannelsList(guildId: Snowflake, event: String) =
         cacheManager.getConfig(guildId).eventChannels[event]?.ifEmpty { listOf("All channels") }?.let { channels ->
@@ -36,11 +43,19 @@ class ConfigEventCommand(
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            commandDescription
+            defaultDescription
         ) {
-
-            subCommand("info", "Gets the channel info of an event") {
-                string("event", "The event to configure") {
+            localeDescriptions.forEach{ (locale, description) ->
+                description(locale, description)
+            }
+            subCommand("info", ConfigEventLocale.INFO_SUBCOMMAND_DESCRIPTION.locale("en")) {
+                ConfigEventLocale.INFO_SUBCOMMAND_DESCRIPTION.localeMap.forEach{ (locale, description) ->
+                    description(locale, description)
+                }
+                string("event", ConfigEventLocale.INFO_SUBCOMMAND_EVENT.locale("en")) {
+                    ConfigEventLocale.INFO_SUBCOMMAND_EVENT.localeMap.forEach{ (locale, description) ->
+                        description(locale, description)
+                    }
                     required = true
                     cacheManager.getEvents().forEach {
                         choice(it, it)
@@ -48,30 +63,48 @@ class ConfigEventCommand(
                 }
             }
 
-            subCommand("add_channel", "Allows the event to be fired on a channel") {
-                string("event", "The event to configure") {
+            subCommand("add_channel", ConfigEventLocale.ADD_SUBCOMMAND_DESCRIPTION.locale("en")) {
+                ConfigEventLocale.ADD_SUBCOMMAND_DESCRIPTION.localeMap.forEach{ (locale, description) ->
+                    description(locale, description)
+                }
+                string("event", ConfigEventLocale.INFO_SUBCOMMAND_EVENT.locale("en")) {
+                    ConfigEventLocale.INFO_SUBCOMMAND_EVENT.localeMap.forEach{ (locale, description) ->
+                        description(locale, description)
+                    }
                     required = true
                     cacheManager.getEvents().forEach {
                         choice(it, it)
                     }
                 }
 
-                channel("channel", "The channel to add") {
+                channel("channel", ConfigEventLocale.ADD_SUBCOMMAND_CHANNEL.locale("en")) {
+                    ConfigEventLocale.ADD_SUBCOMMAND_CHANNEL.localeMap.forEach{ (locale, description) ->
+                        description(locale, description)
+                    }
                     required = true
                     autocomplete = true
                     channelTypes = listOf(ChannelType.GuildText)
                 }
             }
 
-            subCommand("remove_channel", "Allows the event to be fired on a channel") {
-                string("event", "The event to configure") {
+            subCommand("remove_channel", ConfigEventLocale.REMOVE_SUBCOMMAND_DESCRIPTION.locale("en")) {
+                ConfigEventLocale.REMOVE_SUBCOMMAND_DESCRIPTION.localeMap.forEach{ (locale, description) ->
+                    description(locale, description)
+                }
+                string("event", ConfigEventLocale.INFO_SUBCOMMAND_EVENT.locale("en")) {
+                    ConfigEventLocale.INFO_SUBCOMMAND_EVENT.localeMap.forEach{ (locale, description) ->
+                        description(locale, description)
+                    }
                     required = true
                     cacheManager.getEvents().forEach {
                         choice(it, it)
                     }
                 }
 
-                channel("channel", "The channel to remove") {
+                channel("channel", ConfigEventLocale.REMOVE_SUBCOMMAND_CHANNEL.locale("en")) {
+                    ConfigEventLocale.REMOVE_SUBCOMMAND_CHANNEL.localeMap.forEach{ (locale, description) ->
+                        description(locale, description)
+                    }
                     required = true
                     autocomplete = true
                     channelTypes = listOf(ChannelType.GuildText)
@@ -82,6 +115,7 @@ class ConfigEventCommand(
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val command = event.interaction.command as SubCommand
+        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
         val serverConfig = cacheManager.getConfig(event.interaction.guildId, true)
         if(!isUserAuthorized(event.interaction.guildId, event.interaction, serverConfig.adminRoleId?.let { listOf(Snowflake(it)) } ?: emptyList()))
             throw UnauthorizedException()
@@ -92,7 +126,7 @@ class ConfigEventCommand(
                     embed {
                         color = Colors.DEFAULT.value
                         title = event.interaction.command.strings["event"]!!
-                        description = "**Active in the following channels:**\n$channelList"
+                        description = "**${ConfigEventLocale.ACTIVE_IN_CHANNELS.locale("en")}**\n$channelList"
                     }
                 }
             }
@@ -106,12 +140,7 @@ class ConfigEventCommand(
                                         (currentChannels + event.interaction.command.channels["channel"]!!.id.toString()))
                     )
                 )
-                fun InteractionResponseModifyBuilder.() {
-                    embed {
-                        color = Colors.DEFAULT.value
-                        title = "Operation completed successfully"
-                    }
-                }
+                createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
             }
             else -> {
                 val currentChannels = serverConfig.eventChannels[event.interaction.command.strings["event"]!!] ?: emptyList()
@@ -123,15 +152,9 @@ class ConfigEventCommand(
                                         (currentChannels - event.interaction.command.channels["channel"]!!.id.toString()))
                     )
                 )
-                fun InteractionResponseModifyBuilder.() {
-                    embed {
-                        color = Colors.DEFAULT.value
-                        title = "Operation completed successfully"
-                    }
-                }
+                createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
             }
         }
 
     }
-
 }

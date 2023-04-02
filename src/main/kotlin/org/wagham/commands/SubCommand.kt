@@ -12,8 +12,6 @@ import org.wagham.db.KabotMultiDBClient
 
 interface SubCommand<T: RequestBuilder<*>> : Command<T> {
 
-    val subcommandDescription: Map<String, String>
-
     fun create(ctx: RootInputChatBuilder)
 
     override fun registerCallback() { }

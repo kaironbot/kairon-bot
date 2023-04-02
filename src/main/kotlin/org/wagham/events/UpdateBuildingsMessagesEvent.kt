@@ -193,7 +193,8 @@ class UpdateBuildingsMessagesEvent(
         ) {
             runBlocking {
                 kord.guilds.collect {
-                    updateBuildingsMessages(it.id)
+                    if(it.id.toString() == "699173030722535474")
+                        updateBuildingsMessages(it.id)
                 }
             }
         }

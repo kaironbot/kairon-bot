@@ -1,5 +1,7 @@
 package org.wagham.utils
 
+import java.util.UUID
+
 // Thanks to https://gist.github.com/ademar111190/34d3de41308389a0d0d8
 fun levenshtein(lhs : CharSequence, rhs : CharSequence) : Int {
     val lhsLength = lhs.length + 1
@@ -54,3 +56,5 @@ fun String.formatToFloat() = try {
     }
 
 fun String.formatToInt() = try { this.toInt() } catch(e: NumberFormatException) { 0 }
+
+fun uuid() = UUID.randomUUID().toString()

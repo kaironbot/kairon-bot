@@ -11,6 +11,7 @@ import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
 import dev.kord.rest.builder.RequestBuilder
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.toList
 import mu.KotlinLogging
 import org.reflections.Reflections
 import org.wagham.annotations.BotCommand
@@ -19,7 +20,9 @@ import org.wagham.commands.Command
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.models.BuildingRecipe
 import org.wagham.db.models.MongoCredentials
+import org.wagham.db.pipelines.characters.BuildingWithBounty
 import org.wagham.events.Event
 import kotlin.reflect.full.primaryConstructor
 
@@ -99,6 +102,11 @@ class WaghamBot(
             cacheManager.registerCommand(it.commandName)
             logger.info { "Registered ${it.commandName} command" }
         }
+
+        cacheManager.createNewCollectionCache<BuildingWithBounty> { guildId, db ->
+            db.buildingsScope.getBuildingsWithBounty(guildId.toString()).toList()
+        }
+
         kord.login {
             intents += Intent.GuildMembers
             intents += Intent.GuildPresences

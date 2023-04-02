@@ -6,6 +6,7 @@ import dev.kord.rest.builder.component.MessageComponentBuilder
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
 import org.wagham.config.Colors
+import org.wagham.config.locale.CommonLocale
 
 suspend fun MessageChannel.sendTextMessage(message: String) =
     message.split("\n")

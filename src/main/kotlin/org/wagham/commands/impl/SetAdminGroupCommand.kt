@@ -1,18 +1,18 @@
 package org.wagham.commands.impl
 
+import dev.kord.common.Locale
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.role
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
-import org.wagham.commands.SlashCommand
 import org.wagham.components.CacheManager
-import org.wagham.config.Colors
+import org.wagham.config.locale.commands.SetAdminGroupLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.exceptions.*
+import org.wagham.utils.createGenericEmbedSuccess
 
 @BotCommand("all")
 class SetAdminGroupCommand(
@@ -22,14 +22,25 @@ class SetAdminGroupCommand(
 ) : SimpleResponseSlashCommand() {
 
     override val commandName = "set_admin_role"
-    override val commandDescription = "Use this command to configure the admin role for this server"
+    override val defaultDescription = "Configure the admin role for this server"
+    override val localeDescriptions: Map<Locale, String> = mapOf(
+        Locale.ENGLISH_GREAT_BRITAIN to "Configure the admin role for this server",
+        Locale.ITALIAN to "Configura il ruolo di amministratore per questo server"
+    )
+
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            commandDescription
+            defaultDescription
         ) {
-            role("role", "The admin role") {
+            localeDescriptions.forEach{ (locale, description) ->
+                description(locale, description)
+            }
+            role("role", SetAdminGroupLocale.ROLE.locale("en")) {
+                SetAdminGroupLocale.ROLE.localeMap.forEach{ (locale, description) ->
+                    description(locale, description)
+                }
                 autocomplete = true
                 required = true
             }
@@ -39,6 +50,7 @@ class SetAdminGroupCommand(
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
         val serverConfig = cacheManager.getConfig(guildId, true)
+        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
         if(!isUserAuthorized(guildId, event.interaction, serverConfig.adminRoleId?.let { listOf(Snowflake(it)) } ?: emptyList()))
             throw UnauthorizedException()
         return event.interaction.command.roles["role"]?.let {
@@ -46,13 +58,7 @@ class SetAdminGroupCommand(
                 guildId,
                 serverConfig.copy(adminRoleId = it.id.toString())
             )
-            fun InteractionResponseModifyBuilder.() {
-                embed {
-                    title = "Operation executed successfully"
-                    description = "Current admin role is: <@&${it.id}>"
-                    color = Colors.DEFAULT.value
-                }
-            }
+            createGenericEmbedSuccess("${SetAdminGroupLocale.CURRENT_ROLE.locale(locale)} <@&${it.id}>")
         } ?: throw InvalidCommandArgumentException()
     }
 
