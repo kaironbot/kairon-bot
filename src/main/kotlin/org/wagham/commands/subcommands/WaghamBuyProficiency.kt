@@ -2,12 +2,12 @@ package org.wagham.commands.subcommands
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import dev.kord.common.Locale
 import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.edit
 import dev.kord.core.behavior.interaction.response.respond
-import dev.kord.core.entity.interaction.response.PublicMessageInteractionResponse
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
@@ -23,7 +23,7 @@ import org.wagham.commands.SubCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.LocaleEnum
+import org.wagham.config.locale.subcommands.BuyProficiencyLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.exceptions.GuildNotFoundException
@@ -40,49 +40,12 @@ class WaghamBuyProficiency(
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "proficiency"
-    override val commandDescription = ""
-    override val subcommandDescription: Map<String, String> = mapOf(
-        "it" to "Cerca una competenza e acquistala",
-        "en" to "Search for a proficiency and buy it"
+    override val defaultDescription = "Search for a proficiency and buy it"
+    override val localeDescriptions: Map<Locale, String> = mapOf(
+        Locale.ENGLISH_GREAT_BRITAIN to "Search for a proficiency and buy it",
+        Locale.ITALIAN to "Cerca una competenza e acquistala"
     )
 
-    companion object {
-
-        private enum class BuyProficiencyLocale(private val localeMap: Map<String, String>) : LocaleEnum {
-            NO_PROFICIENCY_SELECTED(
-                mapOf(
-                    "it" to "Nessuna competenza selezionata",
-                    "en" to "No proficiency selected"
-                )
-            ),
-            ALREADY_HAS_PROFICIENCY(
-                mapOf(
-                    "it" to "Hai già questa competenza: ",
-                    "en" to "You already have this proficiency: "
-                )
-            ),
-            BUY_PROFICIENCY_SUCCESS(
-                mapOf(
-                    "it" to "Operazione completata con successo, competenza acquistata: ",
-                    "en" to "Operation completed successfully, proficiency bought: "
-                )
-            ),
-            YOU_SEARCHED(
-                mapOf(
-                    "it" to "You searched:",
-                    "en" to "Hai cercato:"
-                )
-            ),
-            POSSIBLE_OPTIONS(
-                mapOf(
-                    "it" to "Possible options:",
-                    "en" to "Possibili opzioni:"
-                )
-            );
-
-            override fun locale(language: String) = localeMap[language] ?: localeMap["en"]!!
-        }
-    }
     private val giveMoneyBadge = listOf(
         "Cartographer's tools",
         "Cobbler's tools",
@@ -105,8 +68,14 @@ class WaghamBuyProficiency(
             .expireAfterWrite(5, TimeUnit.MINUTES)
             .build()
 
-    override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, "Buy a proficiency with the current character") {
-        string("search", "A name to search") {
+    override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
+        localeDescriptions.forEach{ (locale, description) ->
+            description(locale, description)
+        }
+        string("search", BuyProficiencyLocale.SEARCH_PARAMETER.locale("en")) {
+            BuyProficiencyLocale.SEARCH_PARAMETER.localeMap.forEach{ (locale, description) ->
+                description(locale, description)
+            }
             required = true
         }
     }

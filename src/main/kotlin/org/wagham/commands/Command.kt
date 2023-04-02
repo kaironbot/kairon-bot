@@ -1,5 +1,6 @@
 package org.wagham.commands
 
+import dev.kord.common.Locale
 import dev.kord.core.Kord
 import dev.kord.core.entity.interaction.response.PublicMessageInteractionResponse
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
@@ -13,7 +14,8 @@ interface Command<T: RequestBuilder<*>> {
     val db: KabotMultiDBClient
     val cacheManager: CacheManager
     val commandName: String
-    val commandDescription: String
+    val defaultDescription: String
+    val localeDescriptions: Map<Locale, String>
 
     suspend fun registerCommand()
     fun registerCallback()

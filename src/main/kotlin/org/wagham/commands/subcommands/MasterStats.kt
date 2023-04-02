@@ -2,6 +2,7 @@ package org.wagham.commands.subcommands
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import dev.kord.common.Locale
 import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
@@ -25,7 +26,7 @@ import org.wagham.commands.SubCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.LocaleEnum
+import org.wagham.config.locale.subcommands.MasterStatsLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.pipelines.sessions.PlayerMasteredSessions
 import org.wagham.entities.PaginatedList
@@ -42,84 +43,11 @@ class MasterStats(
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
-    companion object {
-        private enum class MasterStarsLocale(private val localeMap: Map<String, String>) : LocaleEnum {
-            DATE(
-                mapOf(
-                    "en" to "Date",
-                    "it" to "Data"
-                )
-            ),
-            LABEL_EXPORT(
-                mapOf(
-                    "en" to "Export",
-                    "it" to "Esporta"
-                )
-            ),
-            LABEL_NEXT(
-                mapOf(
-                    "en" to "Next",
-                    "it" to "Successivo"
-                )
-            ),
-            LABEL_PREVIOUS(
-                mapOf(
-                    "en" to "Previous",
-                    "it" to "Precedente"
-                )
-            ),
-            NAVIGATE(
-                mapOf(
-                    "en" to "Use the buttons to navigate or export the list",
-                    "it" to "Usa i pulsanti per navigare o per esportare la lista"
-                )
-            ),
-            NEVER_MASTERED_TITLE(
-                mapOf(
-                    "en" to "This player has never mastered: ",
-                    "it" to "Questo giocatore non ha mai masterato: "
-                )
-            ),
-            NEVER_MASTERED_DESCRIPTION(
-                mapOf(
-                    "en" to "Start mastering now!",
-                    "it" to "Comincia a masterare ora!"
-                )
-            ),
-            REPORT_TO_MP(
-                mapOf(
-                    "en" to "The report of the sessions will be sent to you in DM",
-                    "it" to "Il report delle sessioni ti verrà inviato tramite messaggio privato"
-                )
-            ),
-            SESSION_LIST(
-                mapOf(
-                    "en" to "Session list:",
-                    "it" to "Elenco delle sessioni:"
-                )
-            ),
-            SESSION_MASTERED_TITLE(
-              mapOf(
-                  "en" to "Sessions mastered by ",
-                  "it" to "Sessioni masterate da "
-              )
-            ),
-            TITLE(
-                mapOf(
-                    "en" to "Title",
-                    "it" to "Titolo"
-                )
-            );
-
-            override fun locale(language: String) = localeMap[language] ?: localeMap["en"]!!
-        }
-    }
-
     override val commandName = "master"
-    override val commandDescription = ""
-    override val subcommandDescription: Map<String, String> = mapOf(
-        "it" to "Visualizza le sessioni masterate da te o da un altro giocatore",
-        "en" to "Show the session mastered by you or by another player"
+    override val defaultDescription = "Buy a building"
+    override val localeDescriptions: Map<Locale, String> = mapOf(
+        Locale.ENGLISH_GREAT_BRITAIN to "Show the session mastered by you or by another player",
+        Locale.ITALIAN to "Visualizza le sessioni masterate da te o da un altro giocatore"
     )
     private val interactionCache: Cache<Snowflake, Triple<Snowflake, User, PaginatedList<PlayerMasteredSessions>>> =
         Caffeine.newBuilder()
@@ -129,8 +57,14 @@ class MasterStats(
         if(!File(it).exists()) File(it).mkdirs()
     }
 
-    override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, "Show the session mastered by you or by another player") {
-        user("master", "The user to show the stats for") {
+    override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
+        localeDescriptions.forEach{ (locale, description) ->
+            description(locale, description)
+        }
+        user("master", MasterStatsLocale.MASTER_PARAMETER.locale("en")) {
+            MasterStatsLocale.MASTER_PARAMETER.localeMap.forEach{ (locale, description) ->
+                description(locale, description)
+            }
             required = false
             autocomplete = true
         }
@@ -164,7 +98,7 @@ class MasterStats(
                             addFile(Path(tmpFolder, filename))
                         }
                         interaction.deferEphemeralResponse().respond {
-                            content = MasterStarsLocale.REPORT_TO_MP.locale(locale)
+                            content = MasterStatsLocale.REPORT_TO_MP.locale(locale)
                         }
                         Path(tmpFolder, filename).toFile().delete()
                     }
@@ -189,7 +123,7 @@ class MasterStats(
     private fun generateSessionEmbed(sessions: PaginatedList<PlayerMasteredSessions>, user: User, locale: String): InteractionResponseModifyBuilder.() -> Unit =
         fun InteractionResponseModifyBuilder.() {
             embed {
-                title = "${MasterStarsLocale.SESSION_MASTERED_TITLE.locale(locale)}${user.username} ${sessions.size}"
+                title = "${MasterStatsLocale.SESSION_MASTERED_TITLE.locale(locale)}${user.username} ${sessions.size}"
                 sessions.aggregateByCharacter().forEach {
                     field {
                         name = it.key
@@ -198,18 +132,18 @@ class MasterStats(
                     }
                 }
                 field {
-                    name = MasterStarsLocale.SESSION_LIST.locale(locale)
-                    value = MasterStarsLocale.NAVIGATE.locale(locale)
+                    name = MasterStatsLocale.SESSION_LIST.locale(locale)
+                    value = MasterStatsLocale.NAVIGATE.locale(locale)
                     inline = false
                 }
                 sessions.page.forEach {
                     field {
-                        name = MasterStarsLocale.TITLE.locale(locale)
+                        name = MasterStatsLocale.TITLE.locale(locale)
                         value = it.title
                         inline = true
                     }
                     field {
-                        name = MasterStarsLocale.DATE.locale(locale)
+                        name = MasterStatsLocale.DATE.locale(locale)
                         value = SimpleDateFormat("dd/MM/yyyy").format(it.date)
                         inline = true
                     }
@@ -222,13 +156,13 @@ class MasterStats(
             }
             actionRow {
                 interactionButton(ButtonStyle.Secondary, "${this@MasterStats::class.qualifiedName}-previous") {
-                    label = MasterStarsLocale.LABEL_PREVIOUS.locale(locale)
+                    label = MasterStatsLocale.LABEL_PREVIOUS.locale(locale)
                 }
                 interactionButton(ButtonStyle.Secondary, "${this@MasterStats::class.qualifiedName}-next") {
-                    label = MasterStarsLocale.LABEL_NEXT.locale(locale)
+                    label = MasterStatsLocale.LABEL_NEXT.locale(locale)
                 }
                 interactionButton(ButtonStyle.Primary, "${this@MasterStats::class.qualifiedName}-export") {
-                    label = MasterStarsLocale.LABEL_EXPORT.locale(locale)
+                    label = MasterStatsLocale.LABEL_EXPORT.locale(locale)
                 }
             }
         }
@@ -244,8 +178,8 @@ class MasterStats(
         } else {
             fun InteractionResponseModifyBuilder.() {
                 embed {
-                    title = "${MasterStarsLocale.NEVER_MASTERED_TITLE.locale(locale)}${user.username}"
-                    description = MasterStarsLocale.NEVER_MASTERED_DESCRIPTION.locale(locale)
+                    title = "${MasterStatsLocale.NEVER_MASTERED_TITLE.locale(locale)}${user.username}"
+                    description = MasterStatsLocale.NEVER_MASTERED_DESCRIPTION.locale(locale)
                 }
             }
         }

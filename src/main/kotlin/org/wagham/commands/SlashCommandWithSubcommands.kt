@@ -1,5 +1,6 @@
 package org.wagham.commands
 
+import dev.kord.common.Locale
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.entity.interaction.SubCommand
@@ -43,13 +44,18 @@ abstract class SlashCommandWithSubcommands(
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
-            commandDescription
+            defaultDescription
         ) {
+            localeDescriptions.forEach{ (locale, description) ->
+                description(locale, description)
+            }
             subcommandsMap.forEach {
                 logger.info { "$commandName command - registered ${it.key} subcommand" }
                 it.value.create(this)
             }
-            subCommand("help", "Shows all the subcommands with their descriptions")
+            subCommand("help", "Shows all the subcommands with their descriptions") {
+                description(Locale.ITALIAN, "Mostra tutte le possibili opzioni")
+            }
         }
         subcommandsMap.forEach {
             it.value.registerCommand()
@@ -76,7 +82,7 @@ abstract class SlashCommandWithSubcommands(
                 title = "/$commandName"
                 description = subcommandsMap.values
                     .joinToString(separator = "\n\n") {
-                        "</$commandName ${it.commandName}:${commandId}> ${it.subcommandDescription[locale]}"
+                        "</$commandName ${it.commandName}:${commandId}> ${it.localeDescriptions[Locale.fromString(locale)] ?: it.defaultDescription}"
                     }
             }
             components = mutableListOf()
