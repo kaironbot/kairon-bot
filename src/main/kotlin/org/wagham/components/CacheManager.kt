@@ -15,6 +15,12 @@ class CacheManager(
     val profile: String
 ) {
 
+    @PublishedApi
+    internal val collectionCacheConfig: MutableMap<String, suspend (Snowflake, KabotMultiDBClient) -> Collection<Any>> = mutableMapOf()
+
+    @PublishedApi
+    internal val collectionCaches: MutableMap<String, Cache<Snowflake, Collection<Any>>> = mutableMapOf()
+
     private val expTableCache: Cache<Snowflake, ExpTable> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.DAYS)
@@ -61,6 +67,24 @@ class CacheManager(
                 db.serverConfigScope.getGuildConfig(guildId.toString())
             )
         }
+
+    inline fun <reified T> createNewCollectionCache(noinline updateLambda: suspend (Snowflake, KabotMultiDBClient) -> Collection<Any>) =
+        T::class.qualifiedName?.also {
+            collectionCacheConfig[it] = updateLambda
+            collectionCaches[it] = Caffeine.newBuilder().expireAfterWrite(1, TimeUnit.DAYS).build()
+        } ?: throw IllegalAccessError("Cannot create cache for ${T::class}")
+
+    suspend inline fun <reified T> getCollectionOfType(guildId: Snowflake): Collection<T> =
+        T::class.qualifiedName?.let {
+            collectionCaches[it]?.let { cache ->
+                cache.getIfPresent(guildId) ?:
+                    (collectionCacheConfig[it]?.let { config ->
+                       config(guildId, db).also { elements ->
+                           cache.put(guildId, elements)
+                       }
+                    } ?: throw IllegalAccessError("No config for $it cache"))
+            }?.let { elements -> elements as Collection<T> }
+        } ?: throw IllegalAccessError("Cannot get elements for ${T::class}")
 
     fun getCommands() = guildCommands.toList()
 
