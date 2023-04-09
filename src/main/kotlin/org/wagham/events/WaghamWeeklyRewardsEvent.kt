@@ -48,7 +48,7 @@ class WaghamWeeklyRewardsEvent(
         calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
         calendar.add(Calendar.DAY_OF_WEEK, -7)
         val firstDay = calendar.time
-        calendar.add(Calendar.DAY_OF_WEEK, 7)
+        calendar.add(Calendar.DAY_OF_WEEK, 6)
         val lastDay = calendar.time
         return Pair(firstDay, lastDay)
     }
@@ -171,7 +171,9 @@ class WaghamWeeklyRewardsEvent(
         getLogChannel(guildId).let { channel ->
             channel.sendTextMessage("Dlin-Dlon! TBadge, premi master e stipendi sono stati assegnati! Godetevi le vostre ricchezze, maledetti! :moneybag:")
             channel.sendTextMessage(updatedLog.rewardsMessage())
+            logger.info("LLL: Starting jackpot message")
             channel.sendTextMessage(updatedLog.jackpotMessage())
+            logger.info("LLL: End jackpot message")
         }
 
     }
@@ -213,7 +215,10 @@ class WaghamWeeklyRewardsEvent(
             append("**Cosa è successo nei vari negozi questa settimana?**")
             playerRewards.forEach { (player, rewards) ->
                 rewards.values
-                    .mapNotNull { it.announcement }
+                    .mapNotNull {
+                        println(it)
+                        it.announcement
+                    }
                     .forEach { (building, announcement) ->
                         append(announcement.format(mapOf(
                             "PLAYER_ID" to player,
