@@ -18,17 +18,17 @@ import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 
 @BotCommand("wagham")
-class MSCommand(
+class ExpCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SimpleResponseSlashCommand() {
 
-    override val commandName = "ms"
-    override val defaultDescription = "Show your level and MS"
+    override val commandName = "exp"
+    override val defaultDescription = "Show your level and exp"
     override val localeDescriptions: Map<Locale, String> = mapOf(
         Locale.ENGLISH_GREAT_BRITAIN to "Show your level and MS",
-        Locale.ITALIAN to "Mostra il tuo livello e le tue MS"
+        Locale.ITALIAN to "Mostra il tuo livello e la tua exp"
     )
 
     override suspend fun registerCommand() {

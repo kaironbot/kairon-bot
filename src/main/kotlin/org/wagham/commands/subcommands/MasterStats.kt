@@ -149,7 +149,7 @@ class MasterStats(
                     }
                     field {
                         name = "master"
-                        value = it.master
+                        value = it.master.split(":").last()
                         inline = true
                     }
                 }
