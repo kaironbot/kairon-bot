@@ -78,11 +78,11 @@ class WaghamBot(
             this.supplier.guilds.collect {
                 database.serverConfigScope.getGuildConfig(it.id.toString()).channels[Channels.LOG_CHANNEL.name]?.let { channelId ->
                     this.supplier.getChannel(Snowflake(channelId)).asChannelOf<MessageChannel>().createMessage {
-                        content = "WaghamBot started!"
+                        content = "KaironBot started!"
                     }
                 } ?: it.getSystemChannel()
                     ?.createMessage {
-                        content = "WaghamBot started! To change the logging channel, use the /set_channel command"
+                        content = "KaironBot started! To change the logging channel, use the /set_channel command"
                     }
             }
         }
@@ -90,7 +90,7 @@ class WaghamBot(
 
     @OptIn(PrivilegedIntent::class)
     suspend fun start() {
-        logger.info { "Starting WaghamBot with profile $profile" }
+        logger.info { "Starting KaironBot with profile $profile" }
         events.forEach {
             it.register()
             cacheManager.registerEvent(it.eventId)
