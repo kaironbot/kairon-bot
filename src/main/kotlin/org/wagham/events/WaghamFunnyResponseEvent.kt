@@ -25,6 +25,10 @@ class WaghamFunnyResponseEvent(
                 when {
                     Regex("non +vedo +l.ora").matches(message.content.lowercase()) ->
                         "Sono le ${message.timestamp.toLocalDateTime(TimeZone.UTC).hour}:${message.timestamp.toLocalDateTime(TimeZone.UTC).minute}"
+                    uniformProbability(80) && Regex("(falumo|falumia)").matches(message.content.lowercase()) ->
+                        "Evviva Falumo!"
+                    uniformProbability(60) && Regex("kairon").matches(message.content.lowercase()) ->
+                        "Leccaterga!"
                     uniformProbability(40) && Regex("chiudi +la +bocca").matches(message.content.lowercase()) ->
                         "Zitto coglione!"
                     uniformProbability(15) && Regex("jack").matches(message.content.lowercase()) ->
@@ -39,6 +43,10 @@ class WaghamFunnyResponseEvent(
                         "Quella buona e quella bella"
                     uniformProbability(50) && Regex("gilda +di +wagham").matches(message.content.lowercase()) ->
                         "Assassini diplomatici"
+                    uniformProbability(50) && Regex("masterare").matches(message.content.lowercase()) && message.author?.id?.toString() == "493446767937978398" ->
+                        message.content.replace("masterare", "~~masterare~~ **masterizzare**")
+                    uniformProbability(50) && Regex("masterizzare").matches(message.content.lowercase()) && message.author?.id?.toString() == "493446767937978398" ->
+                        message.content.replace("masterizzare", "~~masterizzare~~ **masterare**")
                     else -> null
                 }?.let {
                     message.channel.createMessage(it)
