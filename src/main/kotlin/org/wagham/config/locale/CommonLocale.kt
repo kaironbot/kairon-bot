@@ -3,6 +3,12 @@ package org.wagham.config.locale
 import dev.kord.common.Locale
 
 enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum {
+    ERROR(
+        mapOf(
+            Locale.ITALIAN to "Error",
+            Locale.ENGLISH_GREAT_BRITAIN to "Errore"
+        )
+    ),
     GENERIC_ERROR(
         mapOf(
             Locale.ITALIAN to "Qualcosa è andato storto",

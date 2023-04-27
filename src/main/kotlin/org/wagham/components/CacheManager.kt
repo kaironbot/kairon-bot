@@ -74,6 +74,9 @@ class CacheManager(
             collectionCaches[it] = Caffeine.newBuilder().expireAfterWrite(1, TimeUnit.DAYS).build()
         } ?: throw IllegalAccessError("Cannot create cache for ${T::class}")
 
+    suspend inline fun <reified T> getCollectionOfType(guildId: String): Collection<T> =
+        getCollectionOfType(Snowflake(guildId))
+
     suspend inline fun <reified T> getCollectionOfType(guildId: Snowflake): Collection<T> =
         T::class.qualifiedName?.let {
             collectionCaches[it]?.let { cache ->

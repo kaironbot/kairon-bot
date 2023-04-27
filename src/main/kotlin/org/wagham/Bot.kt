@@ -10,7 +10,6 @@ import dev.kord.core.on
 import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
 import dev.kord.rest.builder.RequestBuilder
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.toList
 import mu.KotlinLogging
 import org.reflections.Reflections
@@ -20,13 +19,14 @@ import org.wagham.commands.Command
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.db.models.BuildingRecipe
+import org.wagham.db.models.Item
 import org.wagham.db.models.MongoCredentials
+import org.wagham.db.models.Proficiency
 import org.wagham.db.pipelines.characters.BuildingWithBounty
 import org.wagham.events.Event
 import kotlin.reflect.full.primaryConstructor
 
-class WaghamBot(
+class KaironBot(
     private val profile: String,
     private val kord: Kord
 ) {
@@ -107,6 +107,14 @@ class WaghamBot(
             db.buildingsScope.getBuildingsWithBounty(guildId.toString()).toList()
         }
 
+        cacheManager.createNewCollectionCache<Item> { guildId, db ->
+            db.itemsScope.getAllItems(guildId.toString()).toList().sortedBy { it.name }
+        }
+
+        cacheManager.createNewCollectionCache<Proficiency> { guildId, db ->
+            db.utilityScope.getProficiencies(guildId.toString()).toList()
+        }
+
         kord.login {
             intents += Intent.GuildMembers
             intents += Intent.GuildPresences
@@ -118,6 +126,6 @@ class WaghamBot(
 
 suspend fun main() {
     val kord = Kord(System.getenv("BOT_TOKEN")!!)
-    val bot = WaghamBot("wagham", kord)
+    val bot = KaironBot("wagham", kord)
     bot.start()
 }
