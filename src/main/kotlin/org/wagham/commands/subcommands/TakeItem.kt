@@ -4,65 +4,57 @@ import dev.kord.common.Locale
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
-import dev.kord.rest.builder.interaction.RootInputChatBuilder
-import dev.kord.rest.builder.interaction.number
-import dev.kord.rest.builder.interaction.subCommand
-import dev.kord.rest.builder.interaction.user
+import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
-import org.wagham.commands.impl.AssignCommand
+import org.wagham.commands.impl.TakeCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.commands.PayLocale
-import org.wagham.config.locale.subcommands.AssignMoneyLocale
+import org.wagham.config.locale.subcommands.TakeItemLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
-import kotlin.math.floor
+import java.lang.IllegalStateException
 
-@BotSubcommand("all", AssignCommand::class)
-class AssignMoney(
+@BotSubcommand("all", TakeCommand::class)
+class TakeItem(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
-    override val commandName = "money"
-    override val defaultDescription = "Assign money to one or more players"
+    override val commandName = "item"
+    override val defaultDescription = "Take an item from a player"
     override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Assign money to one or more players",
-        Locale.ITALIAN to "Assegna delle monete a uno o più giocatori"
+        Locale.ENGLISH_GREAT_BRITAIN to "Assign an item to one or more players",
+        Locale.ITALIAN to "Togli un ogetto a un giocatore"
     )
-    private val additionalUsers: Int = 5
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
             description(locale, description)
         }
-        number("amount", AssignMoneyLocale.AMOUNT.locale("en")) {
-            AssignMoneyLocale.AMOUNT.localeMap.forEach{ (locale, description) ->
+        string("item", TakeItemLocale.ITEM.locale("en")) {
+            TakeItemLocale.ITEM.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             required = true
         }
-        user("target", AssignMoneyLocale.TARGET.locale("en")) {
-            AssignMoneyLocale.TARGET.localeMap.forEach{ (locale, description) ->
+        integer("amount", TakeItemLocale.AMOUNT.locale("en")) {
+            TakeItemLocale.AMOUNT.localeMap.forEach{ (locale, description) ->
+                description(locale, description)
+            }
+            required = true
+        }
+        user("target", TakeItemLocale.TARGET.locale("en")) {
+            TakeItemLocale.TARGET.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             required = true
             autocomplete = true
-        }
-        (1 .. additionalUsers).forEach { paramIndex ->
-            user("target-$paramIndex", AssignMoneyLocale.ANOTHER_TARGET.locale("en")) {
-                AssignMoneyLocale.ANOTHER_TARGET.localeMap.forEach{ (locale, description) ->
-                    description(locale, description)
-                }
-                required = false
-                autocomplete = true
-            }
         }
     }
 
@@ -71,23 +63,20 @@ class AssignMoney(
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        val targets = listOf(
-            listOfNotNull(event.interaction.command.users["target"]?.id),
-            (1 .. additionalUsers).mapNotNull { paramNum ->
-                event.interaction.command.users["target-$paramNum"]?.id
-            }
-        ).flatten().toSet()
-        val amount = (event.interaction.command.numbers["amount"]!!.toFloat()).let { floor(it * 100).toInt() / 100f }
+        val amount = event.interaction.command.integers["amount"]?.toInt() ?: throw IllegalStateException("Amount not found")
+        val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not found")
+        val target = event.interaction.command.users["target"]?.id ?: throw IllegalStateException("Target not found")
         return try {
-            db.transaction(guildId) { s ->
-                    targets.fold(true) { acc, it ->
-                        val targetCharacter = db.charactersScope.getActiveCharacter(guildId, it.toString())
-                        acc && db.charactersScope.addMoney(s, guildId, targetCharacter.id, amount)
-                    }
+            val targetCharacter = db.charactersScope.getActiveCharacter(guildId, target.toString())
+            if ( (targetCharacter.inventory[item] ?: 0) >= amount) {
+                db.transaction(guildId) { s ->
+                    db.charactersScope.removeItemFromInventory(s, guildId, targetCharacter.id, item, amount)
                 }.let {
                     if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
                     else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
                 }
+            } else createGenericEmbedError("${TakeItemLocale.NOT_FOUND.locale(locale)}$item")
+
         } catch (e: NoActiveCharacterException) {
             createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
         }
@@ -100,5 +89,6 @@ class AssignMoney(
         val response = event.interaction.deferPublicResponse()
         response.respond(builder)
     }
+
 
 }

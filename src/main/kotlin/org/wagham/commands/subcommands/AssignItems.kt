@@ -4,90 +4,99 @@ import dev.kord.common.Locale
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
-import dev.kord.rest.builder.interaction.RootInputChatBuilder
-import dev.kord.rest.builder.interaction.number
-import dev.kord.rest.builder.interaction.subCommand
-import dev.kord.rest.builder.interaction.user
+import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.commands.PayLocale
-import org.wagham.config.locale.subcommands.AssignMoneyLocale
+import org.wagham.config.locale.subcommands.AssignItemLocale
+import org.wagham.config.locale.subcommands.AssignItemsLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.Item
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
-import kotlin.math.floor
+import java.lang.IllegalStateException
 
 @BotSubcommand("all", AssignCommand::class)
-class AssignMoney(
+class AssignItems(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
-    override val commandName = "money"
-    override val defaultDescription = "Assign money to one or more players"
+    override val commandName = "items"
+    override val defaultDescription = "Assign multiple items to a player"
     override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Assign money to one or more players",
-        Locale.ITALIAN to "Assegna delle monete a uno o più giocatori"
+        Locale.ENGLISH_GREAT_BRITAIN to "Assign multiple items to a player",
+        Locale.ITALIAN to "Assegna più oggetti a un giocatore"
     )
-    private val additionalUsers: Int = 5
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
             description(locale, description)
         }
-        number("amount", AssignMoneyLocale.AMOUNT.locale("en")) {
-            AssignMoneyLocale.AMOUNT.localeMap.forEach{ (locale, description) ->
-                description(locale, description)
-            }
-            required = true
-        }
-        user("target", AssignMoneyLocale.TARGET.locale("en")) {
-            AssignMoneyLocale.TARGET.localeMap.forEach{ (locale, description) ->
+        user("target", AssignItemsLocale.TARGET.locale("en")) {
+            AssignItemLocale.TARGET.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             required = true
             autocomplete = true
         }
-        (1 .. additionalUsers).forEach { paramIndex ->
-            user("target-$paramIndex", AssignMoneyLocale.ANOTHER_TARGET.locale("en")) {
-                AssignMoneyLocale.ANOTHER_TARGET.localeMap.forEach{ (locale, description) ->
-                    description(locale, description)
-                }
-                required = false
-                autocomplete = true
+        string("items", AssignItemsLocale.ITEMS.locale("en")) {
+            AssignItemLocale.ITEM.localeMap.forEach{ (locale, description) ->
+                description(locale, description)
             }
+            required = true
         }
     }
 
     override suspend fun registerCommand() { }
 
+    private fun parseItemsToAssign(rawItems: String): Map<String, Int> = rawItems.split(";")
+        .associate {
+            val xIndex = it.lastIndexOf("x")
+            val item = it.substring(0, xIndex)
+            val qty = it.substring(xIndex+1, it.length).toInt()
+            item to qty
+        }
+
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        val targets = listOf(
-            listOfNotNull(event.interaction.command.users["target"]?.id),
-            (1 .. additionalUsers).mapNotNull { paramNum ->
-                event.interaction.command.users["target-$paramNum"]?.id
-            }
-        ).flatten().toSet()
-        val amount = (event.interaction.command.numbers["amount"]!!.toFloat()).let { floor(it * 100).toInt() / 100f }
+        val items = cacheManager.getCollectionOfType<Item>(guildId)
+        val target = event.interaction.command.users["target"]?.id ?: throw IllegalStateException("Target not found")
+        val itemsToAssign = parseItemsToAssign(event.interaction.command.strings["items"] ?: throw IllegalStateException("Target not found"))
         return try {
-            db.transaction(guildId) { s ->
-                    targets.fold(true) { acc, it ->
-                        val targetCharacter = db.charactersScope.getActiveCharacter(guildId, it.toString())
-                        acc && db.charactersScope.addMoney(s, guildId, targetCharacter.id, amount)
+            val missingItems = itemsToAssign
+                .map { it.key }
+                .filter { item ->
+                    items.firstOrNull { it.name == item } == null
+                }
+            if(missingItems.isNotEmpty()) {
+                createGenericEmbedError(
+                    buildString {
+                        append(AssignItemsLocale.NOT_FOUND.locale(locale))
+                        missingItems.forEach {
+                            append(it)
+                            append(", ")
+                        }
+                    }
+                )
+            } else {
+                db.transaction(guildId) { s ->
+                    val targetCharacter = db.charactersScope.getActiveCharacter(guildId, target.toString())
+                    itemsToAssign.entries.fold(true) { acc, it ->
+                        acc && db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, it.key, it.value)
                     }
                 }.let {
                     if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
                     else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
                 }
+            }
         } catch (e: NoActiveCharacterException) {
             createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
         }

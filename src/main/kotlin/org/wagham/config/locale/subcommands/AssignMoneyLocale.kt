@@ -19,7 +19,7 @@ enum class AssignMoneyLocale(val localeMap: Map<Locale, String>): LocaleEnum {
     TARGET(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The user to give money to",
-            Locale.ITALIAN to "L'utente a cui dare le monete"
+            Locale.ITALIAN to "L'utente a cui assegnare le monete"
         )
     );
     override fun locale(language: String) = locale(Locale.fromString(language))
