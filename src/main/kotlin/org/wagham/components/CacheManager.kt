@@ -50,11 +50,6 @@ class CacheManager(
                 expTableCache.put(guildId, it)
             }
 
-    suspend fun getProficiencies(guildId: Snowflake): List<Proficiency> =
-        proficienciesCache.getIfPresent(guildId) ?:
-            db.utilityScope.getProficiencies(guildId.toString()).also {
-                proficienciesCache.put(guildId, it)
-            }
 
     suspend fun getConfig(guildId: Snowflake, bypassCache: Boolean = false): ServerConfig =
         serverConfigCache.getIfPresent(guildId)?.takeIf { !bypassCache }

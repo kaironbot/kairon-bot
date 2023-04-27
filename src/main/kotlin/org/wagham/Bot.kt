@@ -111,10 +111,6 @@ class KaironBot(
             db.itemsScope.getAllItems(guildId.toString()).toList().sortedBy { it.name }
         }
 
-        cacheManager.createNewCollectionCache<Proficiency> { guildId, db ->
-            db.utilityScope.getProficiencies(guildId.toString()).toList()
-        }
-
         kord.login {
             intents += Intent.GuildMembers
             intents += Intent.GuildPresences
