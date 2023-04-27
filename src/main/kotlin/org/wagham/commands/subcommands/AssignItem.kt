@@ -97,7 +97,7 @@ class AssignItem(
         kord.on<ButtonInteractionCreateEvent> {
             val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
             if(interaction.componentId.startsWith("${this@AssignItem::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id)?.first == interaction.user.id) {
-                val guildId = interaction.data.guildId.toString()
+                val guildId = interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
                 val targets = interactionCache.getIfPresent(interaction.message.id)?.second ?: throw IllegalStateException("Cannot find targets")
                 val (item, amount) = Regex("${this@AssignItem::class.qualifiedName}-(.+)-([0-9]+)")
                     .find(interaction.componentId)
@@ -106,8 +106,11 @@ class AssignItem(
                         Pair(it[1], it[2].toInt())
                     } ?: throw IllegalStateException("Cannot parse parameters")
                 assignItemToCharacters(guildId, item, amount, targets).let {
-                    if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                    else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+                    when {
+                        it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
+                        it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+                        else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+                    }
                 }.let {
                     interaction.deferPublicMessageUpdate().edit(it)
                 }
@@ -154,6 +157,7 @@ class AssignItem(
                                 append(it.name)
                             }
                         }
+                        color = Colors.DEFAULT.value
                     }
                     probableItem?.also {
                         actionRow {
@@ -165,8 +169,11 @@ class AssignItem(
                 }
             } else {
                 assignItemToCharacters(guildId, item, amount, targets).let {
-                    if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                    else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+                    when {
+                        it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
+                        it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+                        else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+                    }
                 }
             }
         } catch (e: NoActiveCharacterException) {

@@ -38,7 +38,7 @@ class TakeMoney(
         localeDescriptions.forEach{ (locale, description) ->
             description(locale, description)
         }
-        integer("amount", TakeMoneyLocale.AMOUNT.locale("en")) {
+        number("amount", TakeMoneyLocale.AMOUNT.locale("en")) {
             TakeMoneyLocale.AMOUNT.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
@@ -81,8 +81,11 @@ class TakeMoney(
                     acc && db.charactersScope.subtractMoney(s, guildId, targetCharacter.id, amount)
                 }
             }.let {
-                if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+                when {
+                    it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
+                    it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+                    else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+                }
             }
         } catch (e: NoActiveCharacterException) {
             createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
