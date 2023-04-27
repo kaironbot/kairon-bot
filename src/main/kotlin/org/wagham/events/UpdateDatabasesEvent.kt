@@ -185,6 +185,38 @@ class UpdateDatabasesEvent(
             getLogChannel(guildId).sendTextMessage("There was an error refreshing spells: ${e.message}")
         }
 
+    private suspend fun updateLanguages(guildId: Snowflake) =
+        try {
+            val languages = LanguageProficiencyRow.parseRows()
+            val result = db.proficiencyScope
+                .rewriteAllLanguages(
+                    guildId.toString(),
+                    languages.filter { it.operation == ImportOperation.UPDATE }.map { it.language }
+                )
+            if (result)
+                getLogChannel(guildId).sendTextMessage("Successfully refreshed languages")
+            else
+                getLogChannel(guildId).sendTextMessage("There was an error refreshing languages")
+        } catch (e: Exception) {
+            getLogChannel(guildId).sendTextMessage("There was an error refreshing languages: ${e.message}")
+        }
+
+    private suspend fun updateTools(guildId: Snowflake) =
+        try {
+            val tools = ToolProficiencyRow.parseRows()
+            val result = db.proficiencyScope
+                .rewriteAllToolProficiencies(
+                    guildId.toString(),
+                    tools.filter { it.operation == ImportOperation.UPDATE }.map { it.tool }
+                )
+            if (result)
+                getLogChannel(guildId).sendTextMessage("Successfully refreshed tools")
+            else
+                getLogChannel(guildId).sendTextMessage("There was an error refreshing tools")
+        } catch (e: Exception) {
+            getLogChannel(guildId).sendTextMessage("There was an error refreshing tools: ${e.message}")
+        }
+
     override fun register() {
         Timer(eventId).schedule(
             getStartingInstantOnNextDay(1, 0, 0).also {
