@@ -43,7 +43,6 @@ class AllowRoleCommand(
                 choice(it, it)
             }
             required = true
-            autocomplete = true
         }
         role("role", AllowRoleCommandLocale.ROLE.locale("en")) {
             AllowRoleCommandLocale.ROLE.localeMap.forEach{ (locale, description) ->
