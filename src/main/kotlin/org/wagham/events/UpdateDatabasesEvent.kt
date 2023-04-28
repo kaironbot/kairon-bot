@@ -235,6 +235,8 @@ class UpdateDatabasesEvent(
                     updateItems(it.id)
                     updateRaces(it.id)
                     updateSpells(it.id)
+                    updateLanguages(it.id)
+                    updateTools(it.id)
                 }
             }
         }

@@ -2,24 +2,18 @@ package org.wagham.commands.impl
 
 import dev.kord.common.Locale
 import dev.kord.common.entity.ChannelType
-import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.channel
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
-import org.wagham.commands.SlashCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
-import org.wagham.config.Colors
-import org.wagham.config.locale.commands.SetAdminGroupLocale
 import org.wagham.config.locale.commands.SetChannelLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.exceptions.GuildNotFoundException
-import org.wagham.exceptions.UnauthorizedException
 import org.wagham.utils.createGenericEmbedSuccess
 
 @BotCommand("all")
@@ -68,8 +62,6 @@ class SetChannelCommand(
         val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
         val serverConfig = cacheManager.getConfig(guildId, true)
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        if(!isUserAuthorized(guildId, event.interaction, serverConfig.adminRoleId?.let { listOf(Snowflake(it)) } ?: emptyList()))
-            throw UnauthorizedException()
         cacheManager.setConfig(
             guildId,
             serverConfig.copy(

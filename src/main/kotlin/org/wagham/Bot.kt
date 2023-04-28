@@ -71,7 +71,10 @@ class KaironBot(
         }
 
     init {
-        commands = autowireCommands()
+        commands = autowireCommands().map {
+            cacheManager.registerCommand(it.commandName)
+            it
+        }
         events = autowireEvents()
 
         kord.on<ReadyEvent> {
@@ -99,7 +102,6 @@ class KaironBot(
         commands.forEach {
             it.registerCommand()
             it.registerCallback()
-            cacheManager.registerCommand(it.commandName)
             logger.info { "Registered ${it.commandName} command" }
         }
 
