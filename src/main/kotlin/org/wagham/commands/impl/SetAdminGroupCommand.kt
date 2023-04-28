@@ -1,7 +1,6 @@
 package org.wagham.commands.impl
 
 import dev.kord.common.Locale
-import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.role
@@ -51,8 +50,6 @@ class SetAdminGroupCommand(
         val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
         val serverConfig = cacheManager.getConfig(guildId, true)
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        if(!isUserAuthorized(guildId, event.interaction, serverConfig.adminRoleId?.let { listOf(Snowflake(it)) } ?: emptyList()))
-            throw UnauthorizedException()
         return event.interaction.command.roles["role"]?.let {
             cacheManager.setConfig(
                 guildId,

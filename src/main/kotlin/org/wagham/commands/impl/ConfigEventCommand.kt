@@ -18,7 +18,6 @@ import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.ConfigEventLocale
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.exceptions.UnauthorizedException
 import org.wagham.utils.createGenericEmbedSuccess
 
 @BotCommand("all")
@@ -117,8 +116,6 @@ class ConfigEventCommand(
         val command = event.interaction.command as SubCommand
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
         val serverConfig = cacheManager.getConfig(event.interaction.guildId, true)
-        if(!isUserAuthorized(event.interaction.guildId, event.interaction, serverConfig.adminRoleId?.let { listOf(Snowflake(it)) } ?: emptyList()))
-            throw UnauthorizedException()
         return when (command.name) {
             "info" -> {
                 val channelList = buildAllowedChannelsList(event.interaction.guildId, event.interaction.command.strings["event"]!!)

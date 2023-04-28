@@ -39,16 +39,16 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
             Locale.ENGLISH_GREAT_BRITAIN to "You do not have enough money to complete this operation"
         )
     ),
-    NOT_ENOUGH_T2BADGE(
-        mapOf(
-            Locale.ITALIAN to "Non hai abbastanza 1DayT2Badge per completare questa operazione",
-            Locale.ENGLISH_GREAT_BRITAIN to "You do not have enough 1DayT2Badge to complete this operation"
-        )
-    ),
     SUCCESS(
         mapOf(
             Locale.ITALIAN to "Operazione completata con successo",
             Locale.ENGLISH_GREAT_BRITAIN to "Operation completed successfully"
+        )
+    ),
+    UNAUTHORIZED(
+        mapOf(
+            Locale.ITALIAN to "Solo i seguenti ruoli possono accedere a questo comando: ",
+            Locale.ENGLISH_GREAT_BRITAIN to "Only the following roles can access this command: "
         )
     );
 
