@@ -65,7 +65,7 @@ class AllowRoleCommand(
             guildId,
             config.copy(
                 commandsPermissions = config.commandsPermissions +
-                    (command to (config.commandsPermissions[command] ?: emptyList()) + role.id.toString())
+                    (command to (config.commandsPermissions[command] ?: emptySet()) + role.id.toString())
             )
         )
         return createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

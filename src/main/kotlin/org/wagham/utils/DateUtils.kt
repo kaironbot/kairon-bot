@@ -10,11 +10,11 @@ fun getStartingInstantOnNextDay(hour: Int, minute: Int, second: Int, transformer
     val localDate = LocalDateTime.of(
         calendar.get(Calendar.YEAR),
         calendar.get(Calendar.MONTH)+1,
-        calendar.get(Calendar.DAY_OF_MONTH)+1,
+        calendar.get(Calendar.DAY_OF_MONTH),
         hour + timeZone.dstSavings,
         minute,
         second
-    ).let(transformer)
+    ).plusDays(1).let(transformer)
 
     return Date.from(ZonedDateTime.of(localDate, timeZone.toZoneId()).toInstant())
 }
