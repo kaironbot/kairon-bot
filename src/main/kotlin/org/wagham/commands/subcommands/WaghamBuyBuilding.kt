@@ -71,7 +71,7 @@ class WaghamBuyBuilding(
                 (character.inventory[building.tbadgeType] ?: 0) >= building.tbadgeCost ||
                 (
                     building.proficiencyReduction != null &&
-                    character.proficiencies.contains(building.proficiencyReduction) &&
+                    character.proficiencies.map { it.name }.contains(building.proficiencyReduction) &&
                     (character.inventory[building.tbadgeType] ?: 0) >= building.tbadgeCost/2
                 )
         )
@@ -228,7 +228,9 @@ class WaghamBuyBuilding(
                                 data.building.tbadgeCost
                                     .takeIf {
                                         data.building.proficiencyReduction == null ||
-                                                !data.character.proficiencies.contains(data.building.proficiencyReduction)
+                                                !data.character.proficiencies
+                                                    .map { it.name }
+                                                    .contains(data.building.proficiencyReduction)
                                     } ?: (data.building.tbadgeCost / 2))
                             val building = Building(
                                 name = buildingName,

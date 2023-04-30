@@ -68,7 +68,7 @@ class DenyRoleCommand(
             guildId,
             config.copy(
                 commandsPermissions = config.commandsPermissions +
-                        (command to (config.commandsPermissions[command]?.minus(role.id.toString()) ?: emptyList()))
+                        (command to (config.commandsPermissions[command]?.minus(role.id.toString()) ?: emptySet()))
             )
         )
         return createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

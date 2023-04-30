@@ -128,7 +128,7 @@ class ConfigEventCommand(
                 }
             }
             "add_channel" -> {
-                val currentChannels = serverConfig.eventChannels[event.interaction.command.strings["event"]!!] ?: emptyList()
+                val currentChannels = serverConfig.eventChannels[event.interaction.command.strings["event"]!!] ?: emptySet()
                 cacheManager.setConfig(
                     event.interaction.guildId,
                     serverConfig.copy(
@@ -140,7 +140,7 @@ class ConfigEventCommand(
                 createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
             }
             else -> {
-                val currentChannels = serverConfig.eventChannels[event.interaction.command.strings["event"]!!] ?: emptyList()
+                val currentChannels = serverConfig.eventChannels[event.interaction.command.strings["event"]!!] ?: emptySet()
                 cacheManager.setConfig(
                     event.interaction.guildId,
                     serverConfig.copy(
