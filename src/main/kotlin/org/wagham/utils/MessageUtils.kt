@@ -1,9 +1,11 @@
 package org.wagham.utils
 
+import dev.kord.common.entity.ButtonStyle
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.entity.channel.MessageChannel
 import dev.kord.rest.builder.component.MessageComponentBuilder
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import dev.kord.rest.builder.message.modify.actionRow
 import dev.kord.rest.builder.message.modify.embed
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
@@ -38,4 +40,33 @@ fun createGenericEmbedSuccess(message: String, actionRows: MutableList<MessageCo
             description = message
         }
         components = actionRows
+    }
+
+fun alternativeOptionMessage(
+    locale: String,
+    notFound: String,
+    probable: String?,
+    buttonId: String
+): InteractionResponseModifyBuilder.() -> Unit =
+    fun InteractionResponseModifyBuilder.() {
+        embed {
+            title = CommonLocale.ERROR.locale(locale)
+            description = buildString {
+                append(CommonLocale.ELEMENT_NOT_FOUND.locale(locale))
+                append(notFound)
+                probable?.also {
+                    append("\n")
+                    append(CommonLocale.ALTERNATIVE.locale(locale))
+                    append(it)
+                }
+            }
+            color = Colors.DEFAULT.value
+        }
+        probable?.also { it ->
+            actionRow {
+                interactionButton(ButtonStyle.Primary, buttonId) {
+                    label = "${CommonLocale.ASSIGN_ALTERNATIVE.locale(locale)}$it"
+                }
+            }
+        }
     }

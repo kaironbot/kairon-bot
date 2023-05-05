@@ -10,17 +10,21 @@ import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
-import dev.kord.rest.builder.interaction.*
+import dev.kord.rest.builder.interaction.RootInputChatBuilder
+import dev.kord.rest.builder.interaction.string
+import dev.kord.rest.builder.interaction.subCommand
+import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.subcommands.AssignItemLocale
+import org.wagham.config.locale.subcommands.AssignToolLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
-import org.wagham.db.models.Item
+import org.wagham.db.models.ToolProficiency
+import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.alternativeOptionMessage
 import org.wagham.utils.createGenericEmbedError
@@ -30,20 +34,19 @@ import java.lang.IllegalStateException
 import java.util.concurrent.TimeUnit
 
 @BotSubcommand("all", AssignCommand::class)
-class AssignItem(
+class AssignTool(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
-    override val commandName = "item"
-    override val defaultDescription = "Assign an item to one or more players"
+    override val commandName = "tool"
+    override val defaultDescription = "Assign a tool proficiency to a player"
     override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Assign an item to one or more players",
-        Locale.ITALIAN to "Assegna delle monete a uno o più giocatori"
+        Locale.ENGLISH_GREAT_BRITAIN to "Assign a tool proficiency to a player",
+        Locale.ITALIAN to "Assegna la competenza in uno strumento a un giocatore"
     )
-    private val additionalUsers: Int = 5
-    private val interactionCache: Cache<Snowflake, Pair<Snowflake, Set<Snowflake>>> =
+    private val interactionCache: Cache<Snowflake, Pair<Snowflake, Snowflake>> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .build()
@@ -52,49 +55,35 @@ class AssignItem(
         localeDescriptions.forEach{ (locale, description) ->
             description(locale, description)
         }
-        string("item", AssignItemLocale.ITEM.locale("en")) {
-            AssignItemLocale.ITEM.localeMap.forEach{ (locale, description) ->
+        string("tool", AssignToolLocale.TOOL.locale("en")) {
+            AssignToolLocale.TOOL.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             required = true
         }
-        integer("amount", AssignItemLocale.AMOUNT.locale("en")) {
-            AssignItemLocale.AMOUNT.localeMap.forEach{ (locale, description) ->
-                description(locale, description)
-            }
-            required = true
-        }
-        user("target", AssignItemLocale.TARGET.locale("en")) {
-            AssignItemLocale.TARGET.localeMap.forEach{ (locale, description) ->
+        user("target", AssignToolLocale.TARGET.locale("en")) {
+            AssignToolLocale.TARGET.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             required = true
             autocomplete = true
-        }
-        (1 .. additionalUsers).forEach { paramIndex ->
-            user("target-$paramIndex", AssignItemLocale.ANOTHER_TARGET.locale("en")) {
-                AssignItemLocale.ANOTHER_TARGET.localeMap.forEach{ (locale, description) ->
-                    description(locale, description)
-                }
-                required = false
-                autocomplete = true
-            }
         }
     }
 
     override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
             val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-            if(interaction.componentId.startsWith("${this@AssignItem::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id)?.first == interaction.user.id) {
+            if(interaction.componentId.startsWith("${this@AssignTool::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id)?.first == interaction.user.id) {
                 val guildId = interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-                val targets = interactionCache.getIfPresent(interaction.message.id)?.second ?: throw IllegalStateException("Cannot find targets")
-                val (item, amount) = Regex("${this@AssignItem::class.qualifiedName}-(.+)-([0-9]+)")
+                val target = interactionCache.getIfPresent(interaction.message.id)?.second ?: throw IllegalStateException("Cannot find targets")
+                val tool = Regex("${this@AssignTool::class.qualifiedName}-([0-9a-fA-F]{8}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{12})")
                     .find(interaction.componentId)
                     ?.groupValues
-                    ?.let {
-                        Pair(it[1], it[2].toInt())
-                    } ?: throw IllegalStateException("Cannot parse parameters")
-                assignItemToCharacters(guildId, item, amount, targets).let {
+                    ?.get(1)
+                    ?: throw IllegalStateException("Cannot parse parameters")
+                val tools = cacheManager.getCollectionOfType<ToolProficiency>(guildId)
+                val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
+                assignToolProficiency(guildId, tools.first { it.id == tool }, character.id).let {
                     when {
                         it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
                         it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
@@ -103,41 +92,37 @@ class AssignItem(
                 }.let {
                     interaction.deferPublicMessageUpdate().edit(it)
                 }
-            } else if (interaction.componentId.startsWith("${this@AssignItem::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
+            } else if (interaction.componentId.startsWith("${this@AssignTool::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
                 interaction.deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.INTERACTION_EXPIRED.locale(locale)))
-            } else if (interaction.componentId.startsWith("${this@AssignItem::class.qualifiedName}")) {
+            } else if (interaction.componentId.startsWith("${this@AssignTool::class.qualifiedName}")) {
                 interaction.deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
             }
         }
     }
 
-    private suspend fun assignItemToCharacters(guildId: String, item: String, amount: Int, targets: Set<Snowflake>) =
+    private suspend fun assignToolProficiency(guildId: String, tool: ToolProficiency, target: String) =
         db.transaction(guildId) { s ->
-            targets.fold(true) { acc, it ->
-                val targetCharacter = db.charactersScope.getActiveCharacter(guildId, it.toString())
-                acc && db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, item, amount)
-            }
+            db.charactersScope.addProficiencyToCharacter(
+                s,
+                guildId,
+                target,
+                ProficiencyStub(tool.id, tool.name)
+            )
         }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        val items = cacheManager.getCollectionOfType<Item>(guildId)
-        val targets = listOf(
-            listOfNotNull(event.interaction.command.users["target"]?.id),
-            (1 .. additionalUsers).mapNotNull { paramNum ->
-                event.interaction.command.users["target-$paramNum"]?.id
-            }
-        ).flatten().toSet()
-        val amount = event.interaction.command.integers["amount"]?.toInt()?.takeIf { it > 0 }
-            ?: throw IllegalStateException("Invalid amount")
-        val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not found")
+        val tools = cacheManager.getCollectionOfType<ToolProficiency>(guildId)
+        val target = event.interaction.command.users["target"]?.id ?: throw IllegalStateException("Target not found")
+        val tool = event.interaction.command.strings["tool"] ?: throw IllegalStateException("Tool not found")
         return try {
-            if (items.firstOrNull { it.name == item } == null) {
-                val probableItem = items.maxByOrNull { item.levenshteinDistance(it.name) }
-                alternativeOptionMessage(locale, item, probableItem?.name, "${this@AssignItem::class.qualifiedName}-${probableItem?.name}-$amount")
+            if (tools.firstOrNull { it.name == tool } == null) {
+                val probableTool = tools.maxByOrNull { tool.levenshteinDistance(it.name) }
+                alternativeOptionMessage(locale, tool, probableTool?.name, "${this@AssignTool::class.qualifiedName}-${probableTool?.id}")
             } else {
-                assignItemToCharacters(guildId, item, amount, targets).let {
+                val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
+                assignToolProficiency(guildId, tools.first { it.name == tool }, character.id).let {
                     when {
                         it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
                         it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
@@ -160,12 +145,7 @@ class AssignItem(
             msg.message.id,
             Pair(
                 event.interaction.user.id,
-                listOf(
-                    listOfNotNull(event.interaction.command.users["target"]?.id),
-                    (1 .. additionalUsers).mapNotNull { paramNum ->
-                        event.interaction.command.users["target-$paramNum"]?.id
-                    }
-                ).flatten().toSet()
+                event.interaction.command.users["target"]!!.id
             )
         )
     }

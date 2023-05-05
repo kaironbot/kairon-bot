@@ -3,6 +3,24 @@ package org.wagham.config.locale
 import dev.kord.common.Locale
 
 enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum {
+    ALTERNATIVE(
+        mapOf(
+            Locale.ITALIAN to "Forse intendevi: ",
+            Locale.ENGLISH_GREAT_BRITAIN to "Did you mean: "
+        )
+    ),
+    ASSIGN_ALTERNATIVE(
+        mapOf(
+            Locale.ITALIAN to "Assegna ",
+            Locale.ENGLISH_GREAT_BRITAIN to "Assegna "
+        )
+    ),
+    ELEMENT_NOT_FOUND(
+        mapOf(
+            Locale.ITALIAN to "Elemento non trovato: ",
+            Locale.ENGLISH_GREAT_BRITAIN to "Element not found: "
+        )
+    ),
     ERROR(
         mapOf(
             Locale.ITALIAN to "Error",
@@ -27,10 +45,22 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
             Locale.ENGLISH_GREAT_BRITAIN to "You did not start this interaction"
         )
     ),
+    NO(
+        mapOf(
+            Locale.ITALIAN to "No",
+            Locale.ENGLISH_GREAT_BRITAIN to "No"
+        )
+    ),
     NO_ACTIVE_CHARACTER(
         mapOf(
             Locale.ITALIAN to "Non hai nessun personaggio attivo",
             Locale.ENGLISH_GREAT_BRITAIN to "You have no active character"
+        )
+    ),
+    NOT_ENOUGH_ITEMS(
+        mapOf(
+            Locale.ITALIAN to "Non hai abbastanza oggetti per completare questa operazione: ",
+            Locale.ENGLISH_GREAT_BRITAIN to "You do not have enough item to complete this operation: "
         )
     ),
     NOT_ENOUGH_MONEY(
@@ -39,10 +69,22 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
             Locale.ENGLISH_GREAT_BRITAIN to "You do not have enough money to complete this operation"
         )
     ),
+    PRICE(
+        mapOf(
+            Locale.ITALIAN to "Prezzo",
+            Locale.ENGLISH_GREAT_BRITAIN to "Price"
+        )
+    ),
     SUCCESS(
         mapOf(
             Locale.ITALIAN to "Operazione completata con successo",
             Locale.ENGLISH_GREAT_BRITAIN to "Operation completed successfully"
+        )
+    ),
+    YES(
+        mapOf(
+            Locale.ITALIAN to "Sì",
+            Locale.ENGLISH_GREAT_BRITAIN to "Yes"
         )
     ),
     UNAUTHORIZED(
