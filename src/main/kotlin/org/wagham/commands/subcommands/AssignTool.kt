@@ -3,7 +3,6 @@ package org.wagham.commands.subcommands
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.kord.common.Locale
-import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.edit
@@ -16,22 +15,18 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
 import org.wagham.components.CacheManager
-import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.subcommands.AssignLanguageLocale
 import org.wagham.config.locale.subcommands.AssignToolLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
-import org.wagham.db.models.LanguageProficiency
 import org.wagham.db.models.ToolProficiency
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.exceptions.GuildNotFoundException
+import org.wagham.utils.alternativeOptionMessage
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
 import org.wagham.utils.levenshteinDistance
@@ -124,28 +119,7 @@ class AssignTool(
         return try {
             if (tools.firstOrNull { it.name == tool } == null) {
                 val probableTool = tools.maxByOrNull { tool.levenshteinDistance(it.name) }
-                fun InteractionResponseModifyBuilder.() {
-                    embed {
-                        title = CommonLocale.ERROR.locale(locale)
-                        description = buildString {
-                            append(AssignToolLocale.NOT_FOUND.locale(locale))
-                            append(tool)
-                            probableTool?.also {
-                                append("\n")
-                                append(AssignToolLocale.ALTERNATIVE.locale(locale))
-                                append(it.name)
-                            }
-                        }
-                        color = Colors.DEFAULT.value
-                    }
-                    probableTool?.also {
-                        actionRow {
-                            interactionButton(ButtonStyle.Primary, "${this@AssignTool::class.qualifiedName}-${it.id}") {
-                                label = "${AssignLanguageLocale.ASSIGN_ALTERNATIVE.locale(locale)} ${it.name}"
-                            }
-                        }
-                    }
-                }
+                alternativeOptionMessage(locale, tool, probableTool?.name, "${this@AssignTool::class.qualifiedName}-${probableTool?.id}")
             } else {
                 val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
                 assignToolProficiency(guildId, tools.first { it.name == tool }, character.id).let {

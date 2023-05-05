@@ -43,9 +43,9 @@ class WaghamFunnyResponseEvent(
                         "Quella buona e quella bella"
                     uniformProbability(50) && Regex("gilda +di +wagham").matches(message.content.lowercase()) ->
                         "Assassini diplomatici"
-                    uniformProbability(50) && Regex("masterare").matches(message.content.lowercase()) && message.author?.id?.toString() == "493446767937978398" ->
+                    uniformProbability(80) && Regex("masterare").matches(message.content.lowercase()) && message.author?.id?.toString() == "493446767937978398" ->
                         message.content.replace("masterare", "~~masterare~~ **masterizzare**")
-                    uniformProbability(50) && Regex("masterizzare").matches(message.content.lowercase()) && message.author?.id?.toString() == "493446767937978398" ->
+                    uniformProbability(80) && Regex("masterizzare").matches(message.content.lowercase()) && message.author?.id?.toString() == "493446767937978398" ->
                         message.content.replace("masterizzare", "~~masterizzare~~ **masterare**")
                     uniformProbability(1) && message.author?.id?.toString() == "165878899656491008" ->
                         ": pollice"

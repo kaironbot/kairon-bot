@@ -8,13 +8,13 @@ import org.wagham.components.CacheManager
 import org.wagham.db.KabotMultiDBClient
 
 @BotCommand("all")
-class ShopCommand (
+class ItemCommand (
     kord: Kord,
     db: KabotMultiDBClient,
     cacheManager: CacheManager
 ) : SlashCommandWithSubcommands(kord, db, cacheManager) {
 
-    override val commandName = "shop"
+    override val commandName = "item"
     override val defaultDescription = "Buy and sell items"
     override val localeDescriptions: Map<Locale, String> = mapOf(
         Locale.ENGLISH_GREAT_BRITAIN to "Buy and sell items",

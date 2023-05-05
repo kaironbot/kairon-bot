@@ -3,42 +3,31 @@ package org.wagham.commands.subcommands
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.kord.common.Locale
-import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
-import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.interaction.response.edit
 import dev.kord.core.behavior.interaction.response.respond
-import dev.kord.core.entity.User
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
-import kotlinx.coroutines.flow.toList
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
 import org.wagham.components.CacheManager
-import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.AssignItemLocale
-import org.wagham.config.locale.subcommands.MasterStatsLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Item
-import org.wagham.db.pipelines.sessions.PlayerMasteredSessions
-import org.wagham.entities.PaginatedList
 import org.wagham.exceptions.GuildNotFoundException
+import org.wagham.utils.alternativeOptionMessage
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
 import org.wagham.utils.levenshteinDistance
 import java.lang.IllegalStateException
 import java.util.concurrent.TimeUnit
-import kotlin.io.path.Path
-import kotlin.math.floor
 
 @BotSubcommand("all", AssignCommand::class)
 class AssignItem(
@@ -140,33 +129,13 @@ class AssignItem(
                 event.interaction.command.users["target-$paramNum"]?.id
             }
         ).flatten().toSet()
-        val amount = event.interaction.command.integers["amount"]?.toInt() ?: throw IllegalStateException("Amount not found")
+        val amount = event.interaction.command.integers["amount"]?.toInt()?.takeIf { it > 0 }
+            ?: throw IllegalStateException("Invalid amount")
         val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not found")
         return try {
             if (items.firstOrNull { it.name == item } == null) {
                 val probableItem = items.maxByOrNull { item.levenshteinDistance(it.name) }
-                fun InteractionResponseModifyBuilder.() {
-                    embed {
-                        title = CommonLocale.ERROR.locale(locale)
-                        description = buildString {
-                            append(AssignItemLocale.NOT_FOUND.locale(locale))
-                            append(item)
-                            probableItem?.also {
-                                append("\n")
-                                append(AssignItemLocale.ALTERNATIVE.locale(locale))
-                                append(it.name)
-                            }
-                        }
-                        color = Colors.DEFAULT.value
-                    }
-                    probableItem?.also {
-                        actionRow {
-                            interactionButton(ButtonStyle.Primary, "${this@AssignItem::class.qualifiedName}-${it.name}-$amount") {
-                                label = "${AssignItemLocale.ASSIGN_ALTERNATIVE.locale(locale)} ${it.name}"
-                            }
-                        }
-                    }
-                }
+                alternativeOptionMessage(locale, item, probableItem?.name, "${this@AssignItem::class.qualifiedName}-${probableItem?.name}-$amount")
             } else {
                 assignItemToCharacters(guildId, item, amount, targets).let {
                     when {

@@ -3,7 +3,6 @@ package org.wagham.commands.subcommands
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.kord.common.Locale
-import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.edit
@@ -13,13 +12,10 @@ import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEve
 import dev.kord.core.on
 import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
 import org.wagham.components.CacheManager
-import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.AssignLanguageLocale
 import org.wagham.db.KabotMultiDBClient
@@ -27,6 +23,7 @@ import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.LanguageProficiency
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.exceptions.GuildNotFoundException
+import org.wagham.utils.alternativeOptionMessage
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
 import org.wagham.utils.levenshteinDistance
@@ -118,29 +115,8 @@ class AssignLanguage(
         val language = event.interaction.command.strings["language"] ?: throw IllegalStateException("Language not found")
         return try {
             if (languages.firstOrNull { it.name == language } == null) {
-                val probableItem = languages.maxByOrNull { language.levenshteinDistance(it.name) }
-                fun InteractionResponseModifyBuilder.() {
-                    embed {
-                        title = CommonLocale.ERROR.locale(locale)
-                        description = buildString {
-                            append(AssignLanguageLocale.NOT_FOUND.locale(locale))
-                            append(language)
-                            probableItem?.also {
-                                append("\n")
-                                append(AssignLanguageLocale.ALTERNATIVE.locale(locale))
-                                append(it.name)
-                            }
-                        }
-                        color = Colors.DEFAULT.value
-                    }
-                    probableItem?.also {
-                        actionRow {
-                            interactionButton(ButtonStyle.Primary, "${this@AssignLanguage::class.qualifiedName}-${it.id}") {
-                                label = "${AssignLanguageLocale.ASSIGN_ALTERNATIVE.locale(locale)} ${it.name}"
-                            }
-                        }
-                    }
-                }
+                val probableLanguage = languages.maxByOrNull { language.levenshteinDistance(it.name) }
+                alternativeOptionMessage(locale, language, probableLanguage?.name, "${this@AssignLanguage::class.qualifiedName}-${probableLanguage?.id}")
             } else {
                 val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
                 assignLanguageToCharacter(guildId, languages.first { it.name == language }, character.id).let {
