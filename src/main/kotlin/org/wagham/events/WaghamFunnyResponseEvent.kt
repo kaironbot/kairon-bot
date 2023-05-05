@@ -47,6 +47,8 @@ class WaghamFunnyResponseEvent(
                         message.content.replace("masterare", "~~masterare~~ **masterizzare**")
                     uniformProbability(50) && Regex("masterizzare").matches(message.content.lowercase()) && message.author?.id?.toString() == "493446767937978398" ->
                         message.content.replace("masterizzare", "~~masterizzare~~ **masterare**")
+                    uniformProbability(1) && message.author?.id?.toString() == "165878899656491008" ->
+                        ": pollice"
                     else -> null
                 }?.let {
                     message.channel.createMessage(it)
