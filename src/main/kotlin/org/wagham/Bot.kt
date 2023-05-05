@@ -19,9 +19,7 @@ import org.wagham.commands.Command
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.db.models.Item
-import org.wagham.db.models.MongoCredentials
-import org.wagham.db.models.Proficiency
+import org.wagham.db.models.*
 import org.wagham.db.pipelines.characters.BuildingWithBounty
 import org.wagham.events.Event
 import kotlin.reflect.full.primaryConstructor
@@ -111,6 +109,14 @@ class KaironBot(
 
         cacheManager.createNewCollectionCache<Item> { guildId, db ->
             db.itemsScope.getAllItems(guildId.toString()).toList().sortedBy { it.name }
+        }
+
+        cacheManager.createNewCollectionCache<LanguageProficiency> { guildId, db ->
+            db.proficiencyScope.getLanguages(guildId.toString()).toList()
+        }
+
+        cacheManager.createNewCollectionCache<ToolProficiency> { guildId, db ->
+            db.proficiencyScope.getToolProficiencies(guildId.toString()).toList()
         }
 
         kord.login {
