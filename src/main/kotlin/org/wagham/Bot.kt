@@ -20,7 +20,7 @@ import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.*
-import org.wagham.db.pipelines.characters.BuildingWithBounty
+import org.wagham.db.pipelines.buildings.BuildingWithBounty
 import org.wagham.events.Event
 import kotlin.reflect.full.primaryConstructor
 
@@ -76,6 +76,12 @@ class KaironBot(
         events = autowireEvents()
 
         kord.on<ReadyEvent> {
+            kord.getGlobalApplicationCommands(true).collect {
+                if(!cacheManager.getCommands().contains(it.name)) {
+                    it.delete()
+                    logger.info { "Deleting ${it.name} command" }
+                }
+            }
             this.supplier.guilds.collect {
                 database.serverConfigScope.getGuildConfig(it.id.toString()).channels[Channels.LOG_CHANNEL.name]?.let { channelId ->
                     this.supplier.getChannel(Snowflake(channelId)).asChannelOf<MessageChannel>().createMessage {
