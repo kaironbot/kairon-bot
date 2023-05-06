@@ -1,5 +1,6 @@
 package org.wagham.utils
 
+import org.wagham.db.utils.daysInBetween
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
 import java.util.*
@@ -18,4 +19,6 @@ fun getStartingInstantOnNextDay(hour: Int, minute: Int, second: Int, transformer
 
     return Date.from(ZonedDateTime.of(localDate, timeZone.toZoneId()).toInstant())
 }
+
+fun daysToToday(pastDate: Date) = daysInBetween(pastDate, Calendar.getInstance().time).toInt()
 

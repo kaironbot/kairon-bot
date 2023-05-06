@@ -226,17 +226,19 @@ class UpdateDatabasesEvent(
         ) {
             runBlocking {
                 kord.guilds.collect {
-                    updateAnnouncements(it.id)
-                    updateBackgrounds(it.id)
-                    updateBounties(it.id)
-                    updateBuildings(it.id)
-                    updateClasses(it.id)
-                    updateFeats(it.id)
-                    updateItems(it.id)
-                    updateRaces(it.id)
-                    updateSpells(it.id)
-                    updateLanguages(it.id)
-                    updateTools(it.id)
+                    if(cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
+                        updateAnnouncements(it.id)
+                        updateBackgrounds(it.id)
+                        updateBounties(it.id)
+                        updateBuildings(it.id)
+                        updateClasses(it.id)
+                        updateFeats(it.id)
+                        updateItems(it.id)
+                        updateRaces(it.id)
+                        updateSpells(it.id)
+                        updateLanguages(it.id)
+                        updateTools(it.id)
+                    }
                 }
             }
         }

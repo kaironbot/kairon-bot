@@ -21,7 +21,7 @@ class WaghamFunnyResponseEvent(
 
     override fun register() {
         kord.on<MessageCreateEvent> {
-            if(isAllowed(guildId, message)) {
+            if(isEnabled(guildId) && isAllowed(guildId, message)) {
                 when {
                     Regex("non +vedo +l.ora").matches(message.content.lowercase()) ->
                         "Sono le ${message.timestamp.toLocalDateTime(TimeZone.UTC).hour}:${message.timestamp.toLocalDateTime(TimeZone.UTC).minute}"

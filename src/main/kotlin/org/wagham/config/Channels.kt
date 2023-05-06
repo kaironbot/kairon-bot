@@ -1,6 +1,7 @@
 package org.wagham.config
 
 enum class Channels(val description: String) {
+    ATTENDANCE_CHANNEL("Attendance message channel"),
     LOG_CHANNEL("Logging channel"),
     MESSAGE_CHANNEL("Main message channel"),
     BUILDINGS_CHANNEL("Buildings channel")
