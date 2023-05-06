@@ -32,7 +32,7 @@ class WaghamCheckTierEvent(
 
     override fun register() {
         kord.on<ReactionAddEvent> {
-            if(isAllowed(guildId, message) && emoji.name == "🤖") {
+            if(isEnabled(guildId) && isAllowed(guildId, message) && emoji.name == "🤖") {
                 val guild = guildId ?: throw GuildNotFoundException()
                 val serverConfig = cacheManager.getConfig(guild)
                 db.charactersScope

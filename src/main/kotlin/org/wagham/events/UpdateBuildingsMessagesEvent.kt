@@ -193,8 +193,9 @@ class UpdateBuildingsMessagesEvent(
         ) {
             runBlocking {
                 kord.guilds.collect {
-                    if(it.id.toString() == "699173030722535474")
+                    if(cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
                         updateBuildingsMessages(it.id)
+                    }
                 }
             }
         }

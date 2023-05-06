@@ -36,7 +36,7 @@ fun createGenericEmbedSuccess(message: String, actionRows: MutableList<MessageCo
     fun InteractionResponseModifyBuilder.() {
         embed {
             color = Colors.DEFAULT.value
-            title = "Success"
+            title = "Ok"
             description = message
         }
         components = actionRows

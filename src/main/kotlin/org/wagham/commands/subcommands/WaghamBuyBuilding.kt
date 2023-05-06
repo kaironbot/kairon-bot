@@ -32,7 +32,7 @@ import org.wagham.config.locale.subcommands.BuyBuildingLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.Building
 import org.wagham.db.models.Character
-import org.wagham.db.pipelines.characters.BuildingWithBounty
+import org.wagham.db.pipelines.buildings.BuildingWithBounty
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
 import java.util.concurrent.TimeUnit
@@ -226,7 +226,7 @@ class WaghamBuyBuilding(
                                 data.character.name,
                                 data.building.tbadgeType,
                                 data.building.tbadgeCost
-                                    .takeIf {
+                                    .takeIf { _ ->
                                         data.building.proficiencyReduction == null ||
                                                 !data.character.proficiencies
                                                     .map { it.name }

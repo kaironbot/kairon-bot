@@ -92,6 +92,12 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
             Locale.ITALIAN to "Solo i seguenti ruoli possono accedere a questo comando: ",
             Locale.ENGLISH_GREAT_BRITAIN to "Only the following roles can access this command: "
         )
+    ),
+    UNKNOWN_OP(
+        mapOf(
+            Locale.ITALIAN to "Operazione sconosciuta",
+            Locale.ENGLISH_GREAT_BRITAIN to "Unknown operation"
+        )
     );
 
     override fun locale(language: String) = locale(Locale.fromString(language))

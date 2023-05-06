@@ -27,7 +27,6 @@ class SetAdminGroupCommand(
         Locale.ITALIAN to "Configura il ruolo di amministratore per questo server"
     )
 
-
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,
