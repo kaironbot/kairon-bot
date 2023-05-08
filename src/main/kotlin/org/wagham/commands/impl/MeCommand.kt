@@ -12,23 +12,24 @@ import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.MSLocale
+import org.wagham.config.locale.commands.MeLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 
-@BotCommand("wagham")
-class ExpCommand(
+@BotCommand("all")
+class MeCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SimpleResponseSlashCommand() {
 
-    override val commandName = "exp"
-    override val defaultDescription = "Show your level and exp"
+    override val commandName = "me"
+    override val defaultDescription = "Show information about your character"
     override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Show your level and MS",
-        Locale.ITALIAN to "Mostra il tuo livello e la tua exp"
+        Locale.ENGLISH_GREAT_BRITAIN to "Show information about your character",
+        Locale.ITALIAN to "Mostra informazioni sul tuo personaggio"
     )
 
     override suspend fun registerCommand() {
@@ -39,8 +40,8 @@ class ExpCommand(
             localeDescriptions.forEach{ (locale, description) ->
                 description(locale, description)
             }
-            user("target", MSLocale.TARGET.locale("en")) {
-                MSLocale.TARGET.localeMap.forEach{ (locale, description) ->
+            user("target", MeLocale.TARGET.locale("en")) {
+                MeLocale.TARGET.localeMap.forEach{ (locale, description) ->
                     description(locale, description)
                 }
                 required = false
@@ -60,14 +61,30 @@ class ExpCommand(
                 embed {
                     color = Colors.DEFAULT.value
                     title = character.name
-                    description = character.characterClass
+
+                    field {
+                        name = MeLocale.RACE.locale(locale)
+                        value = "${character.race}"
+                        inline = true
+                    }
+                    field {
+                        name = MeLocale.CLASS.locale(locale)
+                        value = "${character.characterClass}"
+                        inline = true
+                    }
+                    field {
+                        name = MeLocale.ORIGIN.locale(locale)
+                        value = "${character.territory}"
+                        inline = true
+                    }
+
                     field {
                         name = "Exp"
                         value = "${character.ms()}"
                         inline = true
                     }
                     field {
-                        name = MSLocale.LEVEL.locale(locale)
+                        name = MeLocale.LEVEL.locale(locale)
                         value = expTable.expToLevel(character.ms().toFloat())
                         inline = true
                     }
@@ -76,11 +93,23 @@ class ExpCommand(
                         value = expTable.expToTier(character.ms().toFloat())
                         inline = true
                     }
+
+                    field {
+                        name = MeLocale.LANGUAGES.locale(locale)
+                        value = character.languages.takeIf { it.isNotEmpty() }?.joinToString(separator = ", ") { it.name }
+                            ?: MeLocale.NO_LANGUAGES.locale(locale)
+                        inline = true
+                    }
+                    field {
+                        name = MeLocale.TOOLS.locale(locale)
+                        value = character.proficiencies.takeIf { it.isNotEmpty() }?.joinToString(separator = ", ") { it.name }
+                            ?: MeLocale.NO_TOOLS.locale(locale)
+                        inline = true
+                    }
                 }
             }
         } catch (e: NoActiveCharacterException) {
             createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
         }
     }
-
 }
