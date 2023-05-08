@@ -160,21 +160,30 @@ class DailyAttendanceEvent(
                         }
                     }
                 } catch (e: Exception) {
-                    when(e) {
-                        is NoActiveCharacterException -> {
-                            interaction.deferEphemeralResponse().respond(
-                                createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
-                            )
+                    try {
+                        val response = interaction.deferEphemeralResponse()
+                        when(e) {
+                            is NoActiveCharacterException -> {
+                                response.respond(
+                                    createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+                                )
+                            }
+                            else -> {
+                                getLogChannel(guildId).createMessage(
+                                    e.stackTraceToString()
+                                )
+                                response.respond(
+                                    createGenericEmbedError(DailyAttendanceLocale.CANNOT_REGISTER.locale(locale))
+                                )
+                            }
                         }
-                        else -> {
-                            getLogChannel(guildId).createMessage(
-                                e.stackTraceToString()
-                            )
-                            interaction.deferEphemeralResponse().respond(
-                                createGenericEmbedError(DailyAttendanceLocale.CANNOT_REGISTER.locale(locale))
-                            )
+                    } catch (_: Exception) {
+                        if(e !is NoActiveCharacterException) {
+                            getLogChannel(guildId).createMessage(e.stackTraceToString())
                         }
+
                     }
+
                 }
             }
         }
