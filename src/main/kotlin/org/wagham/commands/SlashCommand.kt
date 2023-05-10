@@ -52,7 +52,7 @@ abstract class SlashCommand<T: RequestBuilder<*>> : Command<T> {
                     } catch (_: Exception) {
                         interaction.channel.createMessage {
                             embed {
-                                title = "Error"
+                                title = "Error in ${this::class.simpleName}"
                                 description = e.message ?: e.stackTraceToString()
                                 color = Colors.ERROR.value
                             }
