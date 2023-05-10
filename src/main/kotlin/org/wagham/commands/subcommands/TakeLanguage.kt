@@ -4,53 +4,52 @@ import dev.kord.common.Locale
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
-import dev.kord.rest.builder.interaction.*
+import dev.kord.rest.builder.interaction.RootInputChatBuilder
+import dev.kord.rest.builder.interaction.string
+import dev.kord.rest.builder.interaction.subCommand
+import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.TakeCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.subcommands.TakeItemLocale
+import org.wagham.config.locale.subcommands.TakeLanguageLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.LanguageProficiency
+import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", TakeCommand::class)
-class TakeItem(
+class TakeLanguage(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
-    override val commandName = "item"
-    override val defaultDescription = "Take an item from a player"
+    override val commandName = "language"
+    override val defaultDescription = "Take a language from a player"
     override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Take an item from a player",
-        Locale.ITALIAN to "Togli un oggetto a un giocatore"
+        Locale.ENGLISH_GREAT_BRITAIN to "Assign a language from a player",
+        Locale.ITALIAN to "Togli un linguaggio a un giocatore"
     )
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
             description(locale, description)
         }
-        string("item", TakeItemLocale.ITEM.locale("en")) {
-            TakeItemLocale.ITEM.localeMap.forEach{ (locale, description) ->
+        string("language", TakeLanguageLocale.LANGUAGE.locale("en")) {
+            TakeLanguageLocale.LANGUAGE.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             required = true
         }
-        integer("amount", TakeItemLocale.AMOUNT.locale("en")) {
-            TakeItemLocale.AMOUNT.localeMap.forEach{ (locale, description) ->
-                description(locale, description)
-            }
-            required = true
-        }
-        user("target", TakeItemLocale.TARGET.locale("en")) {
-            TakeItemLocale.TARGET.localeMap.forEach{ (locale, description) ->
+        user("target", TakeLanguageLocale.TARGET.locale("en")) {
+            TakeLanguageLocale.TARGET.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             required = true
@@ -58,25 +57,34 @@ class TakeItem(
         }
     }
 
-    override suspend fun registerCommand() { }
+    override suspend fun registerCommand() {}
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        val amount = event.interaction.command.integers["amount"]?.toInt() ?: throw IllegalStateException("Amount not found")
-        val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not found")
         val target = event.interaction.command.users["target"]?.id ?: throw IllegalStateException("Target not found")
-        return try {
-            val targetCharacter = db.charactersScope.getActiveCharacter(guildId, target.toString())
-            if ( (targetCharacter.inventory[item] ?: 0) >= amount) {
-                db.transaction(guildId) { s ->
-                    db.charactersScope.removeItemFromInventory(s, guildId, targetCharacter.id, item, amount)
-                }.let {
-                    if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                    else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+        val language = event.interaction.command.strings["language"]
+            ?.let { l ->
+                cacheManager.getCollectionOfType<LanguageProficiency>(guildId).firstOrNull {
+                    it.name == l
                 }
-            } else createGenericEmbedError("${TakeItemLocale.NOT_FOUND.locale(locale)}$item")
-
+            } ?: throw IllegalStateException(TakeLanguageLocale.NOT_FOUND.locale(locale))
+        return try {
+            val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
+            db.transaction(guildId) { s ->
+                db.charactersScope.removeLanguageFromCharacter(
+                    s,
+                    guildId,
+                    character.id,
+                    ProficiencyStub(language.id, language.name)
+                )
+            }.let {
+                when {
+                    it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
+                    it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+                    else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+                }
+            }
         } catch (e: NoActiveCharacterException) {
             createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
         }
@@ -89,6 +97,4 @@ class TakeItem(
         val response = event.interaction.deferPublicResponse()
         response.respond(builder)
     }
-
-
 }
