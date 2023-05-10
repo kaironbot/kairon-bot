@@ -17,6 +17,7 @@ import org.wagham.config.Channels
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Announcement
 import org.wagham.db.models.AnnouncementType
+import org.wagham.utils.daysToToday
 import org.wagham.utils.getStartingInstantOnNextDay
 import org.wagham.utils.sendTextMessage
 import java.text.SimpleDateFormat
@@ -100,12 +101,13 @@ class WaghamWeeklyRewardsEvent(
         val rewardsLog = RewardsLog(
             weekStart,
             weekEnd,
-            db.sessionScope.getTimePassedInGame(guildId.toString(), weekStart, weekEnd),
-            getMasterRewards(guildId, weekStart, weekEnd),
-            getDelegateRewards(guildId)
+            70,
+            mapOf(),// getMasterRewards(guildId, weekStart, weekEnd),
+            mapOf()// getDelegateRewards(guildId)
         )
         val expTable = cacheManager.getExpTable(guildId)
 
+        /*
         // For each active player
         val updatedLog = db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
             .filter { it.buildings.isNotEmpty() }
@@ -139,51 +141,66 @@ class WaghamWeeklyRewardsEvent(
                 )
             }
 
-//            val transactionResult = db.transaction(guildId.toString()) { session ->
-//                db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
-//                    .fold(true) { status, character ->
-//                        val moneyToGive = (updatedLog.master[character.player]?.toFloat() ?: 0f) +
-//                                (updatedLog.delegates[character.player]?.toFloat() ?: 0f) +
-//                                (updatedLog.playerRewards[character.player]
-//                                    ?.values
-//                                    ?.map{ it.money }?.sum() ?: 0f)
-//                        val moneyResult =
-//                            db.charactersScope.addMoney(session, guildId.toString(), character.name, moneyToGive)
-//
-//                        val itemsToGive = updatedLog.playerRewards[character.player]?.values
-//                            ?.flatMap { it.items.entries }
-//                            ?.fold(emptyMap<String, Int>()) { acc, it ->
-//                                acc + (it.key to (acc[it.key]?.plus(it.value) ?: it.value))
-//                            } ?: emptyMap()
-//                        val itemsResult = itemsToGive.entries.fold(true) { acc, it ->
-//                            acc && db.charactersScope.addItemToInventory(
-//                                session,
-//                                guildId.toString(),
-//                                character.name,
-//                                it.key,
-//                                it.value
-//                            )
-//                        }
-//                        status && moneyResult && itemsResult
-//                    }
-//            }
+         */
+        val updatedLog = rewardsLog
+        val transactionResult = db.transaction(guildId.toString()) { session ->
+            db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
+                .filter { character ->
+                    (character.lastPlayed ?: character.created)?.let {
+                        daysToToday(it) <= 30
+                    } ?: false
+                }.fold(true) { status, character ->
+                    val moneyToGive = (updatedLog.master[character.player]?.toFloat() ?: 0f) +
+                            (updatedLog.delegates[character.player]?.toFloat() ?: 0f) +
+                            (updatedLog.playerRewards[character.player]
+                                ?.values
+                                ?.map{ it.money }?.sum() ?: 0f)
+                    val moneyResult =
+                        db.charactersScope.addMoney(session, guildId.toString(), character.id, moneyToGive)
 
-        getLogChannel(guildId).let { channel ->
-            channel.sendTextMessage("Dlin-Dlon! TBadge, premi master e stipendi sono stati assegnati! Godetevi le vostre ricchezze, maledetti! :moneybag:")
-            channel.sendTextMessage(updatedLog.rewardsMessage())
-            logger.info("LLL: Starting jackpot message")
-            channel.sendTextMessage(updatedLog.jackpotMessage())
-            logger.info("LLL: End jackpot message")
+                    val itemsToGive = updatedLog.playerRewards[character.player]?.values
+                        ?.flatMap { it.items.entries }
+                        ?.fold(emptyMap<String, Int>()) { acc, it ->
+                            acc + (it.key to (acc[it.key]?.plus(it.value) ?: it.value))
+                        } ?: emptyMap()
+                    val itemsResult = itemsToGive.entries.fold(true) { acc, it ->
+                        acc && db.charactersScope.addItemToInventory(
+                            session,
+                            guildId.toString(),
+                            character.id,
+                            it.key,
+                            it.value
+                        )
+                    }
+
+                    val tier = expTable.expToTier(character.ms().toFloat())
+                    val tBadgeResults = db.charactersScope.addItemToInventory(
+                        session,
+                        guildId.toString(),
+                        character.id,
+                        "1DayT${tier}Badge",
+                        updatedLog.tBadge
+                    )
+
+                    status && moneyResult && itemsResult && tBadgeResults
+                }
         }
 
+        getChannel(guildId, Channels.LOG_CHANNEL).sendTextMessage(buildString {
+            if (transactionResult.committed) append("Succesfully assigned everything")
+            else append("Error ${transactionResult.exception?.stackTraceToString()}")
+        })
+        getChannel(guildId, Channels.MESSAGE_CHANNEL).sendTextMessage("Dlin-Dlon! TBadge, premi master e stipendi sono stati assegnati! Godetevi le vostre ricchezze, maledetti! :moneybag:")
+        getChannel(guildId, Channels.BOT_CHANNEL).sendTextMessage(updatedLog.rewardsMessage())
+        getChannel(guildId, Channels.MESSAGE_CHANNEL).sendTextMessage(updatedLog.jackpotMessage())
     }
 
-    private suspend fun getLogChannel(guildId: Snowflake) =
-        cacheManager.getConfig(guildId).channels[Channels.LOG_CHANNEL.name]
+    private suspend fun getChannel(guildId: Snowflake, channelType: Channels) =
+        cacheManager.getConfig(guildId).channels[channelType.name]
             ?.let { Snowflake(it) }
             ?.let {  kord.defaultSupplier.getChannel(it).asChannelOf<MessageChannel>() }
             ?: kord.defaultSupplier.getGuild(guildId).getSystemChannel()
-            ?: throw Exception("Log channel not found")
+            ?: throw Exception("$channelType channel not found")
 
     override fun register() {
         Timer(eventId).schedule(
@@ -195,9 +212,11 @@ class WaghamWeeklyRewardsEvent(
             7 * 24 * 60 * 60 * 1000
         ) {
             runBlocking {
-                kord.guilds
-                    .first { it.id.toString() == "699173030722535474" }
-                    .let { giveRewards(it.id) }
+                kord.guilds.collect {
+                    if(cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
+                        giveRewards(it.id)
+                    }
+                }
             }
         }
     }
@@ -205,7 +224,7 @@ class WaghamWeeklyRewardsEvent(
     private data class RewardsLog(
         val weekStart: Date,
         val weekEnd: Date,
-        val tBadge: Long,
+        val tBadge: Int,
         val master: Map<String, Int>,
         val delegates: Map<String, Int> = emptyMap(),
         val playerRewards: Map<String, Map<String, BuildingReward>> = emptyMap()
@@ -216,7 +235,6 @@ class WaghamWeeklyRewardsEvent(
             playerRewards.forEach { (player, rewards) ->
                 rewards.values
                     .mapNotNull {
-                        println(it)
                         it.announcement
                     }
                     .forEach { (building, announcement) ->
