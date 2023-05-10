@@ -187,7 +187,7 @@ class WaghamWeeklyRewardsEvent(
         }
 
         getChannel(guildId, Channels.LOG_CHANNEL).sendTextMessage(buildString {
-            if (transactionResult.committed) append("Succesfully assigned everything")
+            if (transactionResult.committed) append("Successfully assigned everything")
             else append("Error ${transactionResult.exception?.stackTraceToString()}")
         })
         getChannel(guildId, Channels.MESSAGE_CHANNEL).sendTextMessage("Dlin-Dlon! TBadge, premi master e stipendi sono stati assegnati! Godetevi le vostre ricchezze, maledetti! :moneybag:")
