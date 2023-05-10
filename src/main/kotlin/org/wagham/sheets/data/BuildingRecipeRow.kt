@@ -34,8 +34,12 @@ class BuildingRecipeRow(
                                 buildingRecipe = BuildingRecipe(
                                     name = it["IDEdificio"]!!,
                                     moCost = it["Costo mo craft"]!!.formatToInt(),
-                                    tbadgeCost = it["Costo Tbadge"]!!.formatToInt(),
-                                    tbadgeType = "1Day${it["IDEdificio"]!!.split(" ".last())}Badge",
+                                    type = it["TIPO"]!!,
+                                    tier = it["TIER"]!!,
+                                    materials = mapOf(
+                                        "1Day${it["TIER"]!!}Badge" to
+                                                it["Costo Tbadge"]!!.formatToInt()
+                                    ),
                                     proficiencyReduction = it["Proficiency_Tbadge_Discount"]!!.takeIf { it.isNotBlank() },
                                     bountyId = it["IDPremio"]!!,
                                     size = it["Dimensioni mappa (5feetx5Feet)"]!!,
