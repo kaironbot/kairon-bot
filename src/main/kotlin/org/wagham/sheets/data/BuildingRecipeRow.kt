@@ -14,7 +14,7 @@ class BuildingRecipeRow(
     companion object {
 
         private val sheetId = System.getenv("SHEET_ID")!!
-        private const val range = "EDIFICI_BOT!A1:I40"
+        private const val range = "EDIFICI_BOT!A1:K40"
 
         fun parseRows(): List<BuildingRecipeRow> =
             GoogleSheetsUtils
