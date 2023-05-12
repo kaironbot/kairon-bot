@@ -217,9 +217,7 @@ class UpdateDatabasesEvent(
 
     override fun register() {
         Timer(eventId).schedule(
-            getStartingInstantOnNextDay(21, 59, 0){
-                it.minusDays(1)
-            }.also {
+            getStartingInstantOnNextDay(1, 0, 0).also {
                 logger.info { "$eventId will start on $it"  }
             },
             24 * 60 * 60 * 1000
