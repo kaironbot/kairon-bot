@@ -187,8 +187,7 @@ class WaghamWeeklyRewardsEvent(
                         updatedLog.tBadge
                     )
 
-                    // status && moneyResult && itemsResult && tBadgeResults
-                    false
+                    status && moneyResult && itemsResult && tBadgeResults
                 }
         }
 
@@ -210,9 +209,8 @@ class WaghamWeeklyRewardsEvent(
 
     override fun register() {
         Timer(eventId).schedule(
-            getStartingInstantOnNextDay(22, 0,0){
-                // it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
-                it.minusDays(1)
+            getStartingInstantOnNextDay(18, 0,0){
+                it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
             }.also {
                 logger.info { "$eventId will start on $it"  }
             },
