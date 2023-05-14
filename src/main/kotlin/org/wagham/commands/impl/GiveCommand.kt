@@ -14,6 +14,7 @@ import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.GiveLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.Item
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
@@ -68,17 +69,19 @@ class GiveCommand(
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
         val sender = event.interaction.user.id
         val amount = event.interaction.command.integers["quantity"]?.toInt() ?: throw IllegalStateException("Amount not set")
-        val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not set")
+        val item = cacheManager.getCollectionOfType<Item>(guildId).firstOrNull {
+            event.interaction.command.strings["item"] == it.name
+        } ?: throw IllegalStateException("Item not found")
         val target = event.interaction.command.users["target"]?.id ?: throw IllegalStateException("Target not set")
         return try {
             val character = db.charactersScope.getActiveCharacter(guildId, sender.toString())
-            if((character.inventory[item] ?: 0) < amount)
-                createGenericEmbedError("${GiveLocale.NOT_ENOUGH_ITEMS.locale(locale)} $item")
+            if((character.inventory[item.name] ?: 0) < amount)
+                createGenericEmbedError("${GiveLocale.NOT_ENOUGH_ITEMS.locale(locale)} ${item.name}")
             else {
                 db.transaction(guildId) { s ->
                     val targetCharacter = db.charactersScope.getActiveCharacter(guildId, target.toString())
-                    db.charactersScope.removeItemFromInventory(s, guildId, character.id, item, amount) &&
-                     db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, item, amount)
+                    db.charactersScope.removeItemFromInventory(s, guildId, character.id, item.name, amount) &&
+                     db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, item.name, (amount*item.giveRatio).toInt())
                 }.let {
                     if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
                     else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")

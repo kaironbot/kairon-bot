@@ -4,6 +4,18 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class MeLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    BUILDINGS(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Buildings",
+            Locale.ITALIAN to "Edifici"
+        )
+    ),
+    BUILDINGS_DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Buildings owned by this character",
+            Locale.ITALIAN to "Edifici di questo personaggio"
+        )
+    ),
     CLASS(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Class",

@@ -15,9 +15,9 @@ class ItemCommand (
 ) : SlashCommandWithSubcommands(kord, db, cacheManager) {
 
     override val commandName = "item"
-    override val defaultDescription = "Buy and sell items"
+    override val defaultDescription = "Buy, sell and craft items"
     override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Buy and sell items",
+        Locale.ENGLISH_GREAT_BRITAIN to "Buy, sell and craft items",
         Locale.ITALIAN to "Compra e vendi oggetti"
     )
 

@@ -106,6 +106,20 @@ class MeCommand(
                             ?: MeLocale.NO_TOOLS.locale(locale)
                         inline = true
                     }
+                    field {
+                        name = MeLocale.BUILDINGS.locale(locale)
+                        value = MeLocale.BUILDINGS_DESCRIPTION.locale(locale)
+                        inline = false
+                    }
+                    character.buildings.forEach { (compositeId, buildings) ->
+                        buildings.forEach { building ->
+                            field {
+                                name = building.name
+                                value = compositeId.split(":").first()
+                                inline = true
+                            }
+                        }
+                    }
                 }
             }
         } catch (e: NoActiveCharacterException) {
