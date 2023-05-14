@@ -1,37 +1,5 @@
 package org.wagham.commands.subcommands
 
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.benmanes.caffeine.cache.Caffeine
-import dev.kord.common.Locale
-import dev.kord.common.entity.ButtonStyle
-import dev.kord.common.entity.Snowflake
-import dev.kord.core.Kord
-import dev.kord.core.behavior.interaction.response.edit
-import dev.kord.core.behavior.interaction.response.respond
-import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
-import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
-import dev.kord.core.on
-import dev.kord.rest.builder.interaction.RootInputChatBuilder
-import dev.kord.rest.builder.interaction.string
-import dev.kord.rest.builder.interaction.subCommand
-import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
-import org.wagham.annotations.BotSubcommand
-import org.wagham.commands.impl.BuyCommand
-import org.wagham.commands.SubCommand
-import org.wagham.components.CacheManager
-import org.wagham.config.Colors
-import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.subcommands.BuyProficiencyLocale
-import org.wagham.db.KabotMultiDBClient
-import org.wagham.db.exceptions.NoActiveCharacterException
-import org.wagham.exceptions.GuildNotFoundException
-import org.wagham.utils.createGenericEmbedError
-import org.wagham.utils.createGenericEmbedSuccess
-import org.wagham.utils.levenshteinDistance
-import java.util.concurrent.TimeUnit
-
 //class WaghamBuyProficiency(
 //    override val kord: Kord,
 //    override val db: KabotMultiDBClient,

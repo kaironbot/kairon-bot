@@ -226,7 +226,7 @@ class UpdateDatabasesEvent(
                 kord.guilds.collect {
                     if(cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
                         updateAnnouncements(it.id)
-                        updateBackgrounds(it.id)
+                        // updateBackgrounds(it.id)
                         updateBounties(it.id)
                         updateBuildings(it.id)
                         updateClasses(it.id)

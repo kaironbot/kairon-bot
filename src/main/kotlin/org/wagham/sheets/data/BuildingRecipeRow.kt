@@ -14,7 +14,7 @@ class BuildingRecipeRow(
     companion object {
 
         private val sheetId = System.getenv("SHEET_ID")!!
-        private const val range = "EDIFICI_BOT!A1:K40"
+        private const val range = "EDIFICI_BOT!A1:M40"
 
         fun parseRows(): List<BuildingRecipeRow> =
             GoogleSheetsUtils
@@ -40,6 +40,8 @@ class BuildingRecipeRow(
                                         "1Day${it["TIER"]!!}Badge" to
                                                 it["Costo Tbadge"]!!.formatToInt()
                                     ),
+                                    upgradeId = it["UPGRADE_ID"]!!.takeIf { it.isNotBlank() },
+                                    upgradeOnly = it["UPGRADE_ONLY"]!! == "TRUE",
                                     proficiencyReduction = it["Proficiency_Tbadge_Discount"]!!.takeIf { it.isNotBlank() },
                                     bountyId = it["IDPremio"]!!,
                                     size = it["Dimensioni mappa (5feetx5Feet)"]!!,

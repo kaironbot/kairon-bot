@@ -63,7 +63,7 @@ class WaghamWeeklyRewardsEvent(
             }.map {
                 val character = db.charactersScope.getCharacter(guildId.toString(), it.key)
                 val tier = expTable.expToTier(character.ms().toFloat())
-                character.player to (tierRewards[tier]!! * it.value)
+                character.player to (tierRewards[tier]!! * 2 * it.value)
             }.toMap()
     }
 
@@ -73,7 +73,7 @@ class WaghamWeeklyRewardsEvent(
             .getGuildOrNull(guildId)
             ?.members
             ?.filter { m ->
-                m.roles.toList().any { it.name == "Delegato di Gilda" }
+                m.roles.toList().any { it.name == "Delegato" }
             }?.toList()
             ?.mapNotNull {
                 try {
@@ -85,6 +85,17 @@ class WaghamWeeklyRewardsEvent(
                 }
             }?.toMap() ?: emptyMap()
     }
+
+    private fun getAllEligibleCharacters(guildId: Snowflake) =
+        db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
+            .filter { character ->
+                (character.lastPlayed ?: character.created)?.let {
+                    daysToToday(it) <= 30
+                } ?: false
+            }
+
+    private fun getBuildingTierAsInt(buildingId: String) =
+        buildingId.split(":").last().last().digitToIntOrNull() ?: 6
 
     private suspend fun giveRewards(guildId: Snowflake) {
         val bounties = db.buildingsScope.getBuildingsWithBounty(guildId.toString())
@@ -102,14 +113,14 @@ class WaghamWeeklyRewardsEvent(
             weekStart,
             weekEnd,
             70,
-            mapOf(),// getMasterRewards(guildId, weekStart, weekEnd),
-            mapOf()// getDelegateRewards(guildId)
+            getMasterRewards(guildId, weekStart, weekEnd),
+            getDelegateRewards(guildId)
         )
         val expTable = cacheManager.getExpTable(guildId)
 
-        /*
+
         // For each active player
-        val updatedLog = db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
+        val updatedLog = getAllEligibleCharacters(guildId)
             .filter { it.buildings.isNotEmpty() }
             .fold(rewardsLog) { log, character ->
                 val tier = expTable.expToTier(character.ms().toFloat())
@@ -117,9 +128,10 @@ class WaghamWeeklyRewardsEvent(
                 // Calculates the buildings rewards
                 val buildingsLog = character.buildings.entries
                     .filter { it.value.isNotEmpty() &&
-                            (it.key.last().digitToIntOrNull() ?: 6) <= tier.toInt()
-                    }.fold(emptyMap<String, BuildingReward>()) { bLog, (buildingType, buildings) ->
-                        val prize = bounties[buildingType]!!.sample()
+                            getBuildingTierAsInt(it.key) <= tier.toInt()
+                    }.fold(emptyMap<String, BuildingReward>()) { bLog, (buildingId, buildings) ->
+                        val buildingName = buildingId.split(":").first()
+                        val prize = bounties[buildingName]!!.sample()
                         val additionalItem = prize.prizeList.takeIf { it.isNotEmpty() }?.let { p ->
                             DiscreteProbabilityCollectionSampler(
                                 RandomSource.XO_RO_SHI_RO_128_PP.create(),
@@ -134,22 +146,15 @@ class WaghamWeeklyRewardsEvent(
                                     (additionalItem?.let { mapOf(it.itemId to it.qty) } ?: emptyMap())
 
                         )
-                        bLog + (buildingType to buildingRewardLog)
+                        bLog + (buildingName to buildingRewardLog)
                     }
                 log.copy(
                     playerRewards = log.playerRewards + (character.player to buildingsLog)
                 )
             }
 
-         */
-        val updatedLog = rewardsLog
         val transactionResult = db.transaction(guildId.toString()) { session ->
-            db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
-                .filter { character ->
-                    (character.lastPlayed ?: character.created)?.let {
-                        daysToToday(it) <= 30
-                    } ?: false
-                }.fold(true) { status, character ->
+            getAllEligibleCharacters(guildId).fold(true) { status, character ->
                     val moneyToGive = (updatedLog.master[character.player]?.toFloat() ?: 0f) +
                             (updatedLog.delegates[character.player]?.toFloat() ?: 0f) +
                             (updatedLog.playerRewards[character.player]
@@ -182,7 +187,8 @@ class WaghamWeeklyRewardsEvent(
                         updatedLog.tBadge
                     )
 
-                    status && moneyResult && itemsResult && tBadgeResults
+                    // status && moneyResult && itemsResult && tBadgeResults
+                    false
                 }
         }
 
@@ -190,9 +196,9 @@ class WaghamWeeklyRewardsEvent(
             if (transactionResult.committed) append("Successfully assigned everything")
             else append("Error ${transactionResult.exception?.stackTraceToString()}")
         })
-        getChannel(guildId, Channels.MESSAGE_CHANNEL).sendTextMessage("Dlin-Dlon! TBadge, premi master e stipendi sono stati assegnati! Godetevi le vostre ricchezze, maledetti! :moneybag:")
-        getChannel(guildId, Channels.BOT_CHANNEL).sendTextMessage(updatedLog.rewardsMessage())
-        getChannel(guildId, Channels.MESSAGE_CHANNEL).sendTextMessage(updatedLog.jackpotMessage())
+        getChannel(guildId, Channels.LOG_CHANNEL).sendTextMessage("Dlin-Dlon! TBadge, premi master e stipendi sono stati assegnati! Godetevi le vostre ricchezze, maledetti! :moneybag:")
+        getChannel(guildId, Channels.LOG_CHANNEL).sendTextMessage(updatedLog.rewardsMessage())
+        getChannel(guildId, Channels.LOG_CHANNEL).sendTextMessage(updatedLog.jackpotMessage())
     }
 
     private suspend fun getChannel(guildId: Snowflake, channelType: Channels) =
@@ -204,8 +210,9 @@ class WaghamWeeklyRewardsEvent(
 
     override fun register() {
         Timer(eventId).schedule(
-            getStartingInstantOnNextDay(19, 0,0){
-                it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
+            getStartingInstantOnNextDay(22, 0,0){
+                // it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
+                it.minusDays(1)
             }.also {
                 logger.info { "$eventId will start on $it"  }
             },
