@@ -195,9 +195,9 @@ class WaghamWeeklyRewardsEvent(
             if (transactionResult.committed) append("Successfully assigned everything")
             else append("Error ${transactionResult.exception?.stackTraceToString()}")
         })
-        getChannel(guildId, Channels.LOG_CHANNEL).sendTextMessage("Dlin-Dlon! TBadge, premi master e stipendi sono stati assegnati! Godetevi le vostre ricchezze, maledetti! :moneybag:")
-        getChannel(guildId, Channels.LOG_CHANNEL).sendTextMessage(updatedLog.rewardsMessage())
-        getChannel(guildId, Channels.LOG_CHANNEL).sendTextMessage(updatedLog.jackpotMessage())
+        getChannel(guildId, Channels.MESSAGE_CHANNEL).sendTextMessage("Dlin-Dlon! TBadge, premi master e stipendi sono stati assegnati! Godetevi le vostre ricchezze, maledetti! :moneybag:")
+        getChannel(guildId, Channels.BOT_CHANNEL).sendTextMessage(updatedLog.rewardsMessage())
+        getChannel(guildId, Channels.MESSAGE_CHANNEL).sendTextMessage(updatedLog.jackpotMessage())
     }
 
     private suspend fun getChannel(guildId: Snowflake, channelType: Channels) =
