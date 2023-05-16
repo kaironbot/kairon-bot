@@ -17,6 +17,7 @@ import org.wagham.config.Channels
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Announcement
 import org.wagham.db.models.AnnouncementType
+import org.wagham.db.utils.dateAtMidnight
 import org.wagham.utils.daysToToday
 import org.wagham.utils.getStartingInstantOnNextDay
 import org.wagham.utils.sendTextMessage
@@ -46,7 +47,11 @@ class WaghamWeeklyRewardsEvent(
 
     private fun getWeekStartAndEnd() : Pair<Date, Date>{
         val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        calendar[Calendar.HOUR_OF_DAY] = 0
+        calendar[Calendar.MINUTE] = 0
+        calendar[Calendar.SECOND] = 0
+        calendar[Calendar.MILLISECOND] = 0
+        calendar[Calendar.DAY_OF_WEEK] = Calendar.MONDAY
         calendar.add(Calendar.DAY_OF_WEEK, -7)
         val firstDay = calendar.time
         calendar.add(Calendar.DAY_OF_WEEK, 6)
@@ -160,8 +165,12 @@ class WaghamWeeklyRewardsEvent(
                             (updatedLog.playerRewards[character.player]
                                 ?.values
                                 ?.map{ it.money }?.sum() ?: 0f)
-                    val moneyResult =
-                        db.charactersScope.addMoney(session, guildId.toString(), character.id, moneyToGive)
+                    val moneyResult = if(moneyToGive > 0f) {
+                        db.charactersScope.addMoney(session, guildId.toString(), character.id, moneyToGive).also {
+                            if(!it) logger.warn { "Money failure: ${character.id}" }
+                        }
+                    } else true
+
 
                     val itemsToGive = updatedLog.playerRewards[character.player]?.values
                         ?.flatMap { it.items.entries }
@@ -175,7 +184,9 @@ class WaghamWeeklyRewardsEvent(
                             character.id,
                             it.key,
                             it.value
-                        )
+                        ).also { res ->
+                            if(!res) logger.warn { "Item failure (${it.key}): ${character.id}" }
+                        }
                     }
 
                     val tier = expTable.expToTier(character.ms().toFloat())
@@ -185,8 +196,9 @@ class WaghamWeeklyRewardsEvent(
                         character.id,
                         "1DayT${tier}Badge",
                         updatedLog.tBadge
-                    )
-
+                    ).also {
+                        if(!it) logger.warn { "Tbadge failure: ${character.id}" }
+                    }
                     status && moneyResult && itemsResult && tBadgeResults
                 }
         }
@@ -209,8 +221,9 @@ class WaghamWeeklyRewardsEvent(
 
     override fun register() {
         Timer(eventId).schedule(
-            getStartingInstantOnNextDay(18, 0,0){
-                it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
+            getStartingInstantOnNextDay(22, 0,0){
+                //it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
+                it.minusDays(1)
             }.also {
                 logger.info { "$eventId will start on $it"  }
             },
