@@ -91,7 +91,7 @@ class ItemBuyCommand(
 
     private suspend fun assignItemToCharacter(guildId: String, item: Item, amount: Int, character: String, locale: String) =
         db.transaction(guildId) { s ->
-            db.charactersScope.subtractMoney(s, guildId, character, item.buyPrice*amount) &&
+            db.charactersScope.subtractMoney(s, guildId, character, item.buy!!.cost*amount) &&
                 db.charactersScope.addItemToInventory(s, guildId, character, item.name, amount)
         }.let {
             when {
@@ -104,8 +104,8 @@ class ItemBuyCommand(
     private suspend fun checkRequirementsAndBuyItem(guildId: String, item: Item, amount: Int, player: Snowflake, locale: String): InteractionResponseModifyBuilder.() -> Unit {
         val character = db.charactersScope.getActiveCharacter(guildId, player.toString())
         return when {
-            item.buyPrice <= 0 -> createGenericEmbedError(ItemBuyLocale.CANNOT_BUY.locale(locale))
-            character.money < (item.buyPrice * amount) -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
+            item.buy == null -> createGenericEmbedError(ItemBuyLocale.CANNOT_BUY.locale(locale))
+            character.money < (item.buy!!.cost * amount) -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
             else -> assignItemToCharacter(guildId, item, amount, character.id, locale)
         }
     }

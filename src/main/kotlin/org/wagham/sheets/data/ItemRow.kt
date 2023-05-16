@@ -1,8 +1,9 @@
 package org.wagham.sheets.data
 
-import org.wagham.db.models.Craft
 import org.wagham.db.models.Item
-import org.wagham.db.models.ReputationRequirement
+import org.wagham.db.models.embed.BuySellRequirement
+import org.wagham.db.models.embed.CraftRequirement
+import org.wagham.db.models.embed.ReputationRequirement
 import org.wagham.sheets.GoogleSheetsUtils
 import org.wagham.sheets.getHeaderMapping
 import org.wagham.utils.formatToFloat
@@ -17,6 +18,9 @@ class ItemRow(
 
         private val sheetId = System.getenv("SHEET_ID")!!
         private const val range = "ITEM_BOT!B1:Z2000"
+
+        private fun baseIngredients(tier: String?, qty: Int): Map<String, Int> =
+            mapOf("1Day${tier}Badge" to qty).takeIf { tier != null && qty > 0 } ?: emptyMap()
 
         fun parseRows(): List<ItemRow> =
             GoogleSheetsUtils
@@ -35,49 +39,48 @@ class ItemRow(
                                 },
                                 item = Item(
                                     name = it["name"]!!,
-                                    sellPrice = it["sell_price"]!!.formatToFloat(),
-                                    sellProficiencies = it["sell_proficiencies"]!!.split(","),
-                                    sellBuildingRequirement = it["Sell_BuildingNeeded"]!!,
-                                    buyPrice = it["buy_price"]!!.formatToFloat(),
+                                    sell = BuySellRequirement(
+                                            it["sell_price"]!!.formatToFloat(),
+                                            it["Sell_BuildingNeeded"]!!.split(",").toSet(),
+                                            it["sell_proficiencies"]!!.split(",").toSet()
+                                        ).takeIf { it.cost > 0 },
+                                    buy = BuySellRequirement(
+                                        it["buy_price"]!!.formatToFloat(),
+                                        reputation = setOfNotNull(
+                                            ReputationRequirement(
+                                                territory = it["Craft_Rep_Popolo"]!!,
+                                                minValue = it["Craft_Rep_Popolo_Value"]!!.formatToInt()
+                                            ).takeIf { req -> req.territory.isNotBlank() }
+                                        )
+                                    ).takeIf { it.cost > 0 },
                                     usable = (it["is_usable"]!!.formatToInt()) == 1,
                                     link = it["Link"]!!,
                                     category = it["category"]!!,
                                     manual = it["Sorgente"]!!,
+                                    tier = it["Tier"]!!.takeIf { tier -> tier != "None" },
                                     attunement = (it["Attunement"]!!.formatToInt()) == 1,
                                     giveRatio = it["give_ratio"]!!.formatToFloat(),
-                                    buyReputationRequirement = ReputationRequirement(
-                                        territory = it["Craft_Rep_Popolo"]!!,
-                                        minValue = it["Craft_Rep_Popolo_Value"]!!.formatToInt()
-                                    ).takeIf { req -> req.territory.isNotBlank() },
-                                    craft = Craft(
-                                        craftMoCost = it["craft_mo_cost"]!!.formatToFloat(),
-                                        tier = it["Tier"]!!.takeIf { tier -> tier != "None" },
-                                        craftTools = it["craft_tools"]!!.split(","),
-                                        craftTBadge = it["Craft_tbadge"]!!.formatToInt(),
-                                        craftTime = it["craft_time"]!!.formatToInt(),
-                                        craftTotalCost = it["craft_total_cost"]!!.formatToFloat(),
-                                        craftMinQty = it["craft_min_qty"]!!.formatToInt(),
-                                        craftMaxQty = it["craft_max_qty"]!!.formatToInt(),
-                                        craftReputationRequirement = ReputationRequirement(
-                                            territory = it["Craft_Rep_Popolo"]!!,
-                                            minValue = it["Craft_Rep_Popolo_Value"]!!.formatToInt()
-                                        ).takeIf { req -> req.territory.isNotBlank() },
-                                        buildingRequired = it["Craft_BuildingInRecipe"]!!,
-                                        ingredients = it["craft_ingredients"]!!
+                                    craft = CraftRequirement(
+                                        it["craft_time"]!!.formatToInt().toLong().takeIf { it > 0 },
+                                        it["craft_min_qty"]!!.formatToInt(),
+                                        it["craft_max_qty"]!!.formatToInt(),
+                                        it["craft_ingredients"]!!
                                             .split(",")
-                                            .fold(emptyMap()) { map, ing ->
+                                            .fold(baseIngredients(it["Tier"]!!.takeIf { tier -> tier != "None" }, it["Craft_tbadge"]!!.formatToInt())) { map, ing ->
                                                 val matches = Regex("(.+)x([0-9]+)").find(ing)
                                                 if(matches != null && matches.groupValues.size == 3)
                                                     map + (matches.groupValues[1] to matches.groupValues[2].formatToInt())
                                                 else map
-                                            }
+                                            },
+                                        it["craft_mo_cost"]!!.formatToFloat(),
+                                        it["Craft_BuildingInRecipe"]!!.split(",").toSet(),
+                                        it["craft_tools"]!!.split(",").toSet(),
+
                                     )
                                 )
                             )
                         }
                 }
-
-
 
     }
 }
