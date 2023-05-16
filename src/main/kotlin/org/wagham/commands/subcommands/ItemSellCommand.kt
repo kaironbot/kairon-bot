@@ -60,7 +60,7 @@ class ItemSellCommand(
 
     private suspend fun removeItemFromCharacter(guildId: String, item: Item, amount: Int, character: String, locale: String) =
         db.transaction(guildId) { s ->
-            db.charactersScope.addMoney(s, guildId, character, item.sellPrice*amount) &&
+            db.charactersScope.addMoney(s, guildId, character, item.sell!!.cost*amount) &&
                     db.charactersScope.removeItemFromInventory(s, guildId, character, item.name, amount)
         }.let {
             when {
@@ -73,7 +73,7 @@ class ItemSellCommand(
     private suspend fun checkRequirementsAndSellItem(guildId: String, item: Item, amount: Int, player: Snowflake, locale: String): InteractionResponseModifyBuilder.() -> Unit {
         val character = db.charactersScope.getActiveCharacter(guildId, player.toString())
         return when {
-            item.sellPrice <= 0 -> createGenericEmbedError(ItemSellLocale.CANNOT_SELL.locale(locale))
+            item.sell == null -> createGenericEmbedError(ItemSellLocale.CANNOT_SELL.locale(locale))
             (character.inventory[item.name] ?: 0) < amount -> createGenericEmbedError("${CommonLocale.NOT_ENOUGH_ITEMS.locale(locale)}${item.name}")
             else -> removeItemFromCharacter(guildId, item, amount, character.id, locale)
         }

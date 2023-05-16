@@ -72,26 +72,26 @@ class ItemInfoCommand(
 
                 field {
                     name = ItemInfoLocale.BUYABLE.locale(locale)
-                    value = if (item.buyPrice > 0) CommonLocale.YES.locale(locale) else CommonLocale.NO.locale(locale)
+                    value = if (item.buy != null) CommonLocale.YES.locale(locale) else CommonLocale.NO.locale(locale)
                     inline = false
                 }
-                if (item.buyPrice > 0) {
+                if (item.sell != null) {
                     field {
                         name = CommonLocale.PRICE.locale(locale)
-                        value = "${item.buyPrice}"
+                        value = "${item.buy?.cost}"
                         inline = false
                     }
                 }
 
                 field {
                     name = ItemInfoLocale.SELLABLE.locale(locale)
-                    value = if (item.sellPrice > 0) CommonLocale.YES.locale(locale) else CommonLocale.NO.locale(locale)
+                    value = if (item.sell != null) CommonLocale.YES.locale(locale) else CommonLocale.NO.locale(locale)
                     inline = false
                 }
-                if (item.sellPrice > 0) {
+                if (item.sell != null) {
                     field {
                         name = CommonLocale.PRICE.locale(locale)
-                        value = "${item.sellPrice}"
+                        value = "${item.sell?.cost}"
                         inline = false
                     }
                 }
