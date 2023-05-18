@@ -22,6 +22,7 @@ import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.BuildingCommand
+import org.wagham.commands.impl.BuildingCommand.Companion.proficiencyDiscount
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
@@ -29,14 +30,18 @@ import org.wagham.config.locale.commands.BuildingLocale
 import org.wagham.config.locale.subcommands.BuildingUpgradeLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.BuildingRestrictionType
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.BaseBuilding
 import org.wagham.db.models.Character
 import org.wagham.db.models.ServerConfig
+import org.wagham.db.models.embed.Transaction
 import org.wagham.db.pipelines.buildings.BuildingWithBounty
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.transactionMoney
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 @BotSubcommand("all", BuildingCommand::class)
@@ -71,10 +76,7 @@ class BuildingUpgrade(
     private fun Character.hasEnoughMaterials(building: BaseBuilding, upgradeBuilding: BaseBuilding) =
         building.upgradeCostItems(upgradeBuilding).entries.all { (material, qty) ->
             inventory[material]?.let { m ->
-                m >= qty ||
-                    (upgradeBuilding.proficiencyReduction != null &&
-                        proficiencies.map { it.name }.contains(upgradeBuilding.proficiencyReduction) &&
-                        m >= qty/2)
+                m >= qty.proficiencyDiscount(building, this)
             } ?: false
         }
 
@@ -192,21 +194,14 @@ class BuildingUpgrade(
                                 session,
                                 data.guildId.toString(),
                                 data.character.id,
-                                (data.upgradeTo.moCost - data.building.moCost).toFloat()
-                                )
+                                (data.upgradeTo.moCost - data.building.moCost).toFloat())
                             val materialStep = data.building.upgradeCostItems(data.upgradeTo).entries.all { (material, qty) ->
                                 db.charactersScope.removeItemFromInventory(
                                     session,
                                     data.guildId.toString(),
                                     data.character.id,
                                     material,
-                                    qty
-                                        .takeIf { _ ->
-                                            data.upgradeTo.proficiencyReduction == null ||
-                                                    !data.character.proficiencies
-                                                        .map { it.name }
-                                                        .contains(data.upgradeTo.proficiencyReduction)
-                                        } ?: (qty / 2))
+                                    qty.proficiencyDiscount(data.upgradeTo, data.character))
                             }
                             val removalStep = db.charactersScope.removeBuilding(
                                 session,
@@ -222,7 +217,34 @@ class BuildingUpgrade(
                                 existingBuilding,
                                 data.upgradeTo
                             )
-                            moneyStep && materialStep && removalStep && buildingStep
+
+                            val ingredients = data.building.upgradeCostItems(data.upgradeTo)
+                                .mapValues { it.value.proficiencyDiscount(data.upgradeTo, data.character).toFloat() } +
+                                    mapOf(
+                                        transactionMoney to (data.upgradeTo.moCost - data.building.moCost).toFloat(),
+                                        data.building.name to 1f
+                                    )
+
+                            val transactionsStep =
+                                db.characterTransactionsScope.addTransactionForCharacter(
+                                    session, data.guildId.toString(), data.character.id, Transaction(
+                                        Date(),
+                                        null,
+                                        "UPGRADE_BUILDING",
+                                        TransactionType.REMOVE,
+                                        ingredients
+                                    )
+                                ) && db.characterTransactionsScope.addTransactionForCharacter(
+                                    session, data.guildId.toString(), data.character.id, Transaction(
+                                        Date(),
+                                        null,
+                                        "UPGRADE_BUILDING",
+                                        TransactionType.ADD,
+                                        mapOf(data.upgradeTo.name to 1f)
+                                    )
+                                )
+
+                            moneyStep && materialStep && removalStep && buildingStep && transactionsStep
                         }.let {
                             if(it.committed) {
                                 createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

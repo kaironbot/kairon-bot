@@ -17,12 +17,16 @@ import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.ItemSellLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Item
+import org.wagham.db.models.embed.Transaction
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.transactionMoney
 import java.lang.IllegalStateException
+import java.util.*
 
 @BotSubcommand("all", ItemCommand::class)
 class ItemSellCommand(
@@ -61,7 +65,15 @@ class ItemSellCommand(
     private suspend fun removeItemFromCharacter(guildId: String, item: Item, amount: Int, character: String, locale: String) =
         db.transaction(guildId) { s ->
             db.charactersScope.addMoney(s, guildId, character, item.sell!!.cost*amount) &&
-                    db.charactersScope.removeItemFromInventory(s, guildId, character, item.name, amount)
+                db.charactersScope.removeItemFromInventory(s, guildId, character, item.name, amount) &&
+                db.characterTransactionsScope.addTransactionForCharacter(
+                    s, guildId, character, Transaction(
+                        Date(), null, "SELL", TransactionType.ADD, mapOf(
+                            transactionMoney to item.sell!!.cost*amount))
+                ) &&
+                db.characterTransactionsScope.addTransactionForCharacter(
+                    s, guildId, character, Transaction(Date(), null, "SELL", TransactionType.REMOVE, mapOf(item.name to amount.toFloat()))
+                )
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

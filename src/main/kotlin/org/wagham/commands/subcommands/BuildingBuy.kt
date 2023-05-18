@@ -26,16 +26,21 @@ import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.BuildingCommand
+import org.wagham.commands.impl.BuildingCommand.Companion.proficiencyDiscount
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.BuildingBuyLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.models.Building
 import org.wagham.db.models.Character
 import org.wagham.db.models.ServerConfig
+import org.wagham.db.models.embed.Transaction
 import org.wagham.db.pipelines.buildings.BuildingWithBounty
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.transactionMoney
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 @BotSubcommand("all", BuildingCommand::class)
@@ -71,10 +76,7 @@ class BuildingBuy(
         money >= building.moCost
             && building.materials.entries.all { (material, qty) ->
                 inventory[material]?.let { m ->
-                    m >= qty ||
-                        (building.proficiencyReduction != null &&
-                            proficiencies.map { it.name }.contains(building.proficiencyReduction) &&
-                            m >= qty/2)
+                    m >= qty.proficiencyDiscount(building, this)
                 } ?: false
         }
 
@@ -191,14 +193,9 @@ class BuildingBuy(
                                     data.guildId.toString(),
                                     data.character.id,
                                     material,
-                                    qty
-                                        .takeIf { _ ->
-                                            data.building.proficiencyReduction == null ||
-                                                    !data.character.proficiencies
-                                                        .map { it.name }
-                                                        .contains(data.building.proficiencyReduction)
-                                        } ?: (qty / 2))
+                                    qty.proficiencyDiscount(data.building, data.character))
                             }
+
                             val building = Building(
                                 name = buildingName,
                                 description = buildingDescription,
@@ -212,7 +209,31 @@ class BuildingBuy(
                                 building,
                                 data.building
                             )
-                            moneyStep && materialStep && buildingStep
+
+                            val ingredients = data.building.materials
+                                .mapValues { it.value.proficiencyDiscount(data.building, data.character).toFloat() } +
+                                    (transactionMoney to data.building.moCost.toFloat())
+
+                            val transactionsStep =
+                                db.characterTransactionsScope.addTransactionForCharacter(
+                                    session, data.guildId.toString(), data.character.id, Transaction(
+                                        Date(),
+                                        null,
+                                        "BUY_BUILDING",
+                                        TransactionType.REMOVE,
+                                        ingredients
+                                    )
+                                ) && db.characterTransactionsScope.addTransactionForCharacter(
+                                    session, data.guildId.toString(), data.character.id, Transaction(
+                                        Date(),
+                                        null,
+                                        "BUY_BUILDING",
+                                        TransactionType.ADD,
+                                        mapOf(data.building.name to 1f)
+                                    )
+                                )
+
+                            moneyStep && materialStep && buildingStep && transactionsStep
                         }.let {
                             if(it.committed) {
                                 createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

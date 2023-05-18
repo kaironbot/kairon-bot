@@ -14,13 +14,16 @@ import org.apache.commons.rng.sampling.DiscreteProbabilityCollectionSampler
 import org.apache.commons.rng.simple.RandomSource
 import org.wagham.annotations.BotEvent
 import org.wagham.config.Channels
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Announcement
 import org.wagham.db.models.AnnouncementType
+import org.wagham.db.models.embed.Transaction
 import org.wagham.db.utils.dateAtMidnight
 import org.wagham.utils.daysToToday
 import org.wagham.utils.getStartingInstantOnNextDay
 import org.wagham.utils.sendTextMessage
+import org.wagham.utils.transactionMoney
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
 import java.time.temporal.TemporalAdjusters
@@ -199,7 +202,20 @@ class WaghamWeeklyRewardsEvent(
                     ).also {
                         if(!it) logger.warn { "Tbadge failure: ${character.id}" }
                     }
-                    status && moneyResult && itemsResult && tBadgeResults
+
+                    val itemsForTransaction = itemsToGive.mapValues { it.value.toFloat() } +
+                            mapOf("1DayT${tier}Badge" to updatedLog.tBadge.toFloat()) +
+                            (mapOf(transactionMoney to moneyToGive).takeIf { moneyToGive > 0f } ?: emptyMap())
+
+                    val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
+                        session, guildId.toString(), character.id, Transaction(
+                            Date(), null, "REWARDS", TransactionType.ADD, itemsForTransaction
+                        )
+                    ).also {
+                        if(!it) logger.warn { "Record failure: ${character.id}" }
+                    }
+
+                    status && moneyResult && itemsResult && tBadgeResults && recordStep
                 }
         }
 
@@ -221,9 +237,8 @@ class WaghamWeeklyRewardsEvent(
 
     override fun register() {
         Timer(eventId).schedule(
-            getStartingInstantOnNextDay(22, 0,0){
-                //it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
-                it.minusDays(1)
+            getStartingInstantOnNextDay(18, 0, 0){
+                it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
             }.also {
                 logger.info { "$eventId will start on $it"  }
             },
