@@ -28,6 +28,7 @@ import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.BuildingCommand
 import org.wagham.commands.impl.BuildingCommand.Companion.proficiencyDiscount
 import org.wagham.components.CacheManager
+import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.BuildingBuyLocale
 import org.wagham.db.KabotMultiDBClient
@@ -264,6 +265,7 @@ class BuildingBuy(
             embed {
                 title = BuildingBuyLocale.TITLE.locale(locale)
                 description = BuildingBuyLocale.SELECT.locale(locale)
+                color = Colors.DEFAULT.value
             }
             buildings.chunked(24) { buildingsChunk ->
                 actionRow {

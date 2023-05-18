@@ -73,10 +73,9 @@ class ItemRow(
                                                 else map
                                             },
                                         it["craft_mo_cost"]!!.formatToFloat(),
-                                        it["Craft_BuildingInRecipe"]!!.split(",").toSet(),
+                                        it["Craft_BuildingInRecipe"]!!.split(",").filter { it.isBlank() }.toSet(),
                                         it["craft_tools"]!!.split(",").toSet(),
-
-                                    )
+                                    ).takeIf { it.cost > 0 }
                                 )
                             )
                         }

@@ -6,12 +6,14 @@ import dev.kord.common.entity.Snowflake
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.ExpTable
 import org.wagham.db.models.Proficiency
+import org.wagham.db.models.ScheduledEvent
 import org.wagham.db.models.ServerConfig
 import org.wagham.utils.ActiveUsersReport
 import java.util.concurrent.TimeUnit
 
 class CacheManager(
     val db: KabotMultiDBClient,
+    val schedulingManager: SchedulingManager,
     val profile: String
 ) {
 
@@ -96,5 +98,10 @@ class CacheManager(
 
     fun storeUsersReport(guildId: Snowflake, usersReport: ActiveUsersReport) =
         activeUsersCache.put(guildId, usersReport)
+
+    suspend fun scheduleEvent(guildId: Snowflake, event: ScheduledEvent) {
+        db.scheduledEventsScope.addScheduledEvent(guildId.toString(), event)
+        schedulingManager.addToQueue(guildId, event)
+    }
 
 }
