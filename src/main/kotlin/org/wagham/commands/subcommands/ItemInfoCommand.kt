@@ -63,6 +63,7 @@ class ItemInfoCommand(
                 title = item.name
                 description = item.category
                 color = Colors.DEFAULT.value
+                url = item.link
 
                 field {
                     name = ItemInfoLocale.ATTUNEMENT.locale(locale)
@@ -71,27 +72,80 @@ class ItemInfoCommand(
                 }
 
                 field {
-                    name = ItemInfoLocale.BUYABLE.locale(locale)
-                    value = if (item.buy != null) CommonLocale.YES.locale(locale) else CommonLocale.NO.locale(locale)
-                    inline = false
-                }
-                if (item.sell != null) {
-                    field {
-                        name = CommonLocale.PRICE.locale(locale)
-                        value = "${item.buy?.cost}"
-                        inline = false
-                    }
+                    name = ItemInfoLocale.CAN_BUY.locale(locale)
+                    value = if (item.buy != null) "${item.buy?.cost} MO" else ItemInfoLocale.CANNOT_BUY.locale(locale)
+                    inline = true
                 }
 
                 field {
                     name = ItemInfoLocale.SELLABLE.locale(locale)
-                    value = if (item.sell != null) CommonLocale.YES.locale(locale) else CommonLocale.NO.locale(locale)
+                    value = if (item.sell != null) "${item.sell?.cost} MO" else ItemInfoLocale.CANNOT_SELL.locale(locale)
+                    inline = true
+                }
+
+                field {
+                    name = ItemInfoLocale.CAN_GIVE.locale(locale)
+                    value = if (item.giveRatio > 0) "${(1/item.giveRatio).toInt()}:1" else ItemInfoLocale.CANNOT_GIVE.locale(locale)
+                    inline = true
+                }
+
+                field {
+                    name = ItemInfoLocale.CAN_USE.locale(locale)
+                    value = if (item.usable) CommonLocale.YES.locale(locale) else CommonLocale.NO.locale(locale)
+                    inline = true
+                }
+                field {
+                    name = "Crafting"
+                    value = if (item.craft != null) ItemInfoLocale.CAN_CRAFT.locale(locale) else ItemInfoLocale.CANNOT_CRAFT.locale(locale)
                     inline = false
                 }
-                if (item.sell != null) {
+                if (item.craft != null) {
                     field {
-                        name = CommonLocale.PRICE.locale(locale)
-                        value = "${item.sell?.cost}"
+                        name = ItemInfoLocale.COST.locale(locale)
+                        value = "${item.craft?.cost} MO"
+                        inline = true
+                    }
+                    field {
+                        name = ItemInfoLocale.MATERIALS.locale(locale)
+                        value = item.craft?.materials?.entries?.joinToString(", ") { "${it.key} x${it.value}" }
+                            ?: ItemInfoLocale.NO_MATERIALS_REQUIRED.locale(locale)
+                        inline = true
+                    }
+                    field {
+                        name = ItemInfoLocale.TOOL_PROFICIENCIES.locale(locale)
+                        value = item.craft?.tools?.takeIf { it.isNotEmpty() }?.joinToString(", ")
+                            ?: ItemInfoLocale.NO_PROFICIENCIES_REQUIRED.locale(locale)
+                        inline = true
+                    }
+                    field {
+                        name = ItemInfoLocale.BUILDINGS_REQUIRED.locale(locale)
+                        value = item.craft?.buildings?.takeIf { it.isNotEmpty() }?.joinToString(", ")
+                            ?: ItemInfoLocale.NO_BUILDINGS_REQUIRED.locale(locale)
+                        inline = true
+                    }
+                    field {
+                        name = ItemInfoLocale.TIME_REQUIRED.locale(locale)
+                        value = item.craft?.timeRequired?.toString()
+                            ?: ItemInfoLocale.INSTANTANEOUS.locale(locale)
+                        inline = true
+                    }
+                    field {
+                        name = ItemInfoLocale.MIN_QTY.locale(locale)
+                        value = item.craft?.minQuantity?.toString() ?: "1"
+                        inline = true
+                    }
+                    if (item.craft?.maxQuantity != null) {
+                        field {
+                            name = ItemInfoLocale.MAX_QTY.locale(locale)
+                            value = item.craft?.maxQuantity!!.toString()
+                            inline = true
+                        }
+                    }
+                }
+                if(item.manual != null) {
+                    field {
+                        name = ItemInfoLocale.SOURCE.locale(locale)
+                        value = item.manual!!
                         inline = false
                     }
                 }
