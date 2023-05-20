@@ -106,6 +106,11 @@ class SchedulingManager(
                         ScheduledEventType.GIVE_ITEM -> handleGiveItemTask(guildId, task, kord, cacheManager)
                     }
                 } catch (e: Exception) {
+                    db.scheduledEventsScope.updateState(
+                        guildId.toString(),
+                        task.id,
+                        ScheduledEventState.FAILED
+                    )
                     logger.warn { "Error in task ${task.id}\n${e.stackTraceToString()}" }
                 }
             }
