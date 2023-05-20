@@ -6,6 +6,7 @@ import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.entity.interaction.SubCommand
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.RequestBuilder
+import dev.kord.rest.builder.interaction.GlobalChatInputCreateBuilder
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
@@ -35,11 +36,16 @@ abstract class SlashCommandWithSubcommands(
                         && (ann.profile == "all" || ann.profile == cacheManager.profile)
                         && (ann.baseCommand == this::class)
             }
-        }
-        .map {
+        }.map {
             it.primaryConstructor!!.call(kord, cacheManager.db, cacheManager)
                     as org.wagham.commands.SubCommand<RequestBuilder<Any>>
         }
+
+    protected open fun defaultCommand(ctx: GlobalChatInputCreateBuilder) {
+        ctx.subCommand("help", "Shows all the subcommands with their descriptions") {
+            description(Locale.ITALIAN, "Mostra tutte le possibili opzioni")
+        }
+    }
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
@@ -53,9 +59,7 @@ abstract class SlashCommandWithSubcommands(
                 logger.info { "$commandName command - registered ${it.key} subcommand" }
                 it.value.create(this)
             }
-            subCommand("help", "Shows all the subcommands with their descriptions") {
-                description(Locale.ITALIAN, "Mostra tutte le possibili opzioni")
-            }
+            defaultCommand(this)
         }
         subcommandsMap.forEach {
             it.value.registerCommand()
@@ -70,10 +74,10 @@ abstract class SlashCommandWithSubcommands(
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): RequestBuilder<Any>.() -> Unit {
         val subCommand = event.interaction.command as SubCommand
-        return subcommandsMap[subCommand.name]?.execute(event) ?: generateHelpMessage(event)
+        return subcommandsMap[subCommand.name]?.execute(event) ?: defaultBehaviour(event)
     }
 
-    private fun generateHelpMessage(event: GuildChatInputCommandInteractionCreateEvent): RequestBuilder<Any>.() -> Unit {
+    protected open suspend fun defaultBehaviour(event: GuildChatInputCommandInteractionCreateEvent): RequestBuilder<Any>.() -> Unit {
         val commandId = event.interaction.invokedCommandId.value
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
         return fun InteractionResponseModifyBuilder.() {

@@ -17,7 +17,7 @@ import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 
-@BotCommand("wagham")
+@BotCommand("all")
 class ExpCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
