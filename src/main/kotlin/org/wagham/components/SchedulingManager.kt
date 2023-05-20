@@ -17,7 +17,7 @@ import org.wagham.db.enums.TransactionType
 import org.wagham.db.models.Item
 import org.wagham.db.models.ScheduledEvent
 import org.wagham.db.models.embed.Transaction
-import org.wagham.utils.getChannel
+import org.wagham.utils.getChannelOfTypeOrDefault
 import org.wagham.utils.sendTextMessage
 import java.util.Date
 
@@ -41,7 +41,7 @@ class SchedulingManager(
         val target = task.args[ScheduledEventArg.TARGET]!!
         val player = target.split(":").first()
         val quantity = task.args[ScheduledEventArg.INT_QUANTITY]!!.toInt()
-        val channel = kord.getChannel(guildId, Channels.BOT_CHANNEL, cacheManager)
+        val channel = kord.getChannelOfTypeOrDefault(guildId, Channels.BOT_CHANNEL, cacheManager)
         val item = cacheManager.getCollectionOfType<Item>(guildId).firstOrNull {
             it.name == itemToCraft
         }

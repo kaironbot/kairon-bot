@@ -16,16 +16,46 @@ enum class DailyAttendanceLocale(val localeMap: Map<Locale, String>): LocaleEnum
             Locale.ITALIAN to "Usa i pulsanti per registrare la tua disponibilità a giocare."
         )
     ),
-    DEREGISTER(
+    DEREGISTER_AFTERNOON(
         mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Deregister",
-            Locale.ITALIAN to "Annulla registrazione"
+            Locale.ENGLISH_GREAT_BRITAIN to "Deregister for the afternoon",
+            Locale.ITALIAN to "Annulla registrazione per il pomeriggio"
         )
     ),
-    REGISTER(
+    DEREGISTER_EVENING(
         mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Register",
-            Locale.ITALIAN to "Registrati"
+            Locale.ENGLISH_GREAT_BRITAIN to "Deregister for the evening",
+            Locale.ITALIAN to "Annulla registrazione per la sera"
+        )
+    ),
+    AFTERNOON_AVAILABILITY(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Players available this afternoon:",
+            Locale.ITALIAN to "Giocatori disponibili questo pomeriggio:"
+        )
+    ),
+    EVENING_AVAILABILITY(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Players available this evening:",
+            Locale.ITALIAN to "Giocatori disponibili stasera:"
+        )
+    ),
+    LAST_ACTIVITY(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "The number in parentheses represents the number of days since last played.",
+            Locale.ITALIAN to "Il numero tra parentesi rappresenta il numero di giorni dall'ultima giocata."
+        )
+    ),
+    REGISTER_AFTERNOON(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Register for the afternoon",
+            Locale.ITALIAN to "Registrati per il pomeriggio"
+        )
+    ),
+    REGISTER_EVENING(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Register for the evening",
+            Locale.ITALIAN to "Registrati per la sera"
         )
     ),
     TITLE(
