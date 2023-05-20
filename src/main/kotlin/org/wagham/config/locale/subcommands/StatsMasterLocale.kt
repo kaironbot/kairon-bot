@@ -3,7 +3,7 @@ package org.wagham.config.locale.subcommands
 import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
-enum class MasterStatsLocale(val localeMap: Map<Locale, String>) : LocaleEnum {
+enum class StatsMasterLocale(val localeMap: Map<Locale, String>) : LocaleEnum {
     DATE(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Date",
