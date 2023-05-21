@@ -41,8 +41,8 @@ class ItemRow(
                                     name = it["name"]!!,
                                     sell = BuySellRequirement(
                                             it["sell_price"]!!.formatToFloat(),
-                                            it["Sell_BuildingNeeded"]!!.split(",").toSet(),
-                                            it["sell_proficiencies"]!!.split(",").toSet()
+                                            it["Sell_BuildingNeeded"]!!.split(",").filter { it.isNotBlank() }.toSet(),
+                                            it["sell_proficiencies"]!!.split(",").filter { it.isNotBlank() }.toSet()
                                         ).takeIf { it.cost > 0 },
                                     buy = BuySellRequirement(
                                         it["buy_price"]!!.formatToFloat(),
@@ -73,8 +73,8 @@ class ItemRow(
                                                 else map
                                             },
                                         it["craft_mo_cost"]!!.formatToFloat(),
-                                        it["Craft_BuildingInRecipe"]!!.split(",").filter { it.isBlank() }.toSet(),
-                                        it["craft_tools"]!!.split(",").toSet(),
+                                        it["Craft_BuildingInRecipe"]!!.split(",").filter { it.isNotBlank() }.toSet(),
+                                        it["craft_tools"]!!.split(",").filter { it.isNotBlank() }.toSet(),
                                     ).takeIf { it.cost > 0 }
                                 )
                             )
