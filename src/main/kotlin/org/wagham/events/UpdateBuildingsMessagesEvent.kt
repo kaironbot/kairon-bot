@@ -2,10 +2,8 @@ package org.wagham.events
 
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
-import dev.kord.core.behavior.channel.asChannelOf
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.edit
-import dev.kord.core.entity.channel.GuildMessageChannel
 import dev.kord.core.entity.channel.MessageChannel
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.toList
@@ -19,21 +17,21 @@ import org.wagham.db.enums.CharacterStatus
 import org.wagham.db.models.Building
 import org.wagham.db.models.BuildingMessage
 import org.wagham.db.models.PlayerBuildingsMessages
-import org.wagham.exceptions.ChannelNotFoundException
+import org.wagham.utils.getChannelOfType
 import org.wagham.utils.getStartingInstantOnNextDay
 import org.wagham.utils.sendTextMessage
 import java.lang.IllegalStateException
 import java.util.*
 import kotlin.concurrent.schedule
 
-@BotEvent("wagham")
+@BotEvent("all")
 class UpdateBuildingsMessagesEvent(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : Event {
 
-    override val eventId = "wagham_update_buildings_messages"
+    override val eventId = "update_buildings_messages"
     private val logger = KotlinLogging.logger {}
 
     private suspend fun getExistingMessages(guildId: Snowflake) =
@@ -50,20 +48,9 @@ class UpdateBuildingsMessagesEvent(
             }
 
     private suspend fun getBuildingsChannel(guildId: Snowflake) =
-        (cacheManager.getConfig(guildId).channels[Channels.BUILDINGS_CHANNEL.name]
-            ?: throw ChannelNotFoundException(Channels.BUILDINGS_CHANNEL.name) )
-            .let { Snowflake(it) }
-            .let {
-                kord.getGuildOrNull(guildId)?.getChannel(it)?.asChannelOf<GuildMessageChannel>()
-                    ?: throw ChannelNotFoundException(Channels.BUILDINGS_CHANNEL.name)
-            }
-
+        kord.getChannelOfType(guildId, Channels.BUILDINGS_CHANNEL, cacheManager)
     private suspend fun getLogChannel(guildId: Snowflake) =
-        (cacheManager.getConfig(guildId).channels[Channels.LOG_CHANNEL.name]
-            ?.let { Snowflake(it) }
-            ?.let {
-                kord.getChannel(it)?.asChannelOf<MessageChannel>()
-            } ?: kord.getGuildOrNull(guildId)?.getSystemChannel())
+        kord.getChannelOfType(guildId, Channels.LOG_CHANNEL, cacheManager)
 
     private suspend fun deleteMessages(guildId: Snowflake, messages: List<Snowflake>) =
         try {
@@ -78,18 +65,18 @@ class UpdateBuildingsMessagesEvent(
             }
         } catch (e: Exception) {
             getLogChannel(guildId)
-                ?.sendTextMessage("An error occurred refreshing buildings messages\n${e.stackTraceToString()}")
+                .sendTextMessage("An error occurred refreshing buildings messages\n${e.stackTraceToString()}")
         }
 
     private suspend fun createMessages(
-        channel: GuildMessageChannel,
+        channel: MessageChannel,
         player: String,
         buildings: List<Building>
     ): Pair<String, List<BuildingMessage>> {
         val headerMsg = channel.createMessage { content = "**Edifici di <@!$player>:**" }.id
         val newBuildings = buildings.map {
             val msg = buildString {
-                append("\t${it.name} (${it.zone})\n")
+                append("\t${it.name}\n")
                 append("\t*${it.description}*\n\n")
             }
             BuildingMessage(

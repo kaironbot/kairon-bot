@@ -13,10 +13,14 @@ import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.TakeMoneyLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.embed.Transaction
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.transactionMoney
+import java.util.*
 import kotlin.math.floor
 
 @BotSubcommand("all", TakeCommand::class)
@@ -78,7 +82,12 @@ class TakeMoney(
             db.transaction(guildId) { s ->
                 targets.fold(true) { acc, it ->
                     val targetCharacter = db.charactersScope.getActiveCharacter(guildId, it.toString())
-                    acc && db.charactersScope.subtractMoney(s, guildId, targetCharacter.id, amount)
+                    acc && db.charactersScope.subtractMoney(s, guildId, targetCharacter.id, amount)&&
+                            db.characterTransactionsScope.addTransactionForCharacter(
+                                s, guildId, targetCharacter.id, Transaction(
+                                    Date(), null, "TAKE", TransactionType.REMOVE, mapOf(transactionMoney to amount)
+                                )
+                            )
                 }
             }.let {
                 when {

@@ -26,7 +26,7 @@ import org.wagham.commands.SubCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.subcommands.MasterStatsLocale
+import org.wagham.config.locale.subcommands.StatsMasterLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.pipelines.sessions.PlayerMasteredSessions
 import org.wagham.entities.PaginatedList
@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 
 @BotSubcommand("all", StatsCommand::class)
-class MasterStats(
+class StatsMaster(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
@@ -61,8 +61,8 @@ class MasterStats(
         localeDescriptions.forEach{ (locale, description) ->
             description(locale, description)
         }
-        user("master", MasterStatsLocale.MASTER_PARAMETER.locale("en")) {
-            MasterStatsLocale.MASTER_PARAMETER.localeMap.forEach{ (locale, description) ->
+        user("master", StatsMasterLocale.MASTER_PARAMETER.locale("en")) {
+            StatsMasterLocale.MASTER_PARAMETER.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             required = false
@@ -73,21 +73,21 @@ class MasterStats(
     override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
             val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-            if(interaction.componentId.startsWith("${this@MasterStats::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id)?.first == interaction.user.id) {
+            if(interaction.componentId.startsWith("${this@StatsMaster::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id)?.first == interaction.user.id) {
                 when(interaction.componentId) {
-                    "${this@MasterStats::class.qualifiedName}-previous" -> {
+                    "${this@StatsMaster::class.qualifiedName}-previous" -> {
                         val currentData = interactionCache.getIfPresent(interaction.message.id)!!
                         val newPage = currentData.third.previousPage()
                         interactionCache.put(interaction.message.id, Triple(currentData.first, currentData.second, newPage))
                         interaction.deferPublicMessageUpdate().edit(generateSessionEmbed(newPage, currentData.second, locale))
                     }
-                    "${this@MasterStats::class.qualifiedName}-next" -> {
+                    "${this@StatsMaster::class.qualifiedName}-next" -> {
                         val currentData = interactionCache.getIfPresent(interaction.message.id)!!
                         val newPage = currentData.third.nextPage()
                         interactionCache.put(interaction.message.id, Triple(currentData.first, currentData.second, newPage))
                         interaction.deferPublicMessageUpdate().edit(generateSessionEmbed(newPage, currentData.second, locale))
                     }
-                    "${this@MasterStats::class.qualifiedName}-export" -> {
+                    "${this@StatsMaster::class.qualifiedName}-export" -> {
                         val currentData = interactionCache.getIfPresent(interaction.message.id)!!
                         val filename = "session_report_${currentData.second.username}_${System.currentTimeMillis()}.csv"
                         Path(tmpFolder, filename).toFile().writeText(
@@ -98,7 +98,7 @@ class MasterStats(
                             addFile(Path(tmpFolder, filename))
                         }
                         interaction.deferEphemeralResponse().respond {
-                            content = MasterStatsLocale.REPORT_TO_MP.locale(locale)
+                            content = StatsMasterLocale.REPORT_TO_MP.locale(locale)
                         }
                         Path(tmpFolder, filename).toFile().delete()
                     }
@@ -106,7 +106,7 @@ class MasterStats(
                         interaction.deferPublicMessageUpdate().edit(createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale)))
                     }
                 }
-            } else if (interaction.componentId.startsWith("${this@MasterStats::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
+            } else if (interaction.componentId.startsWith("${this@StatsMaster::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
                 interaction.deferEphemeralMessageUpdate().edit {
                     embed {
                         title = CommonLocale.INTERACTION_EXPIRED.locale(locale)
@@ -114,7 +114,7 @@ class MasterStats(
                     }
                     components = mutableListOf()
                 }
-            } else if (interaction.componentId.startsWith("${this@MasterStats::class.qualifiedName}")) {
+            } else if (interaction.componentId.startsWith("${this@StatsMaster::class.qualifiedName}")) {
                 interaction.deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
             }
         }
@@ -123,7 +123,7 @@ class MasterStats(
     private fun generateSessionEmbed(sessions: PaginatedList<PlayerMasteredSessions>, user: User, locale: String): InteractionResponseModifyBuilder.() -> Unit =
         fun InteractionResponseModifyBuilder.() {
             embed {
-                title = "${MasterStatsLocale.SESSION_MASTERED_TITLE.locale(locale)}${user.username} ${sessions.size}"
+                title = "${StatsMasterLocale.SESSION_MASTERED_TITLE.locale(locale)}${user.username} ${sessions.size}"
                 sessions.aggregateByCharacter().forEach {
                     field {
                         name = it.key
@@ -132,18 +132,18 @@ class MasterStats(
                     }
                 }
                 field {
-                    name = MasterStatsLocale.SESSION_LIST.locale(locale)
-                    value = MasterStatsLocale.NAVIGATE.locale(locale)
+                    name = StatsMasterLocale.SESSION_LIST.locale(locale)
+                    value = StatsMasterLocale.NAVIGATE.locale(locale)
                     inline = false
                 }
                 sessions.page.forEach {
                     field {
-                        name = MasterStatsLocale.TITLE.locale(locale)
+                        name = StatsMasterLocale.TITLE.locale(locale)
                         value = it.title
                         inline = true
                     }
                     field {
-                        name = MasterStatsLocale.DATE.locale(locale)
+                        name = StatsMasterLocale.DATE.locale(locale)
                         value = SimpleDateFormat("dd/MM/yyyy").format(it.date)
                         inline = true
                     }
@@ -155,31 +155,30 @@ class MasterStats(
                 }
             }
             actionRow {
-                interactionButton(ButtonStyle.Secondary, "${this@MasterStats::class.qualifiedName}-previous") {
-                    label = MasterStatsLocale.LABEL_PREVIOUS.locale(locale)
+                interactionButton(ButtonStyle.Secondary, "${this@StatsMaster::class.qualifiedName}-previous") {
+                    label = StatsMasterLocale.LABEL_PREVIOUS.locale(locale)
                 }
-                interactionButton(ButtonStyle.Secondary, "${this@MasterStats::class.qualifiedName}-next") {
-                    label = MasterStatsLocale.LABEL_NEXT.locale(locale)
+                interactionButton(ButtonStyle.Secondary, "${this@StatsMaster::class.qualifiedName}-next") {
+                    label = StatsMasterLocale.LABEL_NEXT.locale(locale)
                 }
-                interactionButton(ButtonStyle.Primary, "${this@MasterStats::class.qualifiedName}-export") {
-                    label = MasterStatsLocale.LABEL_EXPORT.locale(locale)
+                interactionButton(ButtonStyle.Primary, "${this@StatsMaster::class.qualifiedName}-export") {
+                    label = StatsMasterLocale.LABEL_EXPORT.locale(locale)
                 }
             }
         }
 
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        val guildId = event.interaction.guildId
+        val params = extractCommonParameters(event)
         val user = event.interaction.command.users["master"] ?: event.interaction.user
-        val sessions = PaginatedList(db.sessionScope.getAllMasteredSessions(guildId.toString(), user.id.toString()).toList().sortedBy { it.date }.reversed())
+        val sessions = PaginatedList(db.sessionScope.getAllMasteredSessions(params.guildId.toString(), user.id.toString()).toList().sortedBy { it.date }.reversed())
         return if (!sessions.isEmpty()) {
-            generateSessionEmbed(sessions, user, locale)
+            generateSessionEmbed(sessions, user, params.locale)
         } else {
             fun InteractionResponseModifyBuilder.() {
                 embed {
-                    title = "${MasterStatsLocale.NEVER_MASTERED_TITLE.locale(locale)}${user.username}"
-                    description = MasterStatsLocale.NEVER_MASTERED_DESCRIPTION.locale(locale)
+                    title = "${StatsMasterLocale.NEVER_MASTERED_TITLE.locale(params.locale)}${user.username}"
+                    description = StatsMasterLocale.NEVER_MASTERED_DESCRIPTION.locale(params.locale)
                 }
             }
         }
@@ -206,22 +205,22 @@ class MasterStats(
         }
     }
 
-}
-
-fun PaginatedList<PlayerMasteredSessions>.aggregateByCharacter(): Map<String, Int> =
-    this.elements.fold(mapOf()) { acc, it ->
-        if(acc.containsKey(it.master)) {
-            acc + (it.master to (acc[it.master]!! + 1))
-        } else {
-            acc + (it.master to 1)
-        }
-    }
-
-fun PaginatedList<PlayerMasteredSessions>.toCSVFile(): String =
-    "TITLE\tDATE\tGAME_DATE\tMASTER\n" +
-            this.elements.joinToString(separator = "\n") {
-                "${it.title}\t" +
-                    "${SimpleDateFormat("dd/MM/yyyy").format(it.date)}\t" +
-                    "${it.gameDate.day}-${it.gameDate.month}-${it.gameDate.year},${it.gameDate.season}\t" +
-                    it.master
+    private fun PaginatedList<PlayerMasteredSessions>.aggregateByCharacter(): Map<String, Int> =
+        this.elements.fold(mapOf()) { acc, it ->
+            if(acc.containsKey(it.master)) {
+                acc + (it.master to (acc[it.master]!! + 1))
+            } else {
+                acc + (it.master to 1)
             }
+        }
+
+    private fun PaginatedList<PlayerMasteredSessions>.toCSVFile(): String =
+        "TITLE\tDATE\tGAME_DATE\tMASTER\n" +
+                this.elements.joinToString(separator = "\n") {
+                    "${it.title}\t" +
+                            "${SimpleDateFormat("dd/MM/yyyy").format(it.date)}\t" +
+                            "${it.gameDate.day}-${it.gameDate.month}-${it.gameDate.year},${it.gameDate.season}\t" +
+                            it.master
+                }
+
+}

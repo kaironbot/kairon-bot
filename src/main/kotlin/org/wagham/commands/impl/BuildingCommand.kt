@@ -10,6 +10,7 @@ import org.wagham.config.Colors
 import org.wagham.config.locale.commands.BuildingLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.BuildingRestrictionType
+import org.wagham.db.models.BaseBuilding
 import org.wagham.db.models.Character
 import org.wagham.db.models.ServerConfig
 import org.wagham.db.pipelines.buildings.BuildingWithBounty
@@ -29,6 +30,14 @@ class BuildingCommand(
     )
 
     companion object {
+
+        fun Int.proficiencyDiscount(building: BaseBuilding, character: Character) =
+            this.takeIf { _ ->
+                    building.proficiencyReduction == null ||
+                            !character.proficiencies
+                                .map { it.name }
+                                .contains(building.proficiencyReduction)
+                } ?: (this / 2)
 
         fun describeBuildingMessage(
             building: BuildingWithBounty,

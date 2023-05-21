@@ -58,3 +58,5 @@ fun String.formatToFloat() = try {
 fun String.formatToInt() = try { this.toInt() } catch(e: NumberFormatException) { 0 }
 
 fun uuid() = UUID.randomUUID().toString()
+
+val transactionMoney = "MONEY"

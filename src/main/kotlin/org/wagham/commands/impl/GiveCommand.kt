@@ -13,11 +13,14 @@ import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.GiveLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Item
+import org.wagham.db.models.embed.Transaction
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
+import java.util.*
 
 @BotCommand("all")
 class GiveCommand(
@@ -80,8 +83,16 @@ class GiveCommand(
             else {
                 db.transaction(guildId) { s ->
                     val targetCharacter = db.charactersScope.getActiveCharacter(guildId, target.toString())
+                    val givenTransaction = Transaction(
+                        Date(), targetCharacter.id, "GIVE", TransactionType.REMOVE, mapOf(item.name to amount.toFloat())
+                    )
+                    val receivedTransaction = Transaction(
+                        Date(), character.id, "GIVE", TransactionType.ADD, mapOf(item.name to (amount*item.giveRatio))
+                    )
                     db.charactersScope.removeItemFromInventory(s, guildId, character.id, item.name, amount) &&
-                     db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, item.name, (amount*item.giveRatio).toInt())
+                        db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, item.name, (amount*item.giveRatio).toInt()) &&
+                        db.characterTransactionsScope.addTransactionForCharacter(s, guildId, character.id, givenTransaction) &&
+                        db.characterTransactionsScope.addTransactionForCharacter(s, guildId, targetCharacter.id, receivedTransaction)
                 }.let {
                     if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
                     else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")

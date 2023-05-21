@@ -16,13 +16,16 @@ import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.TakeLanguageLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.LanguageProficiency
 import org.wagham.db.models.embed.ProficiencyStub
+import org.wagham.db.models.embed.Transaction
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
 import java.lang.IllegalStateException
+import java.util.*
 
 @BotSubcommand("all", TakeCommand::class)
 class TakeLanguage(
@@ -77,6 +80,11 @@ class TakeLanguage(
                     guildId,
                     character.id,
                     ProficiencyStub(language.id, language.name)
+                ) &&
+                db.characterTransactionsScope.addTransactionForCharacter(
+                    s, guildId, character.id, Transaction(
+                        Date(), null, "TAKE", TransactionType.REMOVE, mapOf(language.name to 1f)
+                    )
                 )
             }.let {
                 when {

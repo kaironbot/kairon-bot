@@ -10,13 +10,16 @@ import dev.kord.core.on
 import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
 import dev.kord.rest.builder.RequestBuilder
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.reflections.Reflections
 import org.wagham.annotations.BotCommand
 import org.wagham.annotations.BotEvent
 import org.wagham.commands.Command
 import org.wagham.components.CacheManager
+import org.wagham.components.SchedulingManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.*
@@ -39,7 +42,8 @@ class KaironBot(
             System.getenv("DB_ADMIN_PORT").toInt()
         )
     )
-    private val cacheManager = CacheManager(database, profile)
+    private val schedulingManager = SchedulingManager(database)
+    private val cacheManager = CacheManager(database, schedulingManager, profile)
     private val logger = KotlinLogging.logger {}
     private val commands: List<Command<RequestBuilder<*>>>
     private val events: List<Event>
@@ -82,9 +86,9 @@ class KaironBot(
                     logger.info { "Deleting ${it.name} command" }
                 }
             }
-            this.supplier.guilds.collect {
+            supplier.guilds.collect {
                 database.serverConfigScope.getGuildConfig(it.id.toString()).channels[Channels.LOG_CHANNEL.name]?.let { channelId ->
-                    this.supplier.getChannel(Snowflake(channelId)).asChannelOf<MessageChannel>().createMessage {
+                    supplier.getChannel(Snowflake(channelId)).asChannelOf<MessageChannel>().createMessage {
                         content = "KaironBot started!"
                     }
                 } ?: it.getSystemChannel()
@@ -92,11 +96,12 @@ class KaironBot(
                         content = "KaironBot started! To change the logging channel, use the /set_channel command"
                     }
             }
+            schedulingManager.retrieveInterruptedTasks(supplier.guilds)
         }
     }
 
     @OptIn(PrivilegedIntent::class)
-    suspend fun start() {
+    suspend fun start() = coroutineScope {
         logger.info { "Starting KaironBot with profile $profile" }
         events.forEach {
             it.register()
@@ -108,6 +113,8 @@ class KaironBot(
             it.registerCallback()
             logger.info { "Registered ${it.commandName} command" }
         }
+
+        launch { schedulingManager.launchTasks(cacheManager, kord) }
 
         cacheManager.createNewCollectionCache<BuildingWithBounty> { guildId, db ->
             db.buildingsScope.getBuildingsWithBounty(guildId.toString()).toList()

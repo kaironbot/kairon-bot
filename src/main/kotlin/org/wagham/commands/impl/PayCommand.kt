@@ -12,10 +12,14 @@ import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.PayLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.embed.Transaction
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.transactionMoney
+import java.util.*
 import kotlin.math.floor
 
 @BotCommand("all")
@@ -86,7 +90,16 @@ class PayCommand(
                     val subtraction = db.charactersScope.subtractMoney(s, guildId, character.id, amount*targets.size)
                     targets.fold(subtraction) { acc, it ->
                         val targetCharacter = db.charactersScope.getActiveCharacter(guildId, it.toString())
-                        acc && db.charactersScope.addMoney(s, guildId, targetCharacter.id, amount)
+                        val givenTransaction = Transaction(
+                            Date(), targetCharacter.id, "PAY", TransactionType.REMOVE, mapOf(transactionMoney to amount)
+                        )
+                        val receivedTransaction = Transaction(
+                            Date(), character.id, "PAY", TransactionType.ADD, mapOf(transactionMoney to amount)
+                        )
+                        acc &&
+                            db.charactersScope.addMoney(s, guildId, targetCharacter.id, amount) &&
+                            db.characterTransactionsScope.addTransactionForCharacter(s, guildId, character.id, givenTransaction) &&
+                            db.characterTransactionsScope.addTransactionForCharacter(s, guildId, targetCharacter.id, receivedTransaction)
                     }
                 }.let {
                     if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

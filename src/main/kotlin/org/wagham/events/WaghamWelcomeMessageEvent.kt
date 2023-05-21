@@ -35,7 +35,7 @@ class WaghamWelcomeMessageEvent(
                         this.getGuild().getChannel(Snowflake(it)).asChannelOf<MessageChannel>()
                             .sendTextMessage(buildString {
                                 append("Benvenuto, <@${this@on.member.id}> in Tales from Ivory!\n")
-                                append("Consulta il <#1099391049278959647> per prepaare la tua scheda e poi sottoponila all'<@&1099408245136822334> per giocare.\n")
+                                append("Consulta il <#1099391049278959647> per preparare la tua scheda e poi sottoponila all'<@&1099408245136822334> per giocare.\n")
                                 append("Buon divertimento!")
                             })
                     }

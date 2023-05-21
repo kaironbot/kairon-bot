@@ -9,6 +9,7 @@ import dev.kord.rest.builder.message.modify.actionRow
 import dev.kord.rest.builder.message.modify.embed
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
+import org.wagham.db.exceptions.NoActiveCharacterException
 
 suspend fun MessageChannel.sendTextMessage(message: String) =
     message.split("\n")
@@ -70,3 +71,11 @@ fun alternativeOptionMessage(
             }
         }
     }
+
+suspend fun guaranteeActiveCharacters(locale: String, block: suspend (locale: String) -> InteractionResponseModifyBuilder.() -> Unit): InteractionResponseModifyBuilder.() -> Unit {
+    return try {
+        block(locale)
+    } catch (e: NoActiveCharacterException) {
+        createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+    }
+}

@@ -1,24 +1,25 @@
 package org.wagham.events
 
+import com.github.benmanes.caffeine.cache.Cache
+import com.github.benmanes.caffeine.cache.Caffeine
 import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
-import dev.kord.core.behavior.channel.asChannelOf
-import dev.kord.core.behavior.channel.createEmbed
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.edit
 import dev.kord.core.behavior.interaction.response.respond
-import dev.kord.core.entity.channel.GuildMessageChannel
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.rest.builder.message.create.UserMessageCreateBuilder
 import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
+import org.wagham.components.Identifiable
 import org.wagham.config.Channels
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
@@ -29,13 +30,10 @@ import org.wagham.db.exceptions.ResourceNotFoundException
 import org.wagham.db.models.AttendanceReport
 import org.wagham.db.models.embed.AttendanceReportPlayer
 import org.wagham.db.utils.dateAtMidnight
-import org.wagham.exceptions.ChannelNotFoundException
 import org.wagham.exceptions.GuildNotFoundException
-import org.wagham.utils.createGenericEmbedError
-import org.wagham.utils.createGenericEmbedSuccess
-import org.wagham.utils.daysToToday
-import org.wagham.utils.getStartingInstantOnNextDay
+import org.wagham.utils.*
 import java.util.*
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.schedule
 
 @BotEvent("all")
@@ -43,27 +41,13 @@ class DailyAttendanceEvent(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : Event {
+) : Event, Identifiable {
 
     override val eventId = "daily_attendance"
     private val logger = KotlinLogging.logger {}
-
-    private suspend fun getAttendanceChannel(guildId: Snowflake) =
-        (cacheManager.getConfig(guildId).channels[Channels.ATTENDANCE_CHANNEL.name]
-            ?: throw ChannelNotFoundException(Channels.ATTENDANCE_CHANNEL.name) )
-            .let { Snowflake(it) }
-            .let {
-                kord.getGuildOrNull(guildId)?.getChannel(it)?.asChannelOf<GuildMessageChannel>()
-                    ?: throw ChannelNotFoundException(Channels.ATTENDANCE_CHANNEL.name)
-            }
-
-    private suspend fun getLogChannel(guildId: Snowflake) =
-        cacheManager.getConfig(guildId).channels[Channels.LOG_CHANNEL.name]
-            ?.let { Snowflake(it) }
-            ?.let {
-                kord.getGuildOrNull(guildId)?.getChannel(it)?.asChannelOf<GuildMessageChannel>()
-            } ?: kord.getGuildOrNull(guildId)?.getSystemChannel()
-            ?: throw ChannelNotFoundException(Channels.LOG_CHANNEL.name)
+    private val interactionCache: Cache<Snowflake, String> = Caffeine.newBuilder()
+        .expireAfterWrite(2, TimeUnit.DAYS)
+        .build()
 
     private suspend fun getAttendanceOrNull(guildId: Snowflake) =
         try {
@@ -72,24 +56,33 @@ class DailyAttendanceEvent(
             null
         }
 
+    private fun Map<String, AttendanceReportPlayer>.appendList(buildCtx: StringBuilder) = entries
+        .groupBy { it.value.tier }.entries
+        .sortedBy { it.key }
+        .forEach { (tier, players) ->
+            buildCtx.append("**$tier**: ")
+            players.forEach { p ->
+                buildCtx.append("<@${p.key}> (${p.value.daysSinceLastPlayed.takeIf { it >= 0 } ?: "-"}) ")
+            }
+            buildCtx.append("\n")
+        }
+
     private suspend fun buildDescription(locale: String, guildId: Snowflake) = buildString {
         append("${DailyAttendanceLocale.DESCRIPTION.locale(locale)}\n")
-        getAttendanceOrNull(guildId)
-            ?.players
-            ?.entries
-            ?.groupBy { it.value.tier }
-            ?.entries
-            ?.forEach { (tier, players) ->
-                append("**$tier**: ")
-                players.forEach { p ->
-                    append("<@${p.key}> (${p.value.daysSinceLastPlayed.takeIf { it >= 0 } ?: "-"}) ")
-                }
-                append("\n")
-            }
+        append("*${DailyAttendanceLocale.LAST_ACTIVITY.locale(locale)}*\n\n")
+        getAttendanceOrNull(guildId)?.let { report ->
+            append("**${DailyAttendanceLocale.AFTERNOON_AVAILABILITY.locale(locale)}**\n")
+            report.afternoonPlayers.appendList(this)
+            append("\n")
+            append("**${DailyAttendanceLocale.EVENING_AVAILABILITY.locale(locale)}**\n")
+            report.players.appendList(this)
+        }
     }
 
     private suspend fun prepareMessage(locale: String, guildId: Snowflake): UserMessageCreateBuilder.() -> Unit {
         val desc = buildDescription(locale, guildId)
+        val interactionId = interactionCache.getIfPresent(guildId)
+            ?: throw IllegalStateException("Attendance not initialized")
         return fun UserMessageCreateBuilder.() {
             embed {
                 title = DailyAttendanceLocale.TITLE.locale(locale)
@@ -97,11 +90,17 @@ class DailyAttendanceEvent(
                 color = Colors.DEFAULT.value
             }
             actionRow {
-                interactionButton(ButtonStyle.Primary, "${this@DailyAttendanceEvent::class.qualifiedName}-register") {
-                    label = DailyAttendanceLocale.REGISTER.locale(locale)
+                interactionButton(ButtonStyle.Primary, buildElementId("register", "afternoon", interactionId)) {
+                    label = DailyAttendanceLocale.REGISTER_AFTERNOON.locale(locale)
                 }
-                interactionButton(ButtonStyle.Danger, "${this@DailyAttendanceEvent::class.qualifiedName}-abort") {
-                    label = DailyAttendanceLocale.DEREGISTER.locale(locale)
+                interactionButton(ButtonStyle.Primary, buildElementId("register", "evening", interactionId)) {
+                    label = DailyAttendanceLocale.REGISTER_EVENING.locale(locale)
+                }
+                interactionButton(ButtonStyle.Danger, buildElementId("abort", "afternoon", interactionId)) {
+                    label = DailyAttendanceLocale.DEREGISTER_AFTERNOON.locale(locale)
+                }
+                interactionButton(ButtonStyle.Danger, buildElementId("abort", "evening", interactionId)) {
+                    label = DailyAttendanceLocale.DEREGISTER_EVENING.locale(locale)
                 }
             }
         }
@@ -109,16 +108,37 @@ class DailyAttendanceEvent(
 
     private fun handleRegistration() {
         kord.on<ButtonInteractionCreateEvent> {
-            if(interaction.componentId.startsWith("${this@DailyAttendanceEvent::class.qualifiedName}")) {
+            val guildId = interaction.data.guildId.value ?: throw GuildNotFoundException()
+            val interactionId = interactionCache.getIfPresent(guildId)
+            if(interaction.componentId.startsWith("${this@DailyAttendanceEvent::class.qualifiedName}")
+                && interactionId != null
+                && interaction.componentId.endsWith(interactionId)) {
                 val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-                val guildId = interaction.data.guildId.value ?: throw GuildNotFoundException()
-                val channel = getAttendanceChannel(guildId)
+                val channel = kord.getChannelOfType(guildId, Channels.ATTENDANCE_CHANNEL, cacheManager)
                 val expTable = cacheManager.getExpTable(guildId)
                 val currentAttendance = db.utilityScope.getTodayAttendance(guildId.toString())
                 try {
+                    val character = db.charactersScope.getActiveCharacter(guildId.toString(), interaction.user.id.toString())
                     when {
-                        interaction.componentId.endsWith("register") -> {
-                            val character = db.charactersScope.getActiveCharacter(guildId.toString(), interaction.user.id.toString())
+                        interaction.componentId.contains("abort-afternoon") -> {
+                            db.utilityScope.updateAttendance(
+                                guildId.toString(),
+                                currentAttendance.copy(
+                                    afternoonPlayers = currentAttendance.afternoonPlayers - character.player
+                                )
+                            )
+                        }
+                        interaction.componentId.contains("abort-evening") -> {
+                            db.utilityScope.updateAttendance(
+                                guildId.toString(),
+                                currentAttendance.copy(
+                                    players = currentAttendance.players - character.player
+                                )
+                            )
+                        }
+                        interaction.componentId.contains("register-evening") && currentAttendance.players.containsKey(character.player) -> true
+                        interaction.componentId.contains("register-afternoon") && currentAttendance.afternoonPlayers.containsKey(character.player) -> true
+                        interaction.componentId.contains("register-evening") -> {
                             db.utilityScope.updateAttendance(
                                 guildId.toString(),
                                 currentAttendance.copy(
@@ -130,12 +150,15 @@ class DailyAttendanceEvent(
                                 )
                             )
                         }
-                        interaction.componentId.endsWith("abort") -> {
-                            val character = db.charactersScope.getActiveCharacter(guildId.toString(), interaction.user.id.toString())
+                        interaction.componentId.contains("register-afternoon") -> {
                             db.utilityScope.updateAttendance(
                                 guildId.toString(),
                                 currentAttendance.copy(
-                                    players = currentAttendance.players - character.player
+                                    afternoonPlayers = currentAttendance.afternoonPlayers +
+                                            (character.player to AttendanceReportPlayer(
+                                                character.lastPlayed?.let(::daysToToday) ?: -1,
+                                                expTable.expToTier(character.ms().toFloat())
+                                            ))
                                 )
                             )
                         }
@@ -169,7 +192,7 @@ class DailyAttendanceEvent(
                                 )
                             }
                             else -> {
-                                getLogChannel(guildId).createMessage(
+                                kord.getChannelOfTypeOrDefault(guildId, Channels.LOG_CHANNEL, cacheManager).createMessage(
                                     e.stackTraceToString()
                                 )
                                 response.respond(
@@ -179,9 +202,9 @@ class DailyAttendanceEvent(
                         }
                     } catch (_: Exception) {
                         if(e !is NoActiveCharacterException) {
-                            getLogChannel(guildId).createMessage(e.stackTraceToString())
+                            kord.getChannelOfTypeOrDefault(guildId, Channels.LOG_CHANNEL, cacheManager)
+                                .createMessage(e.stackTraceToString())
                         }
-
                     }
 
                 }
@@ -190,6 +213,16 @@ class DailyAttendanceEvent(
     }
 
     override fun register() {
+        runBlocking {
+            kord.guilds.collect {
+                try {
+                    val current = db.utilityScope.getTodayAttendance(it.id.toString())
+                    interactionCache.put(it.id, current.date.time.toString())
+                } catch (_: Exception) {
+                    logger.info { "No current attendance for guild ${it.name}" }
+                }
+            }
+        }
         Timer(eventId).schedule(
             getStartingInstantOnNextDay(8, 0, 0).also {
                 logger.info { "$eventId will start on $it"  }
@@ -200,16 +233,17 @@ class DailyAttendanceEvent(
             runBlocking {
                 kord.guilds.collect {
                     if (cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
+                        val reportDate = dateAtMidnight(Calendar.getInstance().time)
                         val locale = it.preferredLocale.language
-                        val message = getAttendanceChannel(it.id).createMessage(
+                        interactionCache.put(it.id, reportDate.time.toString())
+                        val message = kord.getChannelOfType(it.id, Channels.ATTENDANCE_CHANNEL, cacheManager).createMessage(
                             prepareMessage(locale, it.id)
                         )
                         db.utilityScope.updateAttendance(
                             it.id.toString(),
                             AttendanceReport(
-                                dateAtMidnight(Calendar.getInstance().time),
-                                message.id.toString(),
-                                emptyMap()
+                                reportDate,
+                                message.id.toString()
                             )
                         )
                     }

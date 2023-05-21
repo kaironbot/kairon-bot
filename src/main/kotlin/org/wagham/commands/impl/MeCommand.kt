@@ -11,11 +11,9 @@ import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.commands.MSLocale
 import org.wagham.config.locale.commands.MeLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 
 @BotCommand("all")
@@ -51,29 +49,28 @@ class MeCommand(
     }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        val expTable = cacheManager.getExpTable(guildId)
+        val params = extractCommonParameters(event)
+        val expTable = cacheManager.getExpTable(params.guildId)
         val target = event.interaction.command.users["target"]?.id ?: event.interaction.user.id
         return try {
-            val character = db.charactersScope.getActiveCharacter(guildId.toString(), target.toString())
+            val character = db.charactersScope.getActiveCharacter(params.guildId.toString(), target.toString())
             fun InteractionResponseModifyBuilder.() {
                 embed {
                     color = Colors.DEFAULT.value
                     title = character.name
 
                     field {
-                        name = MeLocale.RACE.locale(locale)
+                        name = MeLocale.RACE.locale(params.locale)
                         value = "${character.race}"
                         inline = true
                     }
                     field {
-                        name = MeLocale.CLASS.locale(locale)
+                        name = MeLocale.CLASS.locale(params.locale)
                         value = "${character.characterClass}"
                         inline = true
                     }
                     field {
-                        name = MeLocale.ORIGIN.locale(locale)
+                        name = MeLocale.ORIGIN.locale(params.locale)
                         value = "${character.territory}"
                         inline = true
                     }
@@ -84,7 +81,7 @@ class MeCommand(
                         inline = true
                     }
                     field {
-                        name = MeLocale.LEVEL.locale(locale)
+                        name = MeLocale.LEVEL.locale(params.locale)
                         value = expTable.expToLevel(character.ms().toFloat())
                         inline = true
                     }
@@ -95,20 +92,20 @@ class MeCommand(
                     }
 
                     field {
-                        name = MeLocale.LANGUAGES.locale(locale)
+                        name = MeLocale.LANGUAGES.locale(params.locale)
                         value = character.languages.takeIf { it.isNotEmpty() }?.joinToString(separator = ", ") { it.name }
-                            ?: MeLocale.NO_LANGUAGES.locale(locale)
+                            ?: MeLocale.NO_LANGUAGES.locale(params.locale)
                         inline = true
                     }
                     field {
-                        name = MeLocale.TOOLS.locale(locale)
+                        name = MeLocale.TOOLS.locale(params.locale)
                         value = character.proficiencies.takeIf { it.isNotEmpty() }?.joinToString(separator = ", ") { it.name }
-                            ?: MeLocale.NO_TOOLS.locale(locale)
+                            ?: MeLocale.NO_TOOLS.locale(params.locale)
                         inline = true
                     }
                     field {
-                        name = MeLocale.BUILDINGS.locale(locale)
-                        value = MeLocale.BUILDINGS_DESCRIPTION.locale(locale)
+                        name = MeLocale.BUILDINGS.locale(params.locale)
+                        value = MeLocale.BUILDINGS_DESCRIPTION.locale(params.locale)
                         inline = false
                     }
                     character.buildings.forEach { (compositeId, buildings) ->
@@ -123,7 +120,7 @@ class MeCommand(
                 }
             }
         } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(params.locale))
         }
     }
 }

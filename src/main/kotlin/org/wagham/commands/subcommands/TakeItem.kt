@@ -13,11 +13,14 @@ import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.TakeItemLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.embed.Transaction
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
 import java.lang.IllegalStateException
+import java.util.*
 
 @BotSubcommand("all", TakeCommand::class)
 class TakeItem(
@@ -71,6 +74,11 @@ class TakeItem(
             if ( (targetCharacter.inventory[item] ?: 0) >= amount) {
                 db.transaction(guildId) { s ->
                     db.charactersScope.removeItemFromInventory(s, guildId, targetCharacter.id, item, amount)
+                    db.characterTransactionsScope.addTransactionForCharacter(
+                        s, guildId, targetCharacter.id, Transaction(
+                            Date(), null, "TAKE", TransactionType.REMOVE, mapOf(item to amount.toFloat())
+                        )
+                    )
                 }.let {
                     if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
                     else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")

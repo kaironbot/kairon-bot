@@ -8,6 +8,8 @@ import dev.kord.rest.builder.RequestBuilder
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import org.wagham.components.CacheManager
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.entities.InteractionParameters
+import org.wagham.exceptions.GuildNotFoundException
 
 interface Command<T: RequestBuilder<*>> {
     val kord: Kord
@@ -23,4 +25,10 @@ interface Command<T: RequestBuilder<*>> {
     suspend fun handleResponse(
         builder: T.() -> Unit,
         event: GuildChatInputCommandInteractionCreateEvent)
+
+    fun extractCommonParameters(event: GuildChatInputCommandInteractionCreateEvent): InteractionParameters {
+        val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
+        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+        return InteractionParameters(guildId, locale)
+    }
 }
