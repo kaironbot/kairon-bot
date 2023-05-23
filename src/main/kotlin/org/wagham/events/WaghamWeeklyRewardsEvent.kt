@@ -19,7 +19,6 @@ import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Announcement
 import org.wagham.db.models.AnnouncementType
 import org.wagham.db.models.embed.Transaction
-import org.wagham.db.utils.dateAtMidnight
 import org.wagham.utils.daysToToday
 import org.wagham.utils.getStartingInstantOnNextDay
 import org.wagham.utils.sendTextMessage
@@ -140,7 +139,7 @@ class WaghamWeeklyRewardsEvent(
                     }.fold(emptyMap<String, BuildingReward>()) { bLog, (buildingId, buildings) ->
                         val buildingName = buildingId.split(":").first()
                         val prize = bounties[buildingName]!!.sample()
-                        val additionalItem = prize.prizeList.takeIf { it.isNotEmpty() }?.let { p ->
+                        val additionalItem = prize.randomItems.takeIf { it.isNotEmpty() }?.let { p ->
                             DiscreteProbabilityCollectionSampler(
                                 RandomSource.XO_RO_SHI_RO_128_PP.create(),
                                 p.associateWith { it.probability.toDouble() }
@@ -149,10 +148,8 @@ class WaghamWeeklyRewardsEvent(
                         val buildingRewardLog = BuildingReward(
                             announcementType = prize.announceId,
                             announcement = prize.announceId?.let { buildings.random().name to announcements.getAnnouncement(it) },
-                            money = prize.moDelta.toFloat(),
-                            items = (prize.guaranteedObjectId?.let { mapOf(it to prize.guaranteedObjectDelta) } ?: emptyMap()) +
-                                    (additionalItem?.let { mapOf(it.itemId to it.qty) } ?: emptyMap())
-
+                            money = prize.moneyDelta.toFloat(),
+                            items = prize.guaranteedItems + (additionalItem?.let { mapOf(it.itemId to it.qty) } ?: emptyMap())
                         )
                         bLog + (buildingName to buildingRewardLog)
                     }

@@ -1,6 +1,8 @@
 package org.wagham.sheets.data
 
 import org.wagham.db.models.*
+import org.wagham.db.models.embed.ItemWithProbability
+import org.wagham.db.models.embed.Prize
 import org.wagham.sheets.GoogleSheetsUtils
 import org.wagham.sheets.getHeaderMapping
 import org.wagham.utils.formatToFloat
@@ -55,15 +57,20 @@ class BountiesRow(
                             val id = row["IDPremio"]!!
                             val prize = Prize(
                                 probability = row["Probabilità (0-1)"]!!.formatToFloat(),
-                                moDelta = row["GiveTakeMoney Money_Qty"]!!.formatToInt(),
-                                guaranteedObjectId = row["GiveTake Item_ID"]!!.takeIf { it.isNotBlank() },
-                                guaranteedObjectDelta = row["GiveTake Item_Qty"]!!.formatToInt(),
+                                moneyDelta = row["GiveTakeMoney Money_Qty"]!!.formatToInt(),
+                                guaranteedItems = row["GUARANTEED_ITEMS"]!!
+                                    .split(";")
+                                    .filter { it.isNotBlank() }
+                                    .associate {
+                                        val (item, qty) = it.split("x")
+                                        item to qty.toInt()
+                                },
                                 announceId = try {
                                     AnnouncementType.valueOf(row["AnnuncioPremio"]!!)
                                 } catch (_: IllegalArgumentException) {
                                     null
                                 },
-                                prizeList = prizeLists[row["GiveItemFrom Premi_Lista"]] ?: emptyList()
+                                randomItems = prizeLists[row["GiveItemFrom Premi_Lista"]] ?: emptyList()
                             )
                             acc + (id to
                                     (acc[id]?.copy(prizes = acc[id]!!.prizes + prize) ?: Bounty(
