@@ -117,10 +117,14 @@ class DailyAttendanceEvent(
                 val channel = kord.getChannelOfType(guildId, Channels.ATTENDANCE_CHANNEL, cacheManager)
                 val expTable = cacheManager.getExpTable(guildId)
                 val currentAttendance = db.utilityScope.getTodayAttendance(guildId.toString())
+                logger.info { interaction.componentId }
+                logger.info { "I am registering ${interaction.user.id}" }
                 try {
                     val character = db.charactersScope.getActiveCharacter(guildId.toString(), interaction.user.id.toString())
+                    logger.info { "I am try to register ${character.name}" }
                     when {
                         interaction.componentId.contains("abort-afternoon") -> {
+                            logger.info { "ABORT AFTERNOON ${character.name}" }
                             db.utilityScope.updateAttendance(
                                 guildId.toString(),
                                 currentAttendance.copy(
@@ -129,6 +133,7 @@ class DailyAttendanceEvent(
                             )
                         }
                         interaction.componentId.contains("abort-evening") -> {
+                            logger.info { "ABORT EVENING ${character.name}" }
                             db.utilityScope.updateAttendance(
                                 guildId.toString(),
                                 currentAttendance.copy(
@@ -136,9 +141,14 @@ class DailyAttendanceEvent(
                                 )
                             )
                         }
-                        interaction.componentId.contains("register-evening") && currentAttendance.players.containsKey(character.player) -> true
-                        interaction.componentId.contains("register-afternoon") && currentAttendance.afternoonPlayers.containsKey(character.player) -> true
+                        interaction.componentId.contains("register-evening") && currentAttendance.players.containsKey(character.player) -> true.also {
+                            logger.info { "ALREADY REGISTERED EVENING ${character.name}" }
+                        }
+                        interaction.componentId.contains("register-afternoon") && currentAttendance.afternoonPlayers.containsKey(character.player) -> true.also {
+                            logger.info { "ALREADY REGISTERED AFTERNOON ${character.name}" }
+                        }
                         interaction.componentId.contains("register-evening") -> {
+                            logger.info { "REGISTERING EVENING ${character.name}" }
                             db.utilityScope.updateAttendance(
                                 guildId.toString(),
                                 currentAttendance.copy(
@@ -151,6 +161,7 @@ class DailyAttendanceEvent(
                             )
                         }
                         interaction.componentId.contains("register-afternoon") -> {
+                            logger.info { "REGISTERING AFTERNOON ${character.name}" }
                             db.utilityScope.updateAttendance(
                                 guildId.toString(),
                                 currentAttendance.copy(
@@ -162,9 +173,10 @@ class DailyAttendanceEvent(
                                 )
                             )
                         }
-                        else -> false
+                        else -> false.also { logger.info { "REALLY? ${interaction.componentId}" }}
                     }.let { result ->
                         if(result) {
+                            logger.info { "I SUCCEEDED" }
                             val desc = buildDescription(interaction.guildLocale?.language ?: "en", guildId)
                             channel.getMessage(Snowflake(currentAttendance.message)).edit {
                                 embed {
@@ -177,6 +189,7 @@ class DailyAttendanceEvent(
                                 createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
                             )
                         } else {
+                            logger.info { "I FAILED" }
                             interaction.deferEphemeralResponse().respond(
                                 createGenericEmbedError(CommonLocale.ERROR.locale(locale))
                             )
@@ -184,6 +197,7 @@ class DailyAttendanceEvent(
                     }
                 } catch (e: Exception) {
                     try {
+                        logger.info { "FAILURE 1" }
                         val response = interaction.deferEphemeralResponse()
                         when(e) {
                             is NoActiveCharacterException -> {
@@ -192,6 +206,7 @@ class DailyAttendanceEvent(
                                 )
                             }
                             else -> {
+                                logger.info { "FAILURE 3" }
                                 kord.getChannelOfTypeOrDefault(guildId, Channels.LOG_CHANNEL, cacheManager).createMessage(
                                     e.stackTraceToString()
                                 )
@@ -201,6 +216,7 @@ class DailyAttendanceEvent(
                             }
                         }
                     } catch (_: Exception) {
+                        logger.info { "FAILURE 2" }
                         if(e !is NoActiveCharacterException) {
                             kord.getChannelOfTypeOrDefault(guildId, Channels.LOG_CHANNEL, cacheManager)
                                 .createMessage(e.stackTraceToString())
@@ -224,7 +240,7 @@ class DailyAttendanceEvent(
             }
         }
         Timer(eventId).schedule(
-            getStartingInstantOnNextDay(8, 0, 0).also {
+            getStartingInstantOnNextDay(0, 0, 0).also {
                 logger.info { "$eventId will start on $it"  }
             },
             24 * 60 * 60 * 1000

@@ -83,17 +83,17 @@ class BuildingCommand(
                     building.bounty.prizes.forEach {
                         append(it.probability*100)
                         append("% - ")
-                        if(it.moDelta != 0) {
-                            append(it.moDelta)
+                        if(it.moneyDelta != 0) {
+                            append(it.moneyDelta)
                             append(" MO")
                         }
-                        if (it.guaranteedObjectId != null) {
-                            if(it.moDelta != 0) append(", ")
-                            append(it.guaranteedObjectId)
-                            append(" x")
-                            append(it.guaranteedObjectDelta)
+                        if (it.guaranteedItems.isNotEmpty()) {
+                            if(it.moneyDelta != 0) append(", ")
+                            append(
+                                it.guaranteedItems.entries.joinToString(", ") { i -> "${i.key} x${i.value}" }
+                            )
                         }
-                        it.prizeList.forEach { p ->
+                        it.randomItems.forEach { p ->
                             append(", ")
                             append(p.itemId)
                             append("x")
