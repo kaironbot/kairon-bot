@@ -14,7 +14,6 @@ import dev.kord.rest.builder.message.create.UserMessageCreateBuilder
 import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
 import dev.kord.rest.builder.message.modify.embed
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.wagham.annotations.BotEvent
@@ -51,7 +50,7 @@ class DailyAttendanceEvent(
 
     private suspend fun getAttendanceOrNull(guildId: Snowflake) =
         try {
-            db.utilityScope.getTodayAttendance(guildId.toString())
+            db.utilityScope.getLastAttendance(guildId.toString())
         } catch (e: ResourceNotFoundException) {
             null
         }
@@ -116,7 +115,7 @@ class DailyAttendanceEvent(
                 val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
                 val channel = kord.getChannelOfType(guildId, Channels.ATTENDANCE_CHANNEL, cacheManager)
                 val expTable = cacheManager.getExpTable(guildId)
-                val currentAttendance = db.utilityScope.getTodayAttendance(guildId.toString())
+                val currentAttendance = db.utilityScope.getLastAttendance(guildId.toString())
                 logger.info { interaction.componentId }
                 logger.info { "I am registering ${interaction.user.id}" }
                 try {
@@ -232,7 +231,7 @@ class DailyAttendanceEvent(
         runBlocking {
             kord.guilds.collect {
                 try {
-                    val current = db.utilityScope.getTodayAttendance(it.id.toString())
+                    val current = db.utilityScope.getLastAttendance(it.id.toString())
                     interactionCache.put(it.id, current.date.time.toString())
                 } catch (_: Exception) {
                     logger.info { "No current attendance for guild ${it.name}" }
