@@ -219,12 +219,10 @@ class DailyAttendanceEvent(
     override fun register() {
         handleRegistration()
         Timer(eventId).schedule(
-            getStartingInstantOnNextDay(20, 25, 0){
-                it.minusDays(1)
-            }.also {
+            getStartingInstantOnNextDay(0, 0, 0).also {
                 logger.info { "$eventId will start on $it"  }
             },
-            30 * 60 * 1000
+            24 * 60 * 60 * 1000
         ) {
             runBlocking {
                 kord.guilds.collect {
