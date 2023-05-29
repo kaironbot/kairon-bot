@@ -8,6 +8,7 @@ import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.edit
 import dev.kord.core.behavior.interaction.response.respond
+import dev.kord.core.entity.Guild
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.rest.builder.message.create.UserMessageCreateBuilder
@@ -66,20 +67,24 @@ class DailyAttendanceEvent(
             buildCtx.append("\n")
         }
 
-    private suspend fun buildDescription(locale: String, guildId: Snowflake) = buildString {
+    private suspend fun buildDescription(locale: String, guildId: Snowflake, newAttendance: Boolean = false) = buildString {
         append("${DailyAttendanceLocale.DESCRIPTION.locale(locale)}\n")
         append("*${DailyAttendanceLocale.LAST_ACTIVITY.locale(locale)}*\n\n")
         getAttendanceOrNull(guildId)?.let { report ->
             append("**${DailyAttendanceLocale.AFTERNOON_AVAILABILITY.locale(locale)}**\n")
-            report.afternoonPlayers.appendList(this)
+            if (!newAttendance) {
+                report.afternoonPlayers.appendList(this)
+            }
             append("\n")
             append("**${DailyAttendanceLocale.EVENING_AVAILABILITY.locale(locale)}**\n")
-            report.players.appendList(this)
+            if(!newAttendance) {
+                report.players.appendList(this)
+            }
         }
     }
 
-    private suspend fun prepareMessage(locale: String, guildId: Snowflake): UserMessageCreateBuilder.() -> Unit {
-        val desc = buildDescription(locale, guildId)
+    private suspend fun prepareMessage(locale: String, guildId: Snowflake, newAttendance: Boolean = false): UserMessageCreateBuilder.() -> Unit {
+        val desc = buildDescription(locale, guildId, newAttendance)
         val interactionId = interactionCache.getIfPresent(guildId)
             ?: throw IllegalStateException("Attendance not initialized")
         return fun UserMessageCreateBuilder.() {
@@ -227,6 +232,18 @@ class DailyAttendanceEvent(
         }
     }
 
+    private suspend fun resetPreviousInteraction(guild: Guild) {
+        try {
+            val lastAttendance = db.utilityScope.getLastAttendance(guild.id.toString())
+            val channel = kord.getChannelOfType(guild.id, Channels.ATTENDANCE_CHANNEL, cacheManager)
+            channel.getMessage(Snowflake(lastAttendance.message)).edit {
+                components = mutableListOf()
+            }
+        } catch (_: Exception) {
+            logger.info("Cannot delete previous attendance message for guild ${guild.name}")
+        }
+    }
+
     override fun register() {
         runBlocking {
             kord.guilds.collect {
@@ -252,8 +269,9 @@ class DailyAttendanceEvent(
                         val locale = it.preferredLocale.language
                         interactionCache.put(it.id, reportDate.time.toString())
                         val message = kord.getChannelOfType(it.id, Channels.ATTENDANCE_CHANNEL, cacheManager).createMessage(
-                            prepareMessage(locale, it.id)
+                            prepareMessage(locale, it.id, true)
                         )
+                        resetPreviousInteraction(it)
                         db.utilityScope.updateAttendance(
                             it.id.toString(),
                             AttendanceReport(
