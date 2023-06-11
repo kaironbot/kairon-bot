@@ -71,13 +71,13 @@ class InventoryCommand(
                         val currentData = interactionCache.getIfPresent(interaction.message.id)!!
                         val newPage = currentData.list.previousPage()
                         interactionCache.put(interaction.message.id, currentData.copy(list = newPage))
-                        interaction.deferPublicMessageUpdate().edit(generateInventoryEmbed(newPage, currentData.target, currentData.characterName, locale))
+                        interaction.deferPublicMessageUpdate().edit(generateInventoryEmbed(newPage, currentData.money, currentData.target, currentData.characterName, locale))
                     }
                     "${this@InventoryCommand::class.qualifiedName}-next" -> {
                         val currentData = interactionCache.getIfPresent(interaction.message.id)!!
                         val newPage = currentData.list.nextPage()
                         interactionCache.put(interaction.message.id,  currentData.copy(list = newPage))
-                        interaction.deferPublicMessageUpdate().edit(generateInventoryEmbed(newPage, currentData.target, currentData.characterName, locale))
+                        interaction.deferPublicMessageUpdate().edit(generateInventoryEmbed(newPage, currentData.money, currentData.target, currentData.characterName, locale))
                     }
                     else -> {
                         interaction.deferPublicMessageUpdate().edit(createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale)))
@@ -107,7 +107,7 @@ class InventoryCommand(
                 character.inventory.toList().sortedBy { it.first },
                 pageSize = 15
             )
-            generateInventoryEmbed(inventory, user, character.name, locale)
+            generateInventoryEmbed(inventory, character.money, user, character.name, locale)
         } catch (e: NoActiveCharacterException) {
             createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
         }
@@ -127,13 +127,14 @@ class InventoryCommand(
             InventoryCacheData(
                 event.interaction.user.id,
                 user,
+                character.money,
                 PaginatedList(character.inventory.toList().sortedBy { it.first }, pageSize = 15),
                 character.name
             )
         )
     }
 
-    private fun generateInventoryEmbed(inventory: PaginatedList<Pair<String, Int>>, user: User, characterName: String, locale: String): InteractionResponseModifyBuilder.() -> Unit =
+    private fun generateInventoryEmbed(inventory: PaginatedList<Pair<String, Int>>, money: Float, user: User, characterName: String, locale: String): InteractionResponseModifyBuilder.() -> Unit =
         fun InteractionResponseModifyBuilder.() {
             embed {
                 author {
@@ -141,6 +142,9 @@ class InventoryCommand(
                     icon = user.avatar?.url
                 }
                 description = buildString {
+                    append("**${InventoryLocale.MONEY.locale(locale)}**\n")
+                    append("$money MO\n\n")
+                    append("**${InventoryLocale.ITEMS.locale(locale)}**\n")
                     inventory.page.forEach {
                         append("${it.first} x${it.second}\n")
                     }
@@ -160,6 +164,7 @@ class InventoryCommand(
     private data class InventoryCacheData(
         val user: Snowflake,
         val target: User,
+        val money: Float,
         val list: PaginatedList<Pair<String, Int>>,
         val characterName: String
     )

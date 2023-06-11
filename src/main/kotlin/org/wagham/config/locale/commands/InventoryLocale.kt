@@ -4,6 +4,12 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class InventoryLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    ITEMS(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Items",
+            Locale.ITALIAN to "Oggetti"
+        )
+    ),
     LABEL_NEXT(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Next",
@@ -14,6 +20,12 @@ enum class InventoryLocale(val localeMap: Map<Locale, String>): LocaleEnum {
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Previous",
             Locale.ITALIAN to "Precedente"
+        )
+    ),
+    MONEY(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Money",
+            Locale.ITALIAN to "Monete"
         )
     ),
     TARGET(
