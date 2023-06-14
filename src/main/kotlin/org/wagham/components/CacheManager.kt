@@ -5,7 +5,6 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import dev.kord.common.entity.Snowflake
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.ExpTable
-import org.wagham.db.models.Proficiency
 import org.wagham.db.models.ScheduledEvent
 import org.wagham.db.models.ServerConfig
 import org.wagham.utils.ActiveUsersReport
@@ -24,11 +23,6 @@ class CacheManager(
     internal val collectionCaches: MutableMap<String, Cache<Snowflake, Collection<Any>>> = mutableMapOf()
 
     private val expTableCache: Cache<Snowflake, ExpTable> =
-        Caffeine.newBuilder()
-            .expireAfterWrite(1, TimeUnit.DAYS)
-            .build()
-
-    private val proficienciesCache: Cache<Snowflake, List<Proficiency>> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.DAYS)
             .build()
@@ -68,7 +62,7 @@ class CacheManager(
     inline fun <reified T> createNewCollectionCache(noinline updateLambda: suspend (Snowflake, KabotMultiDBClient) -> Collection<Any>) =
         T::class.qualifiedName?.also {
             collectionCacheConfig[it] = updateLambda
-            collectionCaches[it] = Caffeine.newBuilder().expireAfterWrite(1, TimeUnit.DAYS).build()
+            collectionCaches[it] = Caffeine.newBuilder().expireAfterWrite(1, TimeUnit.HOURS).build()
         } ?: throw IllegalAccessError("Cannot create cache for ${T::class}")
 
     suspend inline fun <reified T> getCollectionOfType(guildId: String): Collection<T> =
