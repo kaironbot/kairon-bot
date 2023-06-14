@@ -49,7 +49,7 @@ class MeCommand(
     }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val params = extractCommonParameters(event)
+        val params = event.extractCommonParameters()
         val expTable = cacheManager.getExpTable(params.guildId)
         val target = event.interaction.command.users["target"]?.id ?: event.interaction.user.id
         return try {

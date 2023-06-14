@@ -2,8 +2,11 @@ package org.wagham.sheets.data
 
 import org.wagham.db.models.LanguageProficiency
 import org.wagham.db.models.ToolProficiency
+import org.wagham.db.models.embed.AbilityCost
 import org.wagham.sheets.GoogleSheetsUtils
 import org.wagham.sheets.getHeaderMapping
+import org.wagham.utils.formatToFloat
+import org.wagham.utils.formatToInt
 import org.wagham.utils.toListOfMap
 
 class LanguageProficiencyRow(
@@ -29,7 +32,12 @@ class LanguageProficiencyRow(
                                 language = LanguageProficiency(
                                     id = it["ID"]!!,
                                     name = it["NAME"]!!,
-                                    cost = null
+                                    cost = AbilityCost(
+                                        it["MONEY"]!!.formatToFloat(),
+                                        mapOf(
+                                            it["ITEM"]!! to it["QTY"]!!.formatToInt()
+                                        )
+                                    )
                                 )
                             )
                         }

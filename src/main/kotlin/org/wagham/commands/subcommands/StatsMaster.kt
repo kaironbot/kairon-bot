@@ -169,7 +169,7 @@ class StatsMaster(
 
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val params = extractCommonParameters(event)
+        val params = event.extractCommonParameters()
         val user = event.interaction.command.users["master"] ?: event.interaction.user
         val sessions = PaginatedList(db.sessionScope.getAllMasteredSessions(params.guildId.toString(), user.id.toString()).toList().sortedBy { it.date }.reversed())
         return if (!sessions.isEmpty()) {
