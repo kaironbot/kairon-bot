@@ -51,7 +51,7 @@ class StatsTransactions(
     override suspend fun registerCommand() { }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val params = extractCommonParameters(event)
+        val params = event.extractCommonParameters()
         val target =  event.interaction.command.users["target"] ?: event.interaction.user
         return guaranteeActiveCharacters(params.locale) { locale ->
             val character = db.charactersScope.getActiveCharacter(params.guildId.toString(), target.id.toString())
