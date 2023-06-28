@@ -18,11 +18,9 @@ import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Announcement
 import org.wagham.db.models.AnnouncementType
+import org.wagham.db.models.Character
 import org.wagham.db.models.embed.Transaction
-import org.wagham.utils.daysToToday
-import org.wagham.utils.getStartingInstantOnNextDay
-import org.wagham.utils.sendTextMessage
-import org.wagham.utils.transactionMoney
+import org.wagham.utils.*
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
 import java.time.temporal.TemporalAdjusters
@@ -84,22 +82,30 @@ class WaghamWeeklyRewardsEvent(
             }?.toList()
             ?.mapNotNull {
                 try {
-                    val character = db.charactersScope.getActiveCharacter(guildId.toString(), it.id.toString())
-                    val tier = expTable.expToTier(character.ms().toFloat())
-                    it.id.toString() to (tierRewards[tier]!! * 2)
+                    db.charactersScope
+                        .getActiveCharacter(guildId.toString(), it.id.toString())
+                        .takeIf { character -> character.hasActivityInLast30Days() }
+                        ?.let { character ->
+                            val tier = expTable.expToTier(character.ms().toFloat())
+                            it.id.toString() to (tierRewards[tier]!! * 2)
+                        }
                 } catch (e: NoActiveCharacterException) {
                     null
                 }
             }?.toMap() ?: emptyMap()
     }
 
+    private fun Character.hasActivityInLast30Days() =
+        maxOrNull(
+            created,
+            maxOrNull(lastPlayed, lastMastered)
+        )?.let {
+            daysToToday(it) <= 30
+        } ?: false
+
     private fun getAllEligibleCharacters(guildId: Snowflake) =
         db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
-            .filter { character ->
-                (character.lastPlayed ?: character.created)?.let {
-                    daysToToday(it) <= 30
-                } ?: false
-            }
+            .filter { character -> character.hasActivityInLast30Days() }
 
     private fun getBuildingTierAsInt(buildingId: String) =
         buildingId.split(":").last().last().digitToIntOrNull() ?: 6
