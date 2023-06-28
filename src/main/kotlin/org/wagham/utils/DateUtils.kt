@@ -22,3 +22,11 @@ fun getStartingInstantOnNextDay(hour: Int, minute: Int, second: Int, transformer
 
 fun daysToToday(pastDate: Date) = daysInBetween(pastDate, Calendar.getInstance().time).toInt()
 
+fun maxOrNull(first: Date?, second: Date?): Date? =
+    when {
+        first == null && second == null -> null
+        first == null -> second
+        second == null -> first
+        first > second -> first
+        else -> second
+    }

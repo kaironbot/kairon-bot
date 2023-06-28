@@ -178,7 +178,7 @@ class BuildingBuy(
                 val config = cacheManager.getConfig(data.guildId)
                 val buildingName = interaction
                     .textInputs["${this@BuildingBuy::class.qualifiedName}-modal-name"]
-                    ?.value ?: throw IllegalStateException("Cannot find building name")
+                    ?.value?.trim() ?: throw IllegalStateException("Cannot find building name")
                 val buildingDescription = interaction
                     .textInputs["${this@BuildingBuy::class.qualifiedName}-modal-description"]
                     ?.value ?: throw IllegalStateException("Cannot find building description")
