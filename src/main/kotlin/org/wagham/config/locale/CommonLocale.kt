@@ -3,6 +3,12 @@ package org.wagham.config.locale
 import dev.kord.common.Locale
 
 enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum {
+    ABORT(
+        mapOf(
+            Locale.ITALIAN to "Annulla",
+            Locale.ENGLISH_GREAT_BRITAIN to "Abort"
+        )
+    ),
     ALTERNATIVE(
         mapOf(
             Locale.ITALIAN to "Forse intendevi: ",
@@ -13,6 +19,12 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
         mapOf(
             Locale.ITALIAN to "Assegna ",
             Locale.ENGLISH_GREAT_BRITAIN to "Assegna "
+        )
+    ),
+    CONTINUE(
+        mapOf(
+            Locale.ITALIAN to "Continua",
+            Locale.ENGLISH_GREAT_BRITAIN to "Continue"
         )
     ),
     ELEMENT_NOT_FOUND(
@@ -67,12 +79,6 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
         mapOf(
             Locale.ITALIAN to "Non hai abbastanza monete per completare questa operazione",
             Locale.ENGLISH_GREAT_BRITAIN to "You do not have enough money to complete this operation"
-        )
-    ),
-    PRICE(
-        mapOf(
-            Locale.ITALIAN to "Prezzo",
-            Locale.ENGLISH_GREAT_BRITAIN to "Price"
         )
     ),
     SUCCESS(

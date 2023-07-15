@@ -11,43 +11,42 @@ import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.SetCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.subcommands.SetBuildingLimitLocale
+import org.wagham.config.locale.subcommands.SetConfigOptionLocale
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.db.enums.BuildingRestrictionType
-import org.wagham.exceptions.GuildNotFoundException
+import org.wagham.db.models.ServerConfig
 import org.wagham.utils.createGenericEmbedSuccess
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", SetCommand::class)
-class SetBuildingLimit(
+class SetConfigOption(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
 
-    override val commandName = "building_limit"
-    override val defaultDescription = "Set a limit on the maximum number of buildings a player can have"
+    override val commandName = "config_option"
+    override val defaultDescription = "Sets the optional config for this server"
     override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Set a limit on the maximum number of buildings a player can have",
-        Locale.ITALIAN to "Imposta il numero massimo di edifici che un giocatore può avere"
+        Locale.ENGLISH_GREAT_BRITAIN to defaultDescription,
+        Locale.ITALIAN to "Imposta le configurazioni opzionali per questo server"
     )
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
             description(locale, description)
         }
-        string("limit_type", SetBuildingLimitLocale.LIMIT_TYPE.locale("en")) {
-            SetBuildingLimitLocale.LIMIT_TYPE.localeMap.forEach{ (locale, description) ->
+        string("config_type", SetConfigOptionLocale.CONFIG_TYPE.locale("en")) {
+            SetConfigOptionLocale.CONFIG_TYPE.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
-            BuildingRestrictionType.values().forEach {
+            ServerConfig.Companion.PlayerConfigurations.values().forEach {
                 choice(it.name, it.name)
             }
             required = true
         }
-        integer("limit", SetBuildingLimitLocale.LIMIT.locale("en")) {
-            SetBuildingLimitLocale.LIMIT.localeMap.forEach{ (locale, description) ->
+        boolean("value", SetConfigOptionLocale.VALUE.locale("en")) {
+            SetConfigOptionLocale.VALUE.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             required = true
@@ -58,17 +57,17 @@ class SetBuildingLimit(
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val params = event.extractCommonParameters()
-        val limitType = event.interaction.command.strings["limit_type"]?.let {
-            BuildingRestrictionType.valueOf(it)
-        } ?: throw IllegalStateException("Limit type not found")
-        val limit = event.interaction.command.integers["limit"]?.takeIf { it >= 0 }?.toInt()
-            ?: throw IllegalStateException(SetBuildingLimitLocale.INVALID_VALUE.locale(params.locale))
+        val limitType = event.interaction.command.strings["config_type"]?.let {
+            ServerConfig.Companion.PlayerConfigurations.valueOf(it)
+        } ?: throw IllegalStateException("Option type not found")
+        val propertyValue = event.interaction.command.booleans["value"]
+            ?: throw IllegalStateException("value not found")
         val config = cacheManager.getConfig(params.guildId)
         cacheManager.setConfig(
             params.guildId,
             config.copy(
-                buildingRestrictions = config.buildingRestrictions +
-                    (limitType to limit)
+                playerConfigurations = config.playerConfigurations +
+                    (limitType to propertyValue)
             )
         )
         return createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))

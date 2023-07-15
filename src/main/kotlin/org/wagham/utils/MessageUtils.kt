@@ -4,6 +4,7 @@ import dev.kord.common.entity.ButtonStyle
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.entity.channel.MessageChannel
 import dev.kord.rest.builder.component.MessageComponentBuilder
+import dev.kord.rest.builder.message.create.MessageCreateBuilder
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.actionRow
 import dev.kord.rest.builder.message.modify.embed
@@ -23,8 +24,7 @@ suspend fun MessageChannel.sendTextMessage(message: String) =
             }
         }
 
-fun createGenericEmbedError(message: String, actionRows: MutableList<MessageComponentBuilder> = mutableListOf()): InteractionResponseModifyBuilder.() -> Unit =
-    fun InteractionResponseModifyBuilder.() {
+fun createGenericEmbedError(message: String, actionRows: MutableList<MessageComponentBuilder> = mutableListOf()) = fun InteractionResponseModifyBuilder.() {
         embed {
             color = Colors.WARNING.value
             title = "Error"
@@ -33,8 +33,7 @@ fun createGenericEmbedError(message: String, actionRows: MutableList<MessageComp
         components = actionRows
     }
 
-fun createGenericEmbedSuccess(message: String, actionRows: MutableList<MessageComponentBuilder> = mutableListOf()): InteractionResponseModifyBuilder.() -> Unit =
-    fun InteractionResponseModifyBuilder.() {
+fun createGenericEmbedSuccess(message: String, actionRows: MutableList<MessageComponentBuilder> = mutableListOf()) = fun InteractionResponseModifyBuilder.() {
         embed {
             color = Colors.DEFAULT.value
             title = "Ok"
