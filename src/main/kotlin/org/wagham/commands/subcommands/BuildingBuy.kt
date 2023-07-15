@@ -54,7 +54,7 @@ class BuildingBuy(
     override val commandName = "buy"
     override val defaultDescription = "Buy a building"
     override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Buy a building",
+        Locale.ENGLISH_GREAT_BRITAIN to defaultDescription,
         Locale.ITALIAN to "Acquista un edificio"
     )
     private val interactionCache: Cache<Snowflake, InteractionData> =
@@ -285,10 +285,9 @@ class BuildingBuy(
         builder: InteractionResponseModifyBuilder.() -> Unit,
         event: GuildChatInputCommandInteractionCreateEvent
     ) {
-        val response = event.interaction.deferPublicResponse()
         val guildId = event.interaction.guildId
         val character = db.charactersScope.getActiveCharacter(guildId.toString(), event.interaction.user.id.toString())
-        val msg = response.respond(builder)
+        val msg = event.interaction.deferPublicResponse().respond(builder)
         interactionCache.put(
             msg.message.id,
             InteractionData(
