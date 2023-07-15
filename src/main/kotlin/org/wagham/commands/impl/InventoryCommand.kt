@@ -22,7 +22,7 @@ import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.InventoryLocale
-import org.wagham.config.locale.commands.MSLocale
+import org.wagham.config.locale.commands.ExpLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.entities.PaginatedList
@@ -55,7 +55,7 @@ class InventoryCommand(
             localeDescriptions.forEach{ (locale, description) ->
                 description(locale, description)
             }
-            user("target", MSLocale.TARGET.locale("en")) {
+            user("target", ExpLocale.TARGET.locale("en")) {
                 InventoryLocale.TARGET.localeMap.forEach{ (locale, description) ->
                     description(locale, description)
                 }
