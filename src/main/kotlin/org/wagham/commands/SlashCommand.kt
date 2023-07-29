@@ -11,7 +11,9 @@ import dev.kord.rest.builder.message.modify.embed
 import kotlinx.coroutines.flow.firstOrNull
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
+import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.exceptions.UnauthorizedException
+import org.wagham.utils.defaultLocale
 
 abstract class SlashCommand<T: RequestBuilder<*>> : Command<T> {
 
@@ -42,13 +44,19 @@ abstract class SlashCommand<T: RequestBuilder<*>> : Command<T> {
                     handleResponse(builder, this)
                 } catch (e: Exception) {
                     try {
-                        interaction.deferPublicResponse().respond {
-                            embed {
-                                title = "Error"
-                                description = e.message ?: e.stackTraceToString()
-                                color = Colors.ERROR.value
+                        when(e) {
+                            is NoActiveCharacterException -> "<@!${e.playerId}> ${CommonLocale.NO_ACTIVE_CHARACTER.locale(defaultLocale)}"
+                            else -> e.message ?: e.stackTraceToString()
+                        }.let { message ->
+                            interaction.deferPublicResponse().respond {
+                                embed {
+                                    title = "Error"
+                                    description = message
+                                    color = Colors.ERROR.value
+                                }
                             }
                         }
+
                     } catch (_: Exception) {
                         interaction.channel.createMessage {
                             embed {
