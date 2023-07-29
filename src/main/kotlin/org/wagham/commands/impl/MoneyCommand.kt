@@ -9,7 +9,6 @@ import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEve
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
-import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
@@ -20,9 +19,7 @@ import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.MoneyLocale
 import org.wagham.config.locale.components.MultiCharacterLocale
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Character
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.defaultLocale
 import org.wagham.utils.extractCommonParameters
@@ -63,13 +60,7 @@ class MoneyCommand(
         return event.interaction.command.users["target"]?.takeIf { it.id != params.responsible.id }?.let {
             val targetOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(listOf(it), null, it, params)
             when {
-                targetOrSelectionContext.characters != null -> {
-                    if (targetOrSelectionContext.characters.size != 1 ) {
-                        createGenericEmbedError(MultiCharacterLocale.INVALID_TARGET_NUMBER.locale(params.locale))
-                    } else {
-                        generateMoneyEmbed(targetOrSelectionContext.characters.first(), it)
-                    }
-                }
+                targetOrSelectionContext.characters != null -> generateMoneyEmbed(targetOrSelectionContext.characters.first(), it)
                 targetOrSelectionContext.response != null -> targetOrSelectionContext.response
                 else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
             }
@@ -101,6 +92,6 @@ class MoneyCommand(
             }
             description = "${character.money} MO"
         }
-        components = mutableListOf()
+        this.components = mutableListOf()
     }
 }

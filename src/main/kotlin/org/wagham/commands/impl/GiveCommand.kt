@@ -84,18 +84,16 @@ class GiveCommand(
     ) {
         val params = interaction.extractCommonParameters()
         val updateBehaviour = interaction.deferPublicMessageUpdate()
-        when {
-            sourceCharacter == null -> createGenericEmbedError(MultiCharacterLocale.NO_SOURCE.locale(params.locale))
-            characters.size != 1 -> createGenericEmbedError(MultiCharacterLocale.INVALID_TARGET_NUMBER.locale(params.locale))
-            else -> {
-                executeTransaction(
-                    params,
-                    sourceCharacter,
-                    characters.first(),
-                    context.item,
-                    context.amount
-                )
-            }
+        if(sourceCharacter == null) {
+            createGenericEmbedError(MultiCharacterLocale.NO_SOURCE.locale(params.locale))
+        } else {
+            executeTransaction(
+                params,
+                sourceCharacter,
+                characters.first(),
+                context.item,
+                context.amount
+            )
         }.let { updateBehaviour.edit(it) }
     }
 
@@ -140,13 +138,7 @@ class GiveCommand(
                     params
                 )
                 when {
-                    targetsOrSelectionContext.characters != null -> {
-                        if (targetsOrSelectionContext.characters.size != 1 ) {
-                            createGenericEmbedError(MultiCharacterLocale.INVALID_TARGET_NUMBER.locale(params.locale))
-                        } else {
-                            executeTransaction(params, character, targetsOrSelectionContext.characters.first(), item, amount)
-                        }
-                    }
+                    targetsOrSelectionContext.characters != null -> executeTransaction(params, character, targetsOrSelectionContext.characters.first(), item, amount)
                     targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
                     else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
                 }

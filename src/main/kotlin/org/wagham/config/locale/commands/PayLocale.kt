@@ -16,6 +16,12 @@ enum class PayLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Un altro utente da pagare"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Pay another player",
+            Locale.ITALIAN to "Paga un altro giocatore"
+        )
+    ),
     NOT_ENOUGH_MONEY(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "You do not have enough money to complete this operation",

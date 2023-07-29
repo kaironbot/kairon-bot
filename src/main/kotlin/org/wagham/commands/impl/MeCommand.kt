@@ -82,11 +82,7 @@ class MeCommand(
         sourceCharacter: Character?
     ) {
         val params = interaction.extractCommonParameters()
-        val updateBehaviour = interaction.deferPublicMessageUpdate()
-        when {
-            characters.size != 1 -> createGenericEmbedError(MultiCharacterLocale.INVALID_TARGET_NUMBER.locale(params.locale))
-            else -> generateEmbed(characters.first(), params)
-        }.let { updateBehaviour.edit(it) }
+        interaction.deferPublicMessageUpdate().edit(generateEmbed(characters.first(), params))
     }
 
     private suspend fun generateEmbed(character: Character, params: InteractionParameters): InteractionResponseModifyBuilder.() -> Unit {

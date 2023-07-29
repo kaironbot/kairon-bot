@@ -86,13 +86,7 @@ class InventoryCommand(
         return event.interaction.command.users["target"]?.takeIf { it.id != params.responsible.id }?.let {
             val targetOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(listOf(it), null, it, params)
             when {
-                targetOrSelectionContext.characters != null -> {
-                    if (targetOrSelectionContext.characters.size != 1 ) {
-                        createGenericEmbedError(MultiCharacterLocale.INVALID_TARGET_NUMBER.locale(params.locale))
-                    } else {
-                        generateInventory(targetOrSelectionContext.characters.first(), it, params)
-                    }
-                }
+                targetOrSelectionContext.characters != null -> generateInventory(targetOrSelectionContext.characters.first(), it, params)
                 targetOrSelectionContext.response != null -> targetOrSelectionContext.response
                 else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
             }
@@ -109,11 +103,9 @@ class InventoryCommand(
         sourceCharacter: Character?
     ) {
         val params = interaction.extractCommonParameters()
-        val updateBehaviour = interaction.deferPublicMessageUpdate()
-        when {
-            characters.size != 1 -> createGenericEmbedError(MultiCharacterLocale.INVALID_TARGET_NUMBER.locale(params.locale))
-            else -> generateInventory(characters.first(), context, params)
-        }.let { updateBehaviour.edit(it) }
+        interaction.deferPublicMessageUpdate().edit(
+            generateInventory(characters.first(), context, params)
+        )
     }
 
     private fun generateInventory(character: Character, user: User, params: InteractionParameters): InteractionResponseModifyBuilder.() -> Unit {
