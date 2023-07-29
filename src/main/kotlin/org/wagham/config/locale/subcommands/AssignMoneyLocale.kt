@@ -16,6 +16,12 @@ enum class AssignMoneyLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Un altro utente a cui assegnare monete"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Assign money to one or more players",
+            Locale.ITALIAN to "Assegna delle monete a uno o più giocatori"
+        )
+    ),
     TARGET(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The user to give money to",
