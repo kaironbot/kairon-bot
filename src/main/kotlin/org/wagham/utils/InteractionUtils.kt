@@ -30,6 +30,9 @@ suspend fun ComponentInteractionBehavior.respondWithForbiddenError(locale: Strin
 suspend fun ComponentInteractionBehavior.respondWithGenericError(locale: String) =
     deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale)))
 
+inline fun <R> withEventParameters(event: GuildChatInputCommandInteractionCreateEvent, block: InteractionParameters.() -> R) =
+    with(event.extractCommonParameters(), block)
+
 fun GuildChatInputCommandInteractionCreateEvent.extractCommonParameters() = InteractionParameters(
     interaction.data.guildId.value ?: throw GuildNotFoundException(),
     interaction.locale?.language ?: interaction.guildLocale?.language ?: "en",

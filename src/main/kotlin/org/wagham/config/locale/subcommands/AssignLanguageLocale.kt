@@ -4,6 +4,12 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class AssignLanguageLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Assign a language to a player",
+            Locale.ITALIAN to "Assegna un linguaggio a un giocatore"
+        )
+    ),
     LANGUAGE(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The language to assign",

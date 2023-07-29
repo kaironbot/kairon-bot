@@ -44,8 +44,7 @@ class AssignItem(
     companion object {
         private data class AssignItemInteractionParameters(
             val responsible: Snowflake,
-            val users: Set<User>?,
-            val characters: List<Character>?
+            val users: Set<User>
         )
     }
 
@@ -103,10 +102,7 @@ class AssignItem(
                 when {
                     data == null -> interaction.respondWithExpirationError(params.locale)
                     data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
-                    data.characters != null -> {
-                        interaction.deferPublicMessageUpdate().edit(assignItemToCharacters(item, amount, data.characters, params))
-                    }
-                    data.users != null -> {
+                    else -> {
                         try {
                             val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(
                                 data.users.toList(),
@@ -128,7 +124,6 @@ class AssignItem(
                             interaction.deferPublicMessageUpdate().edit(it)
                         }
                     }
-                    else -> interaction.respondWithGenericError(params.locale)
                 }
             }
         }
@@ -151,9 +146,8 @@ class AssignItem(
             }
         }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val params = event.extractCommonParameters()
-        val items = cacheManager.getCollectionOfType<Item>(params.guildId)
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
+        val items = cacheManager.getCollectionOfType<Item>(guildId)
         val targets = listOf(
             listOfNotNull(event.interaction.command.users["target"]),
             (1 .. additionalUsers).mapNotNull { paramNum ->
@@ -164,29 +158,23 @@ class AssignItem(
             ?: throw IllegalStateException("Invalid amount")
         val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not found")
         return items.firstOrNull { it.name == item }?.let {
-            val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(
-                targets.toList(),
-                null,
-                Pair(it.name, amount),
-                params
-            )
+            val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(targets.toList(), null, Pair(it.name, amount), this)
             when {
-                targetsOrSelectionContext.characters != null -> assignItemToCharacters(it.name, amount, targetsOrSelectionContext.characters, params)
+                targetsOrSelectionContext.characters != null -> assignItemToCharacters(it.name, amount, targetsOrSelectionContext.characters, this)
                 targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
-                else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
+                else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
             }
         } ?: items.maxByOrNull { item.levenshteinDistance(it.name) }?.let {
             val interactionId = compactUuid()
             interactionCache.put(
                 interactionId,
                 AssignItemInteractionParameters(
-                    params.responsible.id,
-                    targets,
-                    null
+                    responsible.id,
+                    targets
                 )
             )
-            alternativeOptionMessage(params.locale, item, it.name, buildElementId(it.name, amount, interactionId))
-        } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
+            alternativeOptionMessage(locale, item, it.name, buildElementId(it.name, amount, interactionId))
+        } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
 
     }
 
@@ -197,23 +185,10 @@ class AssignItem(
         sourceCharacter: Character?
     ) {
         val params = interaction.extractCommonParameters()
-        val items = cacheManager.getCollectionOfType<Item>(params.guildId)
         val (item, amount) = context
-        val response = items.firstOrNull { it.name == item }?.let {
-            assignItemToCharacters(it.name, amount, characters, params)
-        } ?: items.maxByOrNull { item.levenshteinDistance(it.name) }?.let {
-            val interactionId = compactUuid()
-            interactionCache.put(
-                interactionId,
-                AssignItemInteractionParameters(
-                    params.responsible.id,
-                    null,
-                    characters
-                )
-            )
-            alternativeOptionMessage(params.locale, item, it.name, buildElementId(it.name, amount, interactionId))
-        } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
-        interaction.deferPublicMessageUpdate().edit(response)
+        interaction.deferPublicMessageUpdate().edit(
+            assignItemToCharacters(item, amount, characters, params)
+        )
     }
 
     override suspend fun handleResponse(

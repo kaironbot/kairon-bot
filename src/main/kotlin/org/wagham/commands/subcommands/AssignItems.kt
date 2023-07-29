@@ -18,8 +18,7 @@ import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Item
 import org.wagham.exceptions.GuildNotFoundException
-import org.wagham.utils.createGenericEmbedError
-import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.*
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", AssignCommand::class)
@@ -30,11 +29,8 @@ class AssignItems(
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "items"
-    override val defaultDescription = "Assign multiple items to a player"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Assign multiple items to a player",
-        Locale.ITALIAN to "Assegna più oggetti a un giocatore"
-    )
+    override val defaultDescription = AssignItemsLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = AssignItemsLocale.DESCRIPTION.localeMap
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
@@ -66,21 +62,20 @@ class AssignItems(
         }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        val items = cacheManager.getCollectionOfType<Item>(guildId)
-        val target = event.interaction.command.users["target"]?.id ?: throw IllegalStateException("Target not found")
+        val params = event.extractCommonParameters()
+        val items = cacheManager.getCollectionOfType<Item>(params.guildId)
+        val target = event.interaction.command.users["target"] ?: throw IllegalStateException("Target not found")
         val itemsToAssign = parseItemsToAssign(event.interaction.command.strings["items"] ?: throw IllegalStateException("Target not found"))
-        return try {
+        return withOneActiveCharacterOrErrorMessage(target, params) { targetCharacter ->
             val missingItems = itemsToAssign
                 .map { it.key }
                 .filter { item ->
                     items.firstOrNull { it.name == item } == null
                 }
-            if(missingItems.isNotEmpty()) {
+            if (missingItems.isNotEmpty()) {
                 createGenericEmbedError(
                     buildString {
-                        append(AssignItemsLocale.NOT_FOUND.locale(locale))
+                        append(AssignItemsLocale.NOT_FOUND.locale(params.locale))
                         missingItems.forEach {
                             append(it)
                             append(", ")
@@ -88,19 +83,15 @@ class AssignItems(
                     }
                 )
             } else {
-                //TODO fix this
-                db.transaction(guildId) { s ->
-                    val targetCharacter = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
+                db.transaction(params.guildId.toString()) { s ->
                     itemsToAssign.entries.fold(true) { acc, it ->
-                        acc && db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, it.key, it.value)
+                        acc && db.charactersScope.addItemToInventory(s, params.guildId.toString(), targetCharacter.id, it.key, it.value)
                     }
                 }.let {
-                    if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
+                    if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
                     else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
                 }
             }
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
         }
     }
 

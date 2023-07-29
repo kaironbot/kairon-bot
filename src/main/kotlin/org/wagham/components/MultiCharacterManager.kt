@@ -33,7 +33,7 @@ class MultiCharacterManager<T>(
     val kord: Kord,
     private val command: MultiCharacterCommand<T>
 ) {
-    private val interactionPrefix = "${command::class.qualifiedName}.multiCharacter"
+    private val interactionPrefix = "${command::class.qualifiedName}.multi"
 
     init {
         handleButton()

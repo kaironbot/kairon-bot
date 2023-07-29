@@ -46,7 +46,7 @@ abstract class SlashCommand<T: RequestBuilder<*>> : Command<T> {
                     try {
                         when(e) {
                             is NoActiveCharacterException -> "<@!${e.playerId}> ${CommonLocale.NO_ACTIVE_CHARACTER.locale(defaultLocale)}"
-                            else -> e.message ?: e.stackTraceToString()
+                            else -> e.message ?: e.stackTraceToString().substring(0, 1000)
                         }.let { message ->
                             interaction.deferPublicResponse().respond {
                                 embed {
@@ -61,7 +61,7 @@ abstract class SlashCommand<T: RequestBuilder<*>> : Command<T> {
                         interaction.channel.createMessage {
                             embed {
                                 title = "Error in ${this::class.simpleName}"
-                                description = e.message ?: e.stackTraceToString()
+                                description = e.message ?: e.stackTraceToString().substring(0, 1000)
                                 color = Colors.ERROR.value
                             }
                         }

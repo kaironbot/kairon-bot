@@ -7,29 +7,30 @@ import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.edit
 import dev.kord.core.behavior.interaction.response.respond
+import dev.kord.core.entity.User
+import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
 import org.wagham.components.CacheManager
+import org.wagham.components.MultiCharacterCommand
+import org.wagham.components.MultiCharacterManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.AssignLanguageLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.Character
 import org.wagham.db.models.LanguageProficiency
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.db.models.embed.Transaction
-import org.wagham.exceptions.GuildNotFoundException
-import org.wagham.utils.alternativeOptionMessage
-import org.wagham.utils.createGenericEmbedError
-import org.wagham.utils.createGenericEmbedSuccess
-import org.wagham.utils.levenshteinDistance
+import org.wagham.entities.InteractionParameters
+import org.wagham.utils.*
 import java.lang.IllegalStateException
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -39,15 +40,21 @@ class AssignLanguage(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : SubCommand<InteractionResponseModifyBuilder> {
+) : SubCommand<InteractionResponseModifyBuilder>, MultiCharacterCommand<LanguageProficiency> {
+
+    companion object {
+        private data class AssignLanguageInteractionData(
+            val responsible: Snowflake,
+            val language: LanguageProficiency,
+            val targetUser: User
+        )
+    }
 
     override val commandName = "language"
-    override val defaultDescription = "Assign a language to a player"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Assign a language to a player",
-        Locale.ITALIAN to "Assegna un linguaggio a un giocatore"
-    )
-    private val interactionCache: Cache<Snowflake, Pair<Snowflake, Snowflake>> =
+    override val defaultDescription = AssignLanguageLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = AssignLanguageLocale.DESCRIPTION.localeMap
+    private val multiCharacterManager = MultiCharacterManager(db, kord, this)
+    private val interactionCache: Cache<String, AssignLanguageInteractionData> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .build()
@@ -73,73 +80,92 @@ class AssignLanguage(
 
     override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
-            val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-            if(interaction.componentId.startsWith("${this@AssignLanguage::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id)?.first == interaction.user.id) {
-                val guildId = interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-                val target = interactionCache.getIfPresent(interaction.message.id)?.second ?: throw IllegalStateException("Cannot find targets")
-                val language = Regex("${this@AssignLanguage::class.qualifiedName}-([0-9a-fA-F]{8}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{12})")
-                    .find(interaction.componentId)
-                    ?.groupValues
-                    ?.get(1)
-                    ?: throw IllegalStateException("Cannot parse parameters")
-                val languages = cacheManager.getCollectionOfType<LanguageProficiency>(guildId)
-                //TODO fix this
-                val character = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
-                assignLanguageToCharacter(guildId, languages.first { it.id == language }, character.id).let {
-                    when {
-                        it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                        it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
-                        else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+            if (verifyId(interaction.componentId)) {
+                val (id) = extractComponentsFromComponentId(interaction.componentId)
+                val params = interaction.extractCommonParameters()
+                val data = interactionCache.getIfPresent(id)
+                when {
+                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
+                    else -> {
+                        try {
+                            val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(
+                                listOf(data.targetUser),
+                                null,
+                                data.language,
+                                params
+                            )
+                            when {
+                                targetsOrSelectionContext.characters != null -> assignLanguageToCharacter(data.language, targetsOrSelectionContext.characters.first().id, params)
+                                targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
+                                else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
+                            }
+                        } catch (e: Exception) {
+                            when(e) {
+                                is NoActiveCharacterException -> createGenericEmbedError("<@!${e.playerId}> ${CommonLocale.NO_ACTIVE_CHARACTER.locale(params.locale)}")
+                                else -> createGenericEmbedError(e.message ?: e.toString())
+                            }
+                        }.let {
+                            interaction.deferPublicMessageUpdate().edit(it)
+                        }
                     }
-                }.let {
-                    interaction.deferPublicMessageUpdate().edit(it)
                 }
-            } else if (interaction.componentId.startsWith("${this@AssignLanguage::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
-                interaction.deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.INTERACTION_EXPIRED.locale(locale)))
-            } else if (interaction.componentId.startsWith("${this@AssignLanguage::class.qualifiedName}")) {
-                interaction.deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
             }
         }
     }
 
-    private suspend fun assignLanguageToCharacter(guildId: String, language: LanguageProficiency, target: String) =
-        db.transaction(guildId) { s ->
+    private suspend fun assignLanguageToCharacter(language: LanguageProficiency, target: String, params: InteractionParameters) =
+        db.transaction(params.guildId.toString()) { s ->
             db.charactersScope.addLanguageToCharacter(
                 s,
-                guildId,
+                params.guildId.toString(),
                 target,
                 ProficiencyStub(language.id, language.name)
             ) && db.characterTransactionsScope.addTransactionForCharacter(
-                s, guildId, target, Transaction(
+                s, params.guildId.toString(), target, Transaction(
                     Date(), null, "ASSIGN", TransactionType.ADD, mapOf(language.name to 1f)
                 )
             )
+        }.let {
+            when {
+                it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
+                it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(params.locale))
+                else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+            }
         }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val languages = cacheManager.getCollectionOfType<LanguageProficiency>(guildId)
-        val target = event.interaction.command.users["target"]?.id ?: throw IllegalStateException("Target not found")
+        val target = event.interaction.command.users["target"] ?: throw IllegalStateException("Target not found")
         val language = event.interaction.command.strings["language"] ?: throw IllegalStateException("Language not found")
-        return try {
-            if (languages.firstOrNull { it.name == language } == null) {
-                val probableLanguage = languages.maxByOrNull { language.levenshteinDistance(it.name) }
-                alternativeOptionMessage(locale, language, probableLanguage?.name, "${this@AssignLanguage::class.qualifiedName}-${probableLanguage?.id}")
-            } else {
-                //TODO fix this
-                val character = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
-                assignLanguageToCharacter(guildId, languages.first { it.name == language }, character.id).let {
-                    when {
-                        it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                        it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
-                        else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
-                    }
-                }
+        return languages.firstOrNull { it.name == language }?.let {
+            val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(listOf(target), null, it, this)
+            when {
+                targetsOrSelectionContext.characters != null -> assignLanguageToCharacter(it, targetsOrSelectionContext.characters.first().id, this)
+                targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
+                else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
             }
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
-        }
+        } ?: languages.maxByOrNull { language.levenshteinDistance(it.name) }?.let { probableLanguage ->
+            val interactionId = compactUuid()
+            interactionCache.put(
+                interactionId,
+                AssignLanguageInteractionData(responsible.id, probableLanguage, target)
+            )
+            alternativeOptionMessage(locale, language, probableLanguage.name, buildElementId(interactionId))
+        } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
+
+    }
+
+    override suspend fun multiCharacterAction(
+        interaction: ComponentInteraction,
+        characters: List<Character>,
+        context: LanguageProficiency,
+        sourceCharacter: Character?
+    ) {
+        val params = interaction.extractCommonParameters()
+        interaction.deferPublicMessageUpdate().edit(
+            assignLanguageToCharacter(context, characters.first().id, params)
+        )
     }
 
     override suspend fun handleResponse(
@@ -147,14 +173,6 @@ class AssignLanguage(
         event: GuildChatInputCommandInteractionCreateEvent
     ) {
         val response = event.interaction.deferPublicResponse()
-        val msg = response.respond(builder)
-        interactionCache.put(
-            msg.message.id,
-            Pair(
-                event.interaction.user.id,
-                event.interaction.command.users["target"]!!.id
-            )
-        )
+       response.respond(builder)
     }
-
 }
