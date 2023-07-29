@@ -15,7 +15,6 @@ import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ItemCommand
@@ -32,28 +31,24 @@ import org.wagham.db.models.Character
 import org.wagham.db.models.Item
 import org.wagham.db.models.ScheduledEvent
 import org.wagham.db.models.embed.Transaction
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.*
-import java.lang.IllegalStateException
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.IllegalStateException
 
 @BotSubcommand("all", ItemCommand::class)
-class ItemCraftCommand(
+class ItemCraft(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "craft"
-    override val defaultDescription = "Craft an item with the current character"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Craft an item with the current character",
-        Locale.ITALIAN to "Costruisci un oggetto con il personaggio corrente"
-    )
+    override val defaultDescription = ItemCraftLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = ItemCraftLocale.DESCRIPTION.localeMap
     private val dateFormatter = SimpleDateFormat("dd/MM/YYYY HH:mm:ss")
-    private val interactionCache: Cache<Snowflake, Snowflake> =
+    private val interactionCache: Cache<String, Pair<Snowflake, Character>> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .build()
@@ -78,24 +73,21 @@ class ItemCraftCommand(
 
     override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
-            val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-            if(interaction.componentId.startsWith("${this@ItemCraftCommand::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == interaction.user.id) {
-                val guildId = interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-                val target = interactionCache.getIfPresent(interaction.message.id) ?: throw IllegalStateException("Cannot find targets")
-                val (item, amount) = Regex("${this@ItemCraftCommand::class.qualifiedName}-(.+)-([0-9]+)")
-                    .find(interaction.componentId)
-                    ?.groupValues
-                    ?.let {
-                        Pair(it[1], it[2].toInt())
-                    } ?: throw IllegalStateException("Cannot parse parameters")
-                val items = cacheManager.getCollectionOfType<Item>(guildId)
-                checkRequirementsAndCraftItem(guildId, items.first { it.name == item }, amount, target, locale).let {
-                    interaction.deferPublicMessageUpdate().edit(it)
+            if(verifyId(interaction.componentId)) {
+                val params = interaction.extractCommonParameters()
+                val (item, rawAmount, id) = extractComponentsFromComponentId(interaction.componentId)
+                val amount = rawAmount.toIntOrNull() ?: throw IllegalStateException("Invalid amount format")
+                val data = interactionCache.getIfPresent(id)
+                when {
+                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data.first != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
+                    else -> {
+                        val items = cacheManager.getCollectionOfType<Item>(params.guildId)
+                        checkRequirementsAndCraftItem(params.guildId.toString(), items.first { it.name == item }, amount, data.second, params.locale).let {
+                            interaction.deferPublicMessageUpdate().edit(it)
+                        }
+                    }
                 }
-            } else if (interaction.componentId.startsWith("${this@ItemCraftCommand::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
-                interaction.deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.INTERACTION_EXPIRED.locale(locale)))
-            } else if (interaction.componentId.startsWith("${this@ItemCraftCommand::class.qualifiedName}")) {
-                interaction.deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
             }
         }
     }
@@ -189,10 +181,8 @@ class ItemCraftCommand(
             it > 0
         } ?: emptyMap()
 
-    private suspend fun checkRequirementsAndCraftItem(guildId: String, item: Item, amount: Int, player: Snowflake, locale: String): InteractionResponseModifyBuilder.() -> Unit {
-        //TODO fix this
-        val character = db.charactersScope.getActiveCharacters(guildId, player.toString()).first()
-        return when {
+    private suspend fun checkRequirementsAndCraftItem(guildId: String, item: Item, amount: Int, character: Character, locale: String): InteractionResponseModifyBuilder.() -> Unit =
+        when {
             item.craft == null -> createGenericEmbedError(ItemCraftLocale.CANNOT_CRAFT.locale(locale))
             item.craft?.minQuantity != null && amount < item.craft!!.minQuantity!! ->
                 createGenericEmbedError("${ItemCraftLocale.NOT_ENOUGH.locale(locale)} ${item.craft?.minQuantity}")
@@ -212,25 +202,23 @@ class ItemCraftCommand(
             character.money < (item.craft!!.cost * amount) -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
             else -> craftItemAndAssignToCharacter(guildId, item, amount, character.id, locale)
         }
-    }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val items = cacheManager.getCollectionOfType<Item>(guildId)
         val amount = event.interaction.command.integers["amount"]?.toInt()?.takeIf { it > 0 }
             ?: throw IllegalStateException(ItemCraftLocale.INVALID_QTY.locale(locale))
         val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not provided")
-        val target = event.interaction.user.id
-        return try {
-            if (items.firstOrNull { it.name == item } == null) {
-                val probableItem = items.maxByOrNull { item.levenshteinDistance(it.name) }
-                alternativeOptionMessage(locale, item, probableItem?.name, "${this@ItemCraftCommand::class.qualifiedName}-${probableItem?.name}-$amount")
-            } else {
-                checkRequirementsAndCraftItem(guildId, items.first { it.name == item }, amount, target, locale)
-            }
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+        withOneActiveCharacterOrErrorMessage(responsible, this) { character ->
+            items.firstOrNull { it.name == item }?.let {
+                checkRequirementsAndCraftItem(guildId.toString(), items.first { it.name == item }, amount, character, locale)
+            } ?: items.maxByOrNull { item.levenshteinDistance(it.name) }?.let { probableItem ->
+                val interactionId = compactUuid().substring(0, 6)
+                interactionCache.put(
+                    interactionId,
+                    Pair(responsible.id, character)
+                )
+                alternativeOptionMessage(locale, item, probableItem.name, buildElementId(probableItem.name, amount, interactionId))
+            } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
         }
     }
 
@@ -239,11 +227,7 @@ class ItemCraftCommand(
         event: GuildChatInputCommandInteractionCreateEvent
     ) {
         val response = event.interaction.deferPublicResponse()
-        val msg = response.respond(builder)
-        interactionCache.put(
-            msg.message.id,
-            event.interaction.user.id
-        )
+        response.respond(builder)
     }
 
 }

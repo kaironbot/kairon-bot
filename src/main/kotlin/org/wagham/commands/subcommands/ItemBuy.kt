@@ -114,7 +114,7 @@ class ItemBuy(
         val amount = event.interaction.command.integers["amount"]?.toInt()?.takeIf { it > 0 }
             ?: throw IllegalStateException("Invalid quantity")
         val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not found")
-        return withOneActiveCharacterOrErrorMessage(responsible, this) { character ->
+        withOneActiveCharacterOrErrorMessage(responsible, this) { character ->
             items.firstOrNull { it.name == item }?.let {
                 checkRequirementsAndBuyItem(guildId.toString(), items.first { it.name == item }, amount, character, locale)
             } ?: items.maxByOrNull { item.levenshteinDistance(it.name) }?.let { probableItem ->

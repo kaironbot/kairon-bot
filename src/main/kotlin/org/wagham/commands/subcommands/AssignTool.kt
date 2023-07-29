@@ -132,7 +132,6 @@ class AssignTool(
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
-                it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(params.locale))
                 else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
             }
         }
