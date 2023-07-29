@@ -25,7 +25,6 @@ import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.InventoryLocale
 import org.wagham.config.locale.commands.ExpLocale
-import org.wagham.config.locale.components.MultiCharacterLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.Character
 import org.wagham.entities.InteractionParameters
@@ -157,7 +156,7 @@ class InventoryCommand(
     private fun handleButton() {
         kord.on<ButtonInteractionCreateEvent> {
             if(verifyId(interaction.componentId)) {
-                val (op, id) = extractComponentsFromInteractionId(interaction.componentId)
+                val (op, id) = extractComponentsFromComponentId(interaction.componentId)
                 val data = interactionCache.getIfPresent(id)
                 val params = interaction.extractCommonParameters()
                 when {

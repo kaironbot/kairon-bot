@@ -5,7 +5,9 @@ import dev.kord.core.Kord
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SlashCommandWithSubcommands
 import org.wagham.components.CacheManager
+import org.wagham.config.locale.commands.SetLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class SetCommand(
@@ -15,10 +17,6 @@ class SetCommand(
 ) : SlashCommandWithSubcommands(kord, db, cacheManager) {
 
     override val commandName = "set"
-    override val defaultDescription = "Configure the bot options"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Configure the bot options",
-        Locale.ITALIAN to "Configure the bot options"
-    )
-
+    override val defaultDescription = SetLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = SetLocale.DESCRIPTION.localeMap
 }

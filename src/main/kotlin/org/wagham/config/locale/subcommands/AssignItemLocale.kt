@@ -16,6 +16,12 @@ enum class AssignItemLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Un altro utente a cui assegnare l'oggetto"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Assign an item to one or more players",
+            Locale.ITALIAN to "Assegna delle monete a uno o più giocatori"
+        )
+    ),
     ITEM(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The item to give",

@@ -14,6 +14,7 @@ import org.wagham.config.Colors
 import org.wagham.config.locale.commands.RollLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.parsers.DiceRollParser
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class RollCommand(
@@ -23,11 +24,8 @@ class RollCommand(
 ) : SimpleResponseSlashCommand() {
 
     override val commandName = "roll"
-    override val defaultDescription = "Roll one or more dice and add modifiers"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Roll one or more dice and add modifiers",
-        Locale.ITALIAN to "Tira uno o più dadi e aggiungi modificatori"
-    )
+    override val defaultDescription = RollLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = RollLocale.DESCRIPTION.localeMap
     private val parser = DiceRollParser()
 
     override suspend fun registerCommand() {

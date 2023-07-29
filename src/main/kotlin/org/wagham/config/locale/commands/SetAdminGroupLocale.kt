@@ -10,6 +10,12 @@ enum class SetAdminGroupLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ENGLISH_GREAT_BRITAIN to "Il ruolo amministratore è:"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Configure the admin role for this server",
+            Locale.ITALIAN to "Configura il ruolo di amministratore per questo server"
+        )
+    ),
     ROLE(
         mapOf(
             Locale.ITALIAN to "Il ruolo da settare come amministratore",

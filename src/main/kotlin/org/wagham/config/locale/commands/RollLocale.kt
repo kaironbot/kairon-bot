@@ -4,6 +4,12 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class RollLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Roll one or more dice and add modifiers",
+            Locale.ITALIAN to "Tira uno o più dadi e aggiungi modificatori"
+        )
+    ),
     FORMULA(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The die to roll (eg. 1d4+1d20-3)",

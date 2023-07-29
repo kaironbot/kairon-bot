@@ -15,6 +15,7 @@ import org.wagham.config.locale.commands.SetChannelLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class SetChannelCommand(
@@ -24,11 +25,8 @@ class SetChannelCommand(
 ) : SimpleResponseSlashCommand() {
 
     override val commandName = "set_channel"
-    override val defaultDescription = "Configure the channels for the bot"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Configure the channels for the bot",
-        Locale.ITALIAN to "Configura i canali per il bot"
-    )
+    override val defaultDescription = SetChannelLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = SetChannelLocale.DESCRIPTION.localeMap
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(

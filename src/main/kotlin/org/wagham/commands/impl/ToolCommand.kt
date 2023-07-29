@@ -5,7 +5,9 @@ import dev.kord.core.Kord
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SlashCommandWithSubcommands
 import org.wagham.components.CacheManager
+import org.wagham.config.locale.commands.ToolLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class ToolCommand (
@@ -15,9 +17,6 @@ class ToolCommand (
 ) : SlashCommandWithSubcommands(kord, db, cacheManager) {
 
     override val commandName = "tool"
-    override val defaultDescription = "Manage tools proficiencies"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Manage tools proficiencies",
-        Locale.ITALIAN to "Gestisci le competenze negli strumenti"
-    )
+    override val defaultDescription = ToolLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = ToolLocale.DESCRIPTION.localeMap
 }

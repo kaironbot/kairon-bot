@@ -12,5 +12,5 @@ interface Identifiable {
 
     fun verifyId(id: String, vararg descriptors: String) = id.startsWith(buildElementId(*descriptors))
 
-    fun extractComponentsFromInteractionId(id: String) = id.split(defaultSeparator).drop(1)
+    fun extractComponentsFromComponentId(id: String) = id.split(defaultSeparator).drop(1)
 }

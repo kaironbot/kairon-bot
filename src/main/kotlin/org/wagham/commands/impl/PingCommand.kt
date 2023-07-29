@@ -7,11 +7,11 @@ import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
-import org.wagham.commands.SlashCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.commands.PingLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class PingCommand(
@@ -21,11 +21,8 @@ class PingCommand(
 ) : SimpleResponseSlashCommand() {
 
     override val commandName = "ping"
-    override val defaultDescription = "Checks if the bot is online"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Checks if the bot is online",
-        Locale.ITALIAN to "Controlla se il bot è online"
-    )
+    override val defaultDescription = PingLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = PingLocale.DESCRIPTION.localeMap
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
