@@ -5,6 +5,7 @@ import dev.kord.core.behavior.interaction.response.edit
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.entity.interaction.ButtonInteraction
 import dev.kord.core.entity.interaction.ComponentInteraction
+import dev.kord.core.entity.interaction.ModalSubmitInteraction
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import org.wagham.config.locale.CommonLocale
@@ -40,6 +41,12 @@ fun GuildChatInputCommandInteractionCreateEvent.extractCommonParameters() = Inte
 )
 
 fun ComponentInteraction.extractCommonParameters() = InteractionParameters(
+    data.guildId.value ?: throw GuildNotFoundException(),
+    locale?.language ?: guildLocale?.language ?: "en",
+    user
+)
+
+fun ModalSubmitInteraction.extractCommonParameters() = InteractionParameters(
     data.guildId.value ?: throw GuildNotFoundException(),
     locale?.language ?: guildLocale?.language ?: "en",
     user
