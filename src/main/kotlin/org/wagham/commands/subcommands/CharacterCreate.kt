@@ -37,38 +37,36 @@ import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.ServerConfig.Companion.PlayerConfigurations.CHARACTER_CREATION_STRICT_CHECK
 import org.wagham.db.models.creation.CharacterCreationData
 import org.wagham.exceptions.ModalValueError
+import org.wagham.utils.defaultLocale
 import org.wagham.utils.extractCommonParameters
 import org.wagham.utils.replyOnError
 import java.util.concurrent.TimeUnit
 
 @BotSubcommand("all", CharacterCommand::class)
-class CharacterCreateCommand(
+class CharacterCreate(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<ModalBuilder> {
 
     override val commandName = "create"
-    override val defaultDescription = "Create a new character for a player"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to defaultDescription,
-        Locale.ITALIAN to "Crea un nuovo personaggio per un giocatore"
-    )
+    override val defaultDescription = CharacterCreateLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = CharacterCreateLocale.DESCRIPTION.localeMap
     private val interactionCache: Cache<Snowflake, PartialCharacterData> =
         Caffeine.newBuilder()
             .expireAfterWrite(20, TimeUnit.MINUTES)
             .build()
     companion object {
-        const val createModal = "createModal"
-        const val nameInput = "name"
-        const val startingLevel = "startingLevel"
-        const val startingClass = "startingClass"
-        const val race = "race"
-        const val origin = "territory"
-        const val age = "age"
-        const val abort = "abort"
-        const val confirm = "confirm"
-        const val option = "option"
+        const val CREATE_MODAL = "createModal"
+        const val NAME_INPUT = "name"
+        const val STARTING_LEVEL = "startingLevel"
+        const val STARTING_CLASS = "startingClass"
+        const val RACE = "race"
+        const val ORIGIN = "territory"
+        const val AGE = "age"
+        const val ABORT = "abort"
+        const val CONFIRM = "confirm"
+        const val OPTION = "option"
 
         private data class PartialCharacterData (
             val responsible: Snowflake,
@@ -133,7 +131,7 @@ class CharacterCreateCommand(
             autocomplete = true
             required = true
         }
-        string(nameInput, CharacterCreateLocale.CHARACTER_NAME.locale("en")) {
+        string(NAME_INPUT, CharacterCreateLocale.CHARACTER_NAME.locale("en")) {
             CharacterCreateLocale.CHARACTER_NAME.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
@@ -142,7 +140,7 @@ class CharacterCreateCommand(
     }
 
     private suspend fun handleModal() = kord.on<ModalSubmitInteractionCreateEvent> {
-        if (verifyId(interaction.modalId, createModal)) {
+        if (verifyId(interaction.modalId, CREATE_MODAL)) {
             replyOnError(interaction) {
                 val locale = it.locale?.language ?: it.guildLocale?.language ?: "en"
                 val guildId = it.data.guildId.value ?: throw IllegalStateException("GuildId not found")
@@ -169,7 +167,7 @@ class CharacterCreateCommand(
     }
 
     private suspend fun handleSelection() = kord.on<SelectMenuInteractionCreateEvent> {
-        if(verifyId(interaction.componentId, option)) {
+        if(verifyId(interaction.componentId, OPTION)) {
             val (_, _, _, type, user) = interaction.componentId.split("-")
             val optionType = MissingOptions.valueOf(type)
             val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
@@ -206,7 +204,7 @@ class CharacterCreateCommand(
     }
 
     private suspend fun handleSelectionConfirmation() = kord.on<ButtonInteractionCreateEvent> {
-        if(verifyId(interaction.componentId, confirm) || verifyId(interaction.componentId, abort)) {
+        if(verifyId(interaction.componentId, CONFIRM) || verifyId(interaction.componentId, ABORT)) {
             val (_, op, _, user) = interaction.componentId.split("-")
             val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
             val guildId = interaction.data.guildId.value ?: throw IllegalStateException("GuildId not found")
@@ -216,7 +214,7 @@ class CharacterCreateCommand(
                     throw IllegalStateException(CharacterCreateLocale.PROCESS_EXPIRED.locale(locale))
                 currentData.responsible != interaction.user.id ->
                     throw IllegalStateException(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale))
-                op == abort -> {
+                op == ABORT -> {
                     interactionCache.invalidate(Snowflake(user))
                     interaction.deferPublicMessageUpdate().edit {
                         embed {
@@ -226,7 +224,7 @@ class CharacterCreateCommand(
                         components = mutableListOf()
                     }
                 }
-                op == confirm -> {
+                op == CONFIRM -> {
                     createOrAskForCompleteData(interaction, currentData, locale, guildId)
                 }
             }
@@ -244,7 +242,7 @@ class CharacterCreateCommand(
         val userId = event.interaction.user.id
         val targetUser = event.interaction.command.users["user"]
             ?: throw IllegalStateException("Target user not found")
-        val characterName = event.interaction.command.strings[nameInput]?.trim()?.takeIf { it.isNotBlank() }
+        val characterName = event.interaction.command.strings[NAME_INPUT]?.trim()?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException(CharacterCreateLocale.CHARACTER_NAME_INVALID.locale(params.locale))
         val expTable = cacheManager.getExpTable(params.guildId)
         val config = cacheManager.getConfig(params.guildId)
@@ -258,10 +256,10 @@ class CharacterCreateCommand(
                 append(CharacterCreateLocale.MODAL_TITLE.locale(params.locale))
                 append(": $characterName")
             }
-            customId = buildElementId(createModal, targetUser.id.toString())
+            customId = buildElementId(CREATE_MODAL, targetUser.id.toString())
             actionRow {
                 textInput(
-                    TextInputStyle.Short, startingLevel, CharacterCreateLocale.CHARACTER_LEVEL.locale(params.locale)
+                    TextInputStyle.Short, STARTING_LEVEL, CharacterCreateLocale.CHARACTER_LEVEL.locale(params.locale)
                 ) {
                     value = expTable.table.entries.toList().minByOrNull { it.key }?.value
                     allowedLength = 1 .. 10
@@ -271,7 +269,7 @@ class CharacterCreateCommand(
             if (!config.playerConfigurations.getOrDefault(CHARACTER_CREATION_STRICT_CHECK, false) || characterOptions.classes.isEmpty()) {
                 actionRow {
                     textInput(
-                        TextInputStyle.Short, startingClass, CharacterCreateLocale.CHARACTER_CLASS.locale(params.locale)
+                        TextInputStyle.Short, STARTING_CLASS, CharacterCreateLocale.CHARACTER_CLASS.locale(params.locale)
                     ) {
                         allowedLength = 1 .. 20
                         required = true
@@ -281,7 +279,7 @@ class CharacterCreateCommand(
             if (!config.playerConfigurations.getOrDefault(CHARACTER_CREATION_STRICT_CHECK, false) || characterOptions.races.isEmpty()) {
                 actionRow {
                     textInput(
-                        TextInputStyle.Short, race, CharacterCreateLocale.CHARACTER_RACE.locale(params.locale)
+                        TextInputStyle.Short, RACE, CharacterCreateLocale.CHARACTER_RACE.locale(params.locale)
                     ) {
                         allowedLength = 1 .. 50
                         required = true
@@ -290,7 +288,7 @@ class CharacterCreateCommand(
             }
             actionRow {
                 textInput(
-                    TextInputStyle.Short, origin, CharacterCreateLocale.ORIGIN.locale(params.locale)
+                    TextInputStyle.Short, ORIGIN, CharacterCreateLocale.ORIGIN.locale(params.locale)
                 ) {
                     allowedLength = 1 .. 100
                     required = false
@@ -298,7 +296,7 @@ class CharacterCreateCommand(
             }
             actionRow {
                 textInput(
-                    TextInputStyle.Short, age, CharacterCreateLocale.AGE.locale(params.locale)
+                    TextInputStyle.Short, AGE, CharacterCreateLocale.AGE.locale(params.locale)
                 ) {
                     allowedLength = 1 .. 10
                     required = false
@@ -397,7 +395,7 @@ class CharacterCreateCommand(
         }
         options.chunked(24).forEachIndexed { index, chunk ->
             actionRow {
-                stringSelect(buildElementId( option, index, type.name, data.target.id)) {
+                stringSelect(buildElementId( OPTION, index, type.name, data.target.id)) {
                     chunk.forEach {
                         option(it, it) {
                             default = data.characterClass == it || data.race == it
@@ -407,10 +405,10 @@ class CharacterCreateCommand(
             }
         }
         actionRow {
-            interactionButton(ButtonStyle.Primary, buildElementId(confirm, type.name, data.target.id)) {
+            interactionButton(ButtonStyle.Primary, buildElementId(CONFIRM, type.name, data.target.id)) {
                 label = CommonLocale.CONTINUE.locale(locale)
             }
-            interactionButton(ButtonStyle.Danger, buildElementId(abort, type.name, data.target.id)) {
+            interactionButton(ButtonStyle.Danger, buildElementId(ABORT, type.name, data.target.id)) {
                 label = CommonLocale.ABORT.locale(locale)
             }
         }
@@ -421,17 +419,17 @@ class CharacterCreateCommand(
             acc + it.textInputs
         }
         val expTable = cacheManager.getExpTable(guildId)
-        val startingLevel = actionRows[startingLevel]?.value?.trim()?.takeIf { it.isNotBlank() }?.also {
+        val startingLevel = actionRows[STARTING_LEVEL]?.value?.trim()?.takeIf { it.isNotBlank() }?.also {
             try {
                 expTable.levelToExp(it)
             } catch(_: Exception) {
                 throw ModalValueError(CharacterCreateLocale.CHARACTER_LEVEL_INVALID.locale(locale))
             }
         } ?: throw ModalValueError(CharacterCreateLocale.CHARACTER_LEVEL_INVALID.locale(locale))
-        val characterClass = actionRows[startingClass]?.value?.trim()?.takeIf { it.isNotBlank() }
-        val race = actionRows[race]?.value?.trim()?.takeIf { it.isNotBlank() }
-        val origin = actionRows[origin]?.value?.trim()?.takeIf { it.isNotBlank() } ?: ""
-        val age = actionRows[age]?.value?.toIntOrNull() ?: 0
+        val characterClass = actionRows[STARTING_CLASS]?.value?.trim()?.takeIf { it.isNotBlank() }
+        val race = actionRows[RACE]?.value?.trim()?.takeIf { it.isNotBlank() }
+        val origin = actionRows[ORIGIN]?.value?.trim()?.takeIf { it.isNotBlank() } ?: ""
+        val age = actionRows[AGE]?.value?.toIntOrNull() ?: 0
         return PartialCharacterData(
             currentData.responsible,
             currentData.target,

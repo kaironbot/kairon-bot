@@ -14,32 +14,30 @@ import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ConfigCmdCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.subcommands.DenyRoleCommandLocale
+import org.wagham.config.locale.subcommands.DenyRoleLocale
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.defaultLocale
+import org.wagham.utils.withEventParameters
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", ConfigCmdCommand::class)
-class DenyRoleCommand(
+class DenyRole(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "deny_role"
-    override val defaultDescription = "Remove a role to the ones that can use this command"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Remove a role to the ones that can use this command",
-        Locale.ITALIAN to "Rimuove un ruolo dalla lista di quelli che possono usare questo comando"
-    )
+    override val defaultDescription = DenyRoleLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = DenyRoleLocale.DESCRIPTION.localeMap
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
             description(locale, description)
         }
-        string("command", DenyRoleCommandLocale.COMMAND.locale("en")) {
-            DenyRoleCommandLocale.COMMAND.localeMap.forEach{ (locale, description) ->
+        string("command", DenyRoleLocale.COMMAND.locale("en")) {
+            DenyRoleLocale.COMMAND.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             cacheManager.getCommands().forEach {
@@ -47,8 +45,8 @@ class DenyRoleCommand(
             }
             required = true
         }
-        role("role", DenyRoleCommandLocale.ROLE.locale("en")) {
-            DenyRoleCommandLocale.ROLE.localeMap.forEach{ (locale, description) ->
+        role("role", DenyRoleLocale.ROLE.locale("en")) {
+            DenyRoleLocale.ROLE.localeMap.forEach{ (locale, description) ->
                 description(locale, description)
             }
             required = true
@@ -58,9 +56,7 @@ class DenyRoleCommand(
 
     override suspend fun registerCommand() { }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val command = event.interaction.command.strings["command"] ?: throw IllegalStateException("Command not found")
         val role = event.interaction.command.roles["role"] ?: throw IllegalStateException("Role not found")
         val config = cacheManager.getConfig(guildId)

@@ -10,6 +10,12 @@ enum class CommandInfoLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Ruoli abilitati"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Describes a command",
+            Locale.ITALIAN to "Descrive un comando"
+        )
+    ),
     EVERYONE_ALLOWED(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "All the users are allowes to run this command",
