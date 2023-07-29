@@ -6,6 +6,7 @@ import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEve
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
@@ -54,7 +55,8 @@ class MoneyCommand(
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
         val target = event.interaction.command.users["target"] ?: event.interaction.user
         return try {
-            val character = db.charactersScope.getActiveCharacter(guildId.toString(), target.id.toString())
+            //TODO fix this
+            val character = db.charactersScope.getActiveCharacters(guildId.toString(), target.id.toString()).first()
             fun InteractionResponseModifyBuilder.() {
                 embed {
                     color = Colors.DEFAULT.value

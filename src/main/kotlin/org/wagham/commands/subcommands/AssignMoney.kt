@@ -9,6 +9,7 @@ import dev.kord.rest.builder.interaction.number
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
@@ -85,7 +86,8 @@ class AssignMoney(
         return try {
             db.transaction(guildId) { s ->
                     targets.fold(true) { acc, it ->
-                        val targetCharacter = db.charactersScope.getActiveCharacter(guildId, it.toString())
+                        //TODO fix this
+                        val targetCharacter = db.charactersScope.getActiveCharacters(guildId, it.toString()).first()
                         acc && db.charactersScope.addMoney(s, guildId, targetCharacter.id, amount) &&
                             db.characterTransactionsScope.addTransactionForCharacter(
                                 s, guildId, targetCharacter.id, Transaction(

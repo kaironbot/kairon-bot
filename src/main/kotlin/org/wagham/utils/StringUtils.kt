@@ -59,4 +59,6 @@ fun String.formatToInt() = try { this.toInt() } catch(e: NumberFormatException) 
 
 fun uuid() = UUID.randomUUID().toString()
 
-val transactionMoney = "MONEY"
+fun compactUuid() = UUID.randomUUID().toString().replace("-", "")
+
+const val transactionMoney = "MONEY"

@@ -23,6 +23,7 @@ import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.actionRow
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.BuildingCommand
@@ -286,7 +287,8 @@ class BuildingBuy(
         event: GuildChatInputCommandInteractionCreateEvent
     ) {
         val guildId = event.interaction.guildId
-        val character = db.charactersScope.getActiveCharacter(guildId.toString(), event.interaction.user.id.toString())
+        //TODO fix this
+        val character = db.charactersScope.getActiveCharacters(guildId.toString(), event.interaction.user.id.toString()).first()
         val msg = event.interaction.deferPublicResponse().respond(builder)
         interactionCache.put(
             msg.message.id,

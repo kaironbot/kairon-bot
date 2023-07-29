@@ -5,7 +5,9 @@ import dev.kord.core.Kord
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SlashCommandWithSubcommands
 import org.wagham.components.CacheManager
+import org.wagham.config.locale.commands.CharacterLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class CharacterCommand (
@@ -15,10 +17,6 @@ class CharacterCommand (
 ) : SlashCommandWithSubcommands(kord, db, cacheManager) {
 
     override val commandName = "character"
-    override val defaultDescription = "Manage new and existing characters"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Manage new and existing characters",
-        Locale.ITALIAN to "Gestisci i personaggi nuovi ed esistenti"
-    )
-
+    override val defaultDescription = CharacterLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = CharacterLocale.DESCRIPTION.localeMap
 }

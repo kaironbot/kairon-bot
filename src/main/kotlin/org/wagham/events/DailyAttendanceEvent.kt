@@ -13,6 +13,7 @@ import dev.kord.rest.builder.message.create.UserMessageCreateBuilder
 import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.wagham.annotations.BotEvent
@@ -110,7 +111,8 @@ class DailyAttendanceEvent(
                 val expTable = cacheManager.getExpTable(guildId)
                 val currentAttendance = db.utilityScope.getLastAttendance(guildId.toString())
                 try {
-                    val character = db.charactersScope.getActiveCharacter(guildId.toString(), interaction.user.id.toString())
+                    //TODO fix this
+                    val character = db.charactersScope.getActiveCharacters(guildId.toString(), interaction.user.id.toString()).first()
                     when {
                         interaction.componentId.contains("abort-afternoon") -> {
                             db.utilityScope.updateAttendance(

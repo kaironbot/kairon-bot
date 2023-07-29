@@ -10,6 +10,7 @@ import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ItemCommand
@@ -24,6 +25,7 @@ import org.wagham.db.models.Item
 import org.wagham.db.models.embed.Transaction
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.extractCommonParameters
 import java.lang.IllegalStateException
 import java.util.*
 
@@ -76,7 +78,8 @@ class ItemUseCommand(
         }
 
     private suspend fun checkRequirementsAndUseItem(guildId: String, item: Item, amount: Int, player: Snowflake, locale: String): InteractionResponseModifyBuilder.() -> Unit {
-        val character = db.charactersScope.getActiveCharacter(guildId, player.toString())
+        //TODO fix this
+        val character = db.charactersScope.getActiveCharacters(guildId, player.toString()).first()
         return when {
             !item.usable -> createGenericEmbedError(ItemUseLocale.CANNOT_USE.locale(locale))
             (character.inventory[item.name] ?: 0) < amount -> createGenericEmbedError("${CommonLocale.NOT_ENOUGH_ITEMS.locale(locale)}${item.name}")

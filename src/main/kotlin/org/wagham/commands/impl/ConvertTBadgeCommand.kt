@@ -13,11 +13,8 @@ import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.ConvertTBadgeLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.TransactionType
-import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.embed.Transaction
-import org.wagham.exceptions.GuildNotFoundException
-import org.wagham.utils.createGenericEmbedError
-import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.*
 import java.util.*
 
 @BotCommand("wagham")
@@ -28,11 +25,8 @@ class ConvertTBadgeCommand(
 ) : SimpleResponseSlashCommand() {
 
     override val commandName = "convert_tbadge"
-    override val defaultDescription = "Converts TBadges from a type to another"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Converts TBadges from a type to another",
-        Locale.ITALIAN to "Converte TBadge da un tipo a un altro"
-    )
+    override val defaultDescription = ConvertTBadgeLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = ConvertTBadgeLocale.DESCRIPTION.localeMap
 
     enum class TBadge(val itemName: String, val rank: Int) {
         T1_BADGE("1DayT1Badge", 1),
@@ -78,8 +72,7 @@ class ConvertTBadgeCommand(
     }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+        val params = event.extractCommonParameters()
         val source = event.interaction.command.strings["source_type"]?.let {
             TBadge.valueOf(it)
         } ?: throw IllegalStateException("Source type not found")
@@ -91,30 +84,27 @@ class ConvertTBadgeCommand(
             if(source.rank >= target.rank) it
             else (it*source.rank/target.rank)
         }
-        val player = event.interaction.user.id.toString()
-        return try {
-            val character = db.charactersScope.getActiveCharacter(guildId, player)
+        return withOneActiveCharacterOrErrorMessage(params.responsible, params) { character ->
             if (character.inventory.getOrDefault(source.itemName, 0) < amount) {
-                createGenericEmbedError("${ConvertTBadgeLocale.NOT_ENOUGH_TBADGE.locale(locale)} ${source.itemName}")
+                createGenericEmbedError("${ConvertTBadgeLocale.NOT_ENOUGH_TBADGE.locale(params.locale)} ${source.itemName}")
             } else {
-                db.transaction(guildId) { session ->
-                    val takeStep = db.charactersScope.removeItemFromInventory(session, guildId, character.id, source.itemName, amount)
-                    val giveStep = db.charactersScope.addItemToInventory(session, guildId, character.id, target.itemName, destinationAmount)
+                db.transaction(params.guildId.toString()) { session ->
+                    val takeStep = db.charactersScope.removeItemFromInventory(session, params.guildId.toString(), character.id, source.itemName, amount)
+                    val giveStep = db.charactersScope.addItemToInventory(session, params.guildId.toString(), character.id, target.itemName, destinationAmount)
                     val reportStep = db.characterTransactionsScope.addTransactionForCharacter(
-                        session, guildId, character.id, Transaction(
+                        session, params.guildId.toString(), character.id, Transaction(
                             Date(), null, "CONVERT_TBADGE", TransactionType.REMOVE, mapOf(source.itemName to amount.toFloat()))
                     ) && db.characterTransactionsScope.addTransactionForCharacter(
-                        session, guildId, character.id, Transaction(Date(), null, "CONVERT_TBADGE", TransactionType.ADD, mapOf(target.itemName to destinationAmount.toFloat()))
+                        session, params.guildId.toString(), character.id, Transaction(Date(), null, "CONVERT_TBADGE", TransactionType.ADD, mapOf(target.itemName to destinationAmount.toFloat()))
                     )
                     takeStep && giveStep && reportStep
                 }.let {
-                    if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                    else createGenericEmbedError(CommonLocale.ERROR.locale(locale))
+                    if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
+                    else createGenericEmbedError(CommonLocale.ERROR.locale(params.locale))
                 }
             }
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
         }
+
     }
 
 }

@@ -22,6 +22,12 @@ enum class BuildingLocale(val localeMap: Map<Locale, String>) : LocaleEnum {
             Locale.ITALIAN to "Costo dell'edificio con competenza in:"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Buy, upgrade and get info about buildings.",
+            Locale.ITALIAN to "Compra, potenzia e ottieni informazioni sugli edifici. "
+        )
+    ),
     TYPE(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Type",

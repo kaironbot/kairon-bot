@@ -9,6 +9,7 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.BuildingCommand
@@ -59,7 +60,8 @@ class BuildingInfo(
             ?: buildings.maxByOrNull { query.levenshteinDistance(it.name) }
             ?: throw IllegalStateException("${BuildingInfoLocale.BUILDING_NOT_FOUND.locale(locale)}: $query")
         val character = try {
-            db.charactersScope.getActiveCharacter(guildId.toString(), event.interaction.user.id.toString())
+            //TODO fix this
+            db.charactersScope.getActiveCharacters(guildId.toString(), event.interaction.user.id.toString()).first()
         } catch (_: NoActiveCharacterException) { null }
         return fun InteractionResponseModifyBuilder.() {
             embed(BuildingCommand.describeBuildingMessage(building, locale, config, character))

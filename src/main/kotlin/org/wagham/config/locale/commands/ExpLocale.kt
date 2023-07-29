@@ -4,6 +4,12 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class ExpLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Show your level and MS",
+            Locale.ITALIAN to "Mostra il tuo livello e la tua exp"
+        )
+    ),
     LEVEL(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Level",

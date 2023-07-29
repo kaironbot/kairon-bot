@@ -6,6 +6,7 @@ import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
@@ -87,8 +88,9 @@ class AssignItems(
                     }
                 )
             } else {
+                //TODO fix this
                 db.transaction(guildId) { s ->
-                    val targetCharacter = db.charactersScope.getActiveCharacter(guildId, target.toString())
+                    val targetCharacter = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
                     itemsToAssign.entries.fold(true) { acc, it ->
                         acc && db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, it.key, it.value)
                     }

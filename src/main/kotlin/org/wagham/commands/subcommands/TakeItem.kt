@@ -6,6 +6,7 @@ import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.TakeCommand
@@ -70,7 +71,8 @@ class TakeItem(
         val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not found")
         val target = event.interaction.command.users["target"]?.id ?: throw IllegalStateException("Target not found")
         return try {
-            val targetCharacter = db.charactersScope.getActiveCharacter(guildId, target.toString())
+            //TODO fix this
+            val targetCharacter = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
             if ( (targetCharacter.inventory[item] ?: 0) >= amount) {
                 db.transaction(guildId) { s ->
                     db.charactersScope.removeItemFromInventory(s, guildId, targetCharacter.id, item, amount)

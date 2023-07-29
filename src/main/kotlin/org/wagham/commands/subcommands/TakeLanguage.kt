@@ -9,6 +9,7 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.TakeCommand
@@ -73,7 +74,8 @@ class TakeLanguage(
                 }
             } ?: throw IllegalStateException(TakeLanguageLocale.NOT_FOUND.locale(locale))
         return try {
-            val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
+            //TODO fix this
+            val character = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
             db.transaction(guildId) { s ->
                 db.charactersScope.removeLanguageFromCharacter(
                     s,

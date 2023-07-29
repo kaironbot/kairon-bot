@@ -12,6 +12,7 @@ import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEve
 import dev.kord.core.on
 import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
@@ -82,7 +83,8 @@ class AssignLanguage(
                     ?.get(1)
                     ?: throw IllegalStateException("Cannot parse parameters")
                 val languages = cacheManager.getCollectionOfType<LanguageProficiency>(guildId)
-                val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
+                //TODO fix this
+                val character = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
                 assignLanguageToCharacter(guildId, languages.first { it.id == language }, character.id).let {
                     when {
                         it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
@@ -125,7 +127,8 @@ class AssignLanguage(
                 val probableLanguage = languages.maxByOrNull { language.levenshteinDistance(it.name) }
                 alternativeOptionMessage(locale, language, probableLanguage?.name, "${this@AssignLanguage::class.qualifiedName}-${probableLanguage?.id}")
             } else {
-                val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
+                //TODO fix this
+                val character = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
                 assignLanguageToCharacter(guildId, languages.first { it.name == language }, character.id).let {
                     when {
                         it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

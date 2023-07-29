@@ -6,6 +6,7 @@ import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEve
 import dev.kord.rest.builder.interaction.number
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
@@ -82,14 +83,15 @@ class PayCommand(
             }
         ).flatten().toSet()
         return try {
-            val character = db.charactersScope.getActiveCharacter(guildId, sender.toString())
+            //TODO fix this
+            val character = db.charactersScope.getActiveCharacters(guildId, sender.toString()).first()
             if(character.money < (amount * targets.size))
                 createGenericEmbedError(PayLocale.NOT_ENOUGH_MONEY.locale(locale))
             else {
                 db.transaction(guildId) { s ->
                     val subtraction = db.charactersScope.subtractMoney(s, guildId, character.id, amount*targets.size)
                     targets.fold(subtraction) { acc, it ->
-                        val targetCharacter = db.charactersScope.getActiveCharacter(guildId, it.toString())
+                        val targetCharacter = db.charactersScope.getActiveCharacters(guildId, it.toString()).first()
                         val givenTransaction = Transaction(
                             Date(), targetCharacter.id, "PAY", TransactionType.REMOVE, mapOf(transactionMoney to amount)
                         )

@@ -12,6 +12,7 @@ import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEve
 import dev.kord.core.on
 import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ItemCommand
@@ -108,7 +109,8 @@ class ItemBuyCommand(
         }
 
     private suspend fun checkRequirementsAndBuyItem(guildId: String, item: Item, amount: Int, player: Snowflake, locale: String): InteractionResponseModifyBuilder.() -> Unit {
-        val character = db.charactersScope.getActiveCharacter(guildId, player.toString())
+        //TODO fix this
+        val character = db.charactersScope.getActiveCharacters(guildId, player.toString()).first()
         return when {
             item.buy == null -> createGenericEmbedError(ItemBuyLocale.CANNOT_BUY.locale(locale))
             character.money < (item.buy!!.cost * amount) -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))

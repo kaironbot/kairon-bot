@@ -27,7 +27,6 @@ class PingCommand(
         Locale.ITALIAN to "Controlla se il bot è online"
     )
 
-
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
             commandName,

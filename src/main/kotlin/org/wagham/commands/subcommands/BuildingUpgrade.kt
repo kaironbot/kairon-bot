@@ -19,6 +19,7 @@ import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.actionRow
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.BuildingCommand
@@ -278,7 +279,8 @@ class BuildingUpgrade(
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
         val buildings = cacheManager.getCollectionOfType<BuildingWithBounty>(guildId)
         return try {
-            val character = db.charactersScope.getActiveCharacter(guildId, event.interaction.user.id.toString())
+            //TODO fix this
+            val character = db.charactersScope.getActiveCharacters(guildId, event.interaction.user.id.toString()).first()
             fun InteractionResponseModifyBuilder.() {
                 embed {
                     title = BuildingUpgradeLocale.TITLE.locale(locale)
@@ -307,7 +309,8 @@ class BuildingUpgrade(
     ) {
         val response = event.interaction.deferPublicResponse()
         val guildId = event.interaction.guildId
-        val character = db.charactersScope.getActiveCharacter(guildId.toString(), event.interaction.user.id.toString())
+        //TODO fix this
+        val character = db.charactersScope.getActiveCharacters(guildId.toString(), event.interaction.user.id.toString()).first()
         val msg = response.respond(builder)
         interactionCache.put(
             msg.message.id,

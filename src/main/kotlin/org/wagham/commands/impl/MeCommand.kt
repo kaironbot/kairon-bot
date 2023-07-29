@@ -6,6 +6,7 @@ import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEve
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
@@ -15,6 +16,7 @@ import org.wagham.config.locale.commands.MeLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.utils.createGenericEmbedError
+import org.wagham.utils.extractCommonParameters
 
 @BotCommand("all")
 class MeCommand(
@@ -53,7 +55,8 @@ class MeCommand(
         val expTable = cacheManager.getExpTable(params.guildId)
         val target = event.interaction.command.users["target"]?.id ?: event.interaction.user.id
         return try {
-            val character = db.charactersScope.getActiveCharacter(params.guildId.toString(), target.toString())
+            //TODO fix this
+            val character = db.charactersScope.getActiveCharacters(params.guildId.toString(), target.toString()).first()
             fun InteractionResponseModifyBuilder.() {
                 embed {
                     color = Colors.DEFAULT.value

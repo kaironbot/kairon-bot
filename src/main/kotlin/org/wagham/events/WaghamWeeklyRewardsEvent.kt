@@ -83,7 +83,7 @@ class WaghamWeeklyRewardsEvent(
             ?.mapNotNull {
                 try {
                     db.charactersScope
-                        .getActiveCharacter(guildId.toString(), it.id.toString())
+                        .getActiveCharacters(guildId.toString(), it.id.toString()).first()
                         .takeIf { character -> character.hasActivityInLast30Days() }
                         ?.let { character ->
                             val tier = expTable.expToTier(character.ms().toFloat())

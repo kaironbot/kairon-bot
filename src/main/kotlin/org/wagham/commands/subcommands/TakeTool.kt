@@ -9,6 +9,7 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.TakeCommand
@@ -70,7 +71,8 @@ class TakeTool(
                 }
             } ?: throw IllegalStateException(TakeToolLocale.NOT_FOUND.locale(locale))
         return try {
-            val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
+            //TODO fix this
+            val character = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
             db.charactersScope.removeProficiencyFromCharacter(
                 guildId,
                 character.id,

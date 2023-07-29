@@ -16,6 +16,7 @@ import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.BuildingRestrictionType
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.extractCommonParameters
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", SetCommand::class)

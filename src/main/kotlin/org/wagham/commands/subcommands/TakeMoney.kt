@@ -6,6 +6,7 @@ import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.TakeCommand
@@ -81,7 +82,8 @@ class TakeMoney(
         return try {
             db.transaction(guildId) { s ->
                 targets.fold(true) { acc, it ->
-                    val targetCharacter = db.charactersScope.getActiveCharacter(guildId, it.toString())
+                    //TODO fix this
+                    val targetCharacter = db.charactersScope.getActiveCharacters(guildId, it.toString()).first()
                     acc && db.charactersScope.subtractMoney(s, guildId, targetCharacter.id, amount)&&
                             db.characterTransactionsScope.addTransactionForCharacter(
                                 s, guildId, targetCharacter.id, Transaction(

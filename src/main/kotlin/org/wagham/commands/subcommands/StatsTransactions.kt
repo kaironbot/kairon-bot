@@ -9,6 +9,7 @@ import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.StatsCommand
@@ -16,6 +17,7 @@ import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.subcommands.StatsTransactionLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.utils.extractCommonParameters
 import org.wagham.utils.guaranteeActiveCharacters
 import java.text.SimpleDateFormat
 
@@ -54,7 +56,8 @@ class StatsTransactions(
         val params = event.extractCommonParameters()
         val target =  event.interaction.command.users["target"] ?: event.interaction.user
         return guaranteeActiveCharacters(params.locale) { locale ->
-            val character = db.charactersScope.getActiveCharacter(params.guildId.toString(), target.id.toString())
+            //TODO fix this
+            val character = db.charactersScope.getActiveCharacters(params.guildId.toString(), target.id.toString()).first()
             val transactions = db.characterTransactionsScope.getLastTransactions(params.guildId.toString(), character.id, lastTransactions)
                 .takeIf { it.isNotEmpty() }
             fun InteractionResponseModifyBuilder.() {

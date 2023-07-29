@@ -15,6 +15,7 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
@@ -85,7 +86,8 @@ class AssignTool(
                     ?.get(1)
                     ?: throw IllegalStateException("Cannot parse parameters")
                 val tools = cacheManager.getCollectionOfType<ToolProficiency>(guildId)
-                val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
+                //TODO fix this
+                val character = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
                 assignToolProficiency(guildId, tools.first { it.id == tool }, character.id).let {
                     when {
                         it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
@@ -128,7 +130,8 @@ class AssignTool(
                 val probableTool = tools.maxByOrNull { tool.levenshteinDistance(it.name) }
                 alternativeOptionMessage(locale, tool, probableTool?.name, "${this@AssignTool::class.qualifiedName}-${probableTool?.id}")
             } else {
-                val character = db.charactersScope.getActiveCharacter(guildId, target.toString())
+                //TODO fix this
+                val character = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
                 assignToolProficiency(guildId, tools.first { it.name == tool }, character.id).let {
                     when {
                         it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

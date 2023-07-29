@@ -10,6 +10,12 @@ enum class ConvertTBadgeLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Quantità di tBadge del tipo di origine da convertire"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Converts TBadges from a type to another",
+            Locale.ITALIAN to "Converte TBadge da un tipo a un altro"
+        )
+    ),
     DESTINATION_TYPE(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Destination tBadge type",

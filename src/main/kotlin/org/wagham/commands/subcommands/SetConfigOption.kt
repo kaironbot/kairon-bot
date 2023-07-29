@@ -15,6 +15,7 @@ import org.wagham.config.locale.subcommands.SetConfigOptionLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.ServerConfig
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.extractCommonParameters
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", SetCommand::class)

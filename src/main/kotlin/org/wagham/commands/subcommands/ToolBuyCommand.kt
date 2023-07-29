@@ -14,6 +14,7 @@ import dev.kord.rest.builder.interaction.RootInputChatBuilder
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ToolCommand
@@ -119,7 +120,8 @@ class ToolBuyCommand(
         } ?: emptyMap()
 
     private suspend fun checkRequirementsAndBuyTool(guildId: String, tool: ToolProficiency, player: Snowflake, locale: String): InteractionResponseModifyBuilder.() -> Unit {
-        val character = db.charactersScope.getActiveCharacter(guildId, player.toString())
+        //TODO fix this
+        val character = db.charactersScope.getActiveCharacters(guildId, player.toString()).first()
         return when {
             character.proficiencies.any { it.id == tool.id } -> createGenericEmbedError(ToolBuyLocale.ALREADY_POSSESS.locale(locale))
             tool.cost == null -> createGenericEmbedError(ToolBuyLocale.CANNOT_BUY.locale(locale))

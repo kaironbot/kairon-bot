@@ -22,6 +22,7 @@ import org.wagham.db.models.ServerConfig
 import org.wagham.db.models.embed.EventConfig
 import org.wagham.utils.createGenericEmbedError
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class ConfigEventCommand(
@@ -31,11 +32,8 @@ class ConfigEventCommand(
 ) : SimpleResponseSlashCommand() {
 
     override val commandName = "event"
-    override val defaultDescription = "Configures the channels for the events"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Configures the channels for the events",
-        Locale.ITALIAN to "Configura il canale di attivazione per un evento"
-    )
+    override val defaultDescription = ConfigEventLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = ConfigEventLocale.DESCRIPTION.localeMap
 
     private suspend fun buildAllowedChannelsList(guildId: Snowflake, event: String) =
         cacheManager.getConfig(guildId).eventChannels[event]?.allowedChannels?.ifEmpty { listOf("All channels") }?.let { channels ->
