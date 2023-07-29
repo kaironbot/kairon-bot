@@ -7,6 +7,8 @@ import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.edit
 import dev.kord.core.behavior.interaction.response.respond
+import dev.kord.core.entity.User
+import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
@@ -15,24 +17,23 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
 import org.wagham.components.CacheManager
+import org.wagham.components.MultiCharacterCommand
+import org.wagham.components.MultiCharacterManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.AssignToolLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.Character
 import org.wagham.db.models.ToolProficiency
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.db.models.embed.Transaction
-import org.wagham.exceptions.GuildNotFoundException
-import org.wagham.utils.alternativeOptionMessage
-import org.wagham.utils.createGenericEmbedError
-import org.wagham.utils.createGenericEmbedSuccess
-import org.wagham.utils.levenshteinDistance
+import org.wagham.entities.InteractionParameters
+import org.wagham.utils.*
 import java.lang.IllegalStateException
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -42,15 +43,21 @@ class AssignTool(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : SubCommand<InteractionResponseModifyBuilder> {
+) : SubCommand<InteractionResponseModifyBuilder>, MultiCharacterCommand<ToolProficiency> {
+
+    companion object {
+        private data class AssignToolInteractionData(
+            val responsible: Snowflake,
+            val tool: ToolProficiency,
+            val targetUser: User
+        )
+    }
 
     override val commandName = "tool"
-    override val defaultDescription = "Assign a tool proficiency to a player"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Assign a tool proficiency to a player",
-        Locale.ITALIAN to "Assegna la competenza in uno strumento a un giocatore"
-    )
-    private val interactionCache: Cache<Snowflake, Pair<Snowflake, Snowflake>> =
+    override val defaultDescription = AssignToolLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = AssignToolLocale.DESCRIPTION.localeMap
+    private val multiCharacterManager = MultiCharacterManager(db, kord, this)
+    private val interactionCache: Cache<String, AssignToolInteractionData> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .build()
@@ -76,73 +83,90 @@ class AssignTool(
 
     override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
-            val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-            if(interaction.componentId.startsWith("${this@AssignTool::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id)?.first == interaction.user.id) {
-                val guildId = interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-                val target = interactionCache.getIfPresent(interaction.message.id)?.second ?: throw IllegalStateException("Cannot find targets")
-                val tool = Regex("${this@AssignTool::class.qualifiedName}-([0-9a-fA-F]{8}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{12})")
-                    .find(interaction.componentId)
-                    ?.groupValues
-                    ?.get(1)
-                    ?: throw IllegalStateException("Cannot parse parameters")
-                val tools = cacheManager.getCollectionOfType<ToolProficiency>(guildId)
-                //TODO fix this
-                val character = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
-                assignToolProficiency(guildId, tools.first { it.id == tool }, character.id).let {
-                    when {
-                        it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                        it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
-                        else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+            if (verifyId(interaction.componentId)) {
+                val (id) = extractComponentsFromComponentId(interaction.componentId)
+                val params = interaction.extractCommonParameters()
+                val data = interactionCache.getIfPresent(id)
+                when {
+                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
+                    else -> {
+                        try {
+                            val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(
+                                listOf(data.targetUser),
+                                null,
+                                data.tool,
+                                params
+                            )
+                            when {
+                                targetsOrSelectionContext.characters != null -> assignToolProficiency(data.tool, targetsOrSelectionContext.characters.first().id, params)
+                                targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
+                                else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
+                            }
+                        } catch (e: Exception) {
+                            when(e) {
+                                is NoActiveCharacterException -> createGenericEmbedError("<@!${e.playerId}> ${CommonLocale.NO_ACTIVE_CHARACTER.locale(params.locale)}")
+                                else -> createGenericEmbedError(e.message ?: e.toString())
+                            }
+                        }.let {
+                            interaction.deferPublicMessageUpdate().edit(it)
+                        }
                     }
-                }.let {
-                    interaction.deferPublicMessageUpdate().edit(it)
                 }
-            } else if (interaction.componentId.startsWith("${this@AssignTool::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
-                interaction.deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.INTERACTION_EXPIRED.locale(locale)))
-            } else if (interaction.componentId.startsWith("${this@AssignTool::class.qualifiedName}")) {
-                interaction.deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
             }
         }
     }
 
-    private suspend fun assignToolProficiency(guildId: String, tool: ToolProficiency, target: String) =
-        db.transaction(guildId) { s ->
+    private suspend fun assignToolProficiency(tool: ToolProficiency, target: String, params: InteractionParameters) =
+        db.transaction(params.guildId.toString()) { s ->
             db.charactersScope.addProficiencyToCharacter(
                 s,
-                guildId,
+                params.guildId.toString(),
                 target,
                 ProficiencyStub(tool.id, tool.name)
             ) && db.characterTransactionsScope.addTransactionForCharacter(
-                s, guildId, target, Transaction(
+                s, params.guildId.toString(), target, Transaction(
                     Date(), null, "ASSIGN", TransactionType.ADD, mapOf(tool.name to 1f)
                 )
             )
+        }.let {
+            when {
+                it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
+                it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(params.locale))
+                else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+            }
         }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val tools = cacheManager.getCollectionOfType<ToolProficiency>(guildId)
-        val target = event.interaction.command.users["target"]?.id ?: throw IllegalStateException("Target not found")
+        val target = event.interaction.command.users["target"] ?: throw IllegalStateException("Target not found")
         val tool = event.interaction.command.strings["tool"] ?: throw IllegalStateException("Tool not found")
-        return try {
-            if (tools.firstOrNull { it.name == tool } == null) {
-                val probableTool = tools.maxByOrNull { tool.levenshteinDistance(it.name) }
-                alternativeOptionMessage(locale, tool, probableTool?.name, "${this@AssignTool::class.qualifiedName}-${probableTool?.id}")
-            } else {
-                //TODO fix this
-                val character = db.charactersScope.getActiveCharacters(guildId, target.toString()).first()
-                assignToolProficiency(guildId, tools.first { it.name == tool }, character.id).let {
-                    when {
-                        it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                        it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
-                        else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
-                    }
-                }
+        return tools.firstOrNull { it.name == tool }?.let {
+            val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(listOf(target), null, it, this)
+            when {
+                targetsOrSelectionContext.characters != null -> assignToolProficiency(it, targetsOrSelectionContext.characters.first().id, this)
+                targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
+                else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
             }
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
-        }
+        } ?: tools.maxByOrNull { tool.levenshteinDistance(it.name) }?.let { probableTool ->
+            val interactionId = compactUuid()
+            interactionCache.put(
+                interactionId,
+                AssignToolInteractionData(responsible.id, probableTool, target)
+            )
+            alternativeOptionMessage(locale, tool, probableTool.name, buildElementId(interactionId))
+        } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
+    }
+
+    override suspend fun multiCharacterAction(
+        interaction: ComponentInteraction,
+        characters: List<Character>,
+        context: ToolProficiency,
+        sourceCharacter: Character?
+    ) {
+        interaction.deferPublicMessageUpdate().edit(
+            assignToolProficiency(context, characters.first().id, interaction.extractCommonParameters())
+        )
     }
 
     override suspend fun handleResponse(
@@ -150,14 +174,7 @@ class AssignTool(
         event: GuildChatInputCommandInteractionCreateEvent
     ) {
         val response = event.interaction.deferPublicResponse()
-        val msg = response.respond(builder)
-        interactionCache.put(
-            msg.message.id,
-            Pair(
-                event.interaction.user.id,
-                event.interaction.command.users["target"]!!.id
-            )
-        )
+        response.respond(builder)
     }
 
 }
