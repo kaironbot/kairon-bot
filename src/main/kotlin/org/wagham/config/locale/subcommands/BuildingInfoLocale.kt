@@ -16,16 +16,10 @@ enum class BuildingInfoLocale(val localeMap: Map<Locale, String>) : LocaleEnum {
             Locale.ITALIAN to "Edificio non trovato"
         )
     ),
-    BUILDING_NAME(
+    DESCRIPTION(
         mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Building name",
-            Locale.ITALIAN to "Nome dell'edificio"
-        )
-    ),
-    SELECT(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Select a building type to start",
-            Locale.ITALIAN to "Seleziona un tipo di edificio per cominciare"
+            Locale.ENGLISH_GREAT_BRITAIN to "Show details about a building",
+            Locale.ITALIAN to "Mostra le informazioni riguardo un edificio"
         )
     ),
     TITLE(

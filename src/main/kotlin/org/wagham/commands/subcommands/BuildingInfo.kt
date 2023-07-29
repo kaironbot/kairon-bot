@@ -9,7 +9,6 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
-import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.BuildingCommand
@@ -17,9 +16,10 @@ import org.wagham.components.CacheManager
 import org.wagham.config.locale.commands.GiveLocale
 import org.wagham.config.locale.subcommands.BuildingInfoLocale
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.pipelines.buildings.BuildingWithBounty
+import org.wagham.utils.defaultLocale
 import org.wagham.utils.levenshteinDistance
+import org.wagham.utils.withEventParameters
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", BuildingCommand::class)
@@ -30,11 +30,8 @@ class BuildingInfo(
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "info"
-    override val defaultDescription = "Show details about a building"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Show details about a building",
-        Locale.ITALIAN to "Mostra le informazioni riguardo un edificio"
-    )
+    override val defaultDescription = BuildingInfoLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = BuildingInfoLocale.DESCRIPTION.localeMap
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach { (locale, description) ->
@@ -50,21 +47,15 @@ class BuildingInfo(
 
     override suspend fun registerCommand() { }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.guildId
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val buildings = cacheManager.getCollectionOfType<BuildingWithBounty>(guildId)
         val query = event.interaction.command.strings["building"] ?: throw IllegalStateException("Building not provided")
         val config = cacheManager.getConfig(guildId)
         val building = buildings.firstOrNull { it.name == query }
             ?: buildings.maxByOrNull { query.levenshteinDistance(it.name) }
             ?: throw IllegalStateException("${BuildingInfoLocale.BUILDING_NOT_FOUND.locale(locale)}: $query")
-        val character = try {
-            //TODO fix this
-            db.charactersScope.getActiveCharacters(guildId.toString(), event.interaction.user.id.toString()).first()
-        } catch (_: NoActiveCharacterException) { null }
         return fun InteractionResponseModifyBuilder.() {
-            embed(BuildingCommand.describeBuildingMessage(building, locale, config, character))
+            embed(BuildingCommand.describeBuildingMessage(building, locale, config, null))
         }
     }
 
