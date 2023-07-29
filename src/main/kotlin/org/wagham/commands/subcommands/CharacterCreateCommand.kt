@@ -37,6 +37,7 @@ import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.ServerConfig.Companion.PlayerConfigurations.CHARACTER_CREATION_STRICT_CHECK
 import org.wagham.db.models.creation.CharacterCreationData
 import org.wagham.exceptions.ModalValueError
+import org.wagham.utils.extractCommonParameters
 import org.wagham.utils.replyOnError
 import org.wagham.utils.withEventParameters
 import java.util.concurrent.TimeUnit
