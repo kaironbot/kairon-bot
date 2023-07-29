@@ -18,23 +18,21 @@ import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.ItemInfoLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.Item
-import org.wagham.exceptions.GuildNotFoundException
+import org.wagham.utils.defaultLocale
 import org.wagham.utils.levenshteinDistance
+import org.wagham.utils.withEventParameters
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", ItemCommand::class)
-class ItemInfoCommand(
+class ItemInfo(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "info"
-    override val defaultDescription = "Show the info about an item"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Show the info about an item",
-        Locale.ITALIAN to "Mostra le informazioni riguardanti un oggetto"
-    )
+    override val defaultDescription = ItemInfoLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = ItemInfoLocale.DESCRIPTION.localeMap
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
@@ -50,9 +48,7 @@ class ItemInfoCommand(
 
     override suspend fun registerCommand() { }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val items = cacheManager.getCollectionOfType<Item>(guildId)
         val rawItem = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not provided")
         val item = items.firstOrNull { it.name == rawItem }

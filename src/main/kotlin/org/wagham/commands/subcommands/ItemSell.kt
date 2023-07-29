@@ -1,7 +1,6 @@
 package org.wagham.commands.subcommands
 
 import dev.kord.common.Locale
-import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
@@ -10,7 +9,6 @@ import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ItemCommand
@@ -20,28 +18,23 @@ import org.wagham.config.locale.subcommands.ItemSellLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.Character
 import org.wagham.db.models.Item
 import org.wagham.db.models.embed.Transaction
-import org.wagham.exceptions.GuildNotFoundException
-import org.wagham.utils.createGenericEmbedError
-import org.wagham.utils.createGenericEmbedSuccess
-import org.wagham.utils.transactionMoney
+import org.wagham.utils.*
 import java.lang.IllegalStateException
 import java.util.*
 
 @BotSubcommand("all", ItemCommand::class)
-class ItemSellCommand(
+class ItemSell(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "sell"
-    override val defaultDescription = "Sell an item with the current character"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Sell an item with the current character",
-        Locale.ITALIAN to "Vendi un oggetto con il personaggio corrente"
-    )
+    override val defaultDescription = ItemSellLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = ItemSellLocale.DESCRIPTION.localeMap
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
@@ -83,29 +76,21 @@ class ItemSellCommand(
             }
         }
 
-    private suspend fun checkRequirementsAndSellItem(guildId: String, item: Item, amount: Int, player: Snowflake, locale: String): InteractionResponseModifyBuilder.() -> Unit {
-        //TODO fix this
-        val character = db.charactersScope.getActiveCharacters(guildId, player.toString()).first()
-        return when {
+    private suspend fun checkRequirementsAndSellItem(guildId: String, item: Item, amount: Int,character: Character, locale: String): InteractionResponseModifyBuilder.() -> Unit =
+        when {
             item.sell == null -> createGenericEmbedError(ItemSellLocale.CANNOT_SELL.locale(locale))
             (character.inventory[item.name] ?: 0) < amount -> createGenericEmbedError("${CommonLocale.NOT_ENOUGH_ITEMS.locale(locale)}${item.name}")
             else -> removeItemFromCharacter(guildId, item, amount, character.id, locale)
         }
-    }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val amount = event.interaction.command.integers["amount"]?.toInt()?.takeIf { it > 0 }
             ?: throw IllegalStateException("Invalid quantity")
         val item = event.interaction.command.strings["item"]?.let { query ->
             cacheManager.getCollectionOfType<Item>(guildId).firstOrNull { it.name == query }
         } ?: throw IllegalStateException(ItemSellLocale.NOT_FOUND.locale(locale))
-        val target = event.interaction.user.id
-        return try {
-            checkRequirementsAndSellItem(guildId, item, amount, target, locale)
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+        withOneActiveCharacterOrErrorMessage(responsible, this) {
+            checkRequirementsAndSellItem(guildId.toString(), item, amount, it, locale)
         }
     }
 
