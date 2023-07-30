@@ -229,7 +229,9 @@ class DailyAttendanceEvent(
     override fun register() {
         handleRegistration()
         Timer(eventId).schedule(
-            getStartingInstantOnNextDay(0, 0, 0).also {
+            getStartingInstantOnNextDay(14, 50, 0) {
+                it.minusDays(1)
+            }.also {
                 logger.info { "$eventId will start on $it"  }
             },
             24 * 60 * 60 * 1000
