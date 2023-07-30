@@ -16,6 +16,12 @@ enum class ToolBuyLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Questa competenza non può essere acquistata."
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Buy a tool proficiency with the current character",
+            Locale.ITALIAN to "Compra la competenza in uno strumento con il personaggio corrente"
+        )
+    ),
     MISSING_MATERIALS(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "You need the following additional materials to buy this tool proficiency",
