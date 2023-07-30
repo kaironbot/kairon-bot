@@ -24,7 +24,7 @@ jobs:
           distribution: 'adopt'
 
       - name: Build
-        run: gradle build --warning-mode all
+        run: gradle build --warning-mode all --stacktrace
 
       - name: Creation new version (Major)
         if: ${{ contains(github.event.pull_request.labels.*.name, 'SemVer.major') }}
