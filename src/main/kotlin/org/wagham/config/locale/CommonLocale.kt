@@ -65,8 +65,8 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
     ),
     MULTIPLE_CHARACTERS(
         mapOf(
-            Locale.ITALIAN to "Hai più di un personaggio attivo, imposta il personaggio corrente col comando /as",
-            Locale.ENGLISH_GREAT_BRITAIN to "You have more than one active character. Set your current character with the /as command"
+            Locale.ITALIAN to "Hai più di un personaggio attivo, imposta il personaggio corrente col comando `/as character`",
+            Locale.ENGLISH_GREAT_BRITAIN to "You have more than one active character. Set your current character with the `/as character` command"
         )
     ),
     NO(
