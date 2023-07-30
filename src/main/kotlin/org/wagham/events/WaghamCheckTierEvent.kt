@@ -4,9 +4,11 @@ import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.asChannelOf
 import dev.kord.core.behavior.edit
+import dev.kord.core.entity.Member
 import dev.kord.core.entity.channel.MessageChannel
 import dev.kord.core.event.message.ReactionAddEvent
 import dev.kord.core.on
+import dev.kord.core.supplier.EntitySupplier
 import kotlinx.coroutines.flow.*
 import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
@@ -30,6 +32,18 @@ class WaghamCheckTierEvent(
         "quel masnadiero", "quel pusillanime", "quell'infingardo", "quello svergognato", "quello scostumato", "quel mentecatto",
         "quell'illetterato", "quel furfante", "quell'onanista")
 
+    private suspend fun updateUserRoles(player: Member, guildId: Snowflake, db: KabotMultiDBClient, supplier: EntitySupplier) {
+        val expTable = cacheManager.getExpTable(guildId)
+        val tiers = db.charactersScope.getActiveCharacters(guildId.toString(), player.id.toString()).map {
+            expTable.expToTier(it.ms().toFloat())
+        }
+        val updatedRoles = player.roles.filter { !Regex("Tier [0-9]").matches(it.name) }.map { it.id }.toList() +
+                tiers.map { tier -> supplier.getGuildRoles(guildId).first { it.name == "Tier $tier" }.id }.toList()
+        player.edit {
+            roles = updatedRoles.toMutableSet()
+        }
+    }
+
     override fun register() {
         kord.on<ReactionAddEvent> {
             if(isEnabled(guildId) && isAllowed(guildId, message) && emoji.name == "🤖") {
@@ -37,18 +51,13 @@ class WaghamCheckTierEvent(
                 val serverConfig = cacheManager.getConfig(guild)
                 db.charactersScope
                     .getAllCharacters(guildId.toString(), CharacterStatus.active)
-                    .fold(Pair(emptyList<Snowflake>(), emptyList<Character>())) { acc, character ->
+                    .fold(Pair(emptyList<Pair<Member, Character>>(), emptyList<Character>())) { acc, character ->
                         val tier = cacheManager.getExpTable(guild).expToTier(character.ms().toFloat())
                         val player = supplier.getMemberOrNull(guild, Snowflake(character.player))
                         if (player == null) {
                             acc.copy(second = acc.second + character)
                         } else if (player.roles.toList().all { !Regex("Tier $tier").matches(it.name) }) {
-                            val updatedRoles = player.roles.filter { !Regex("Tier [0-9]").matches(it.name) }.map { it.id }.toList() +
-                                supplier.getGuildRoles(guild).first { it.name == "Tier $tier" }.id
-                            player.edit {
-                                roles = updatedRoles.toMutableSet()
-                            }
-                            acc.copy(first = acc.first + player.id)
+                            acc.copy(first = acc.first + (player to character))
                         } else acc
                     }.let { updates ->
                         (serverConfig.channels[Channels.LOG_CHANNEL.name]
@@ -64,11 +73,14 @@ class WaghamCheckTierEvent(
                             )
                         updates.first
                     }.let { updates ->
+                        updates.map { it.first }.toSet().forEach {
+                            updateUserRoles(it, guild, db, supplier)
+                        }
                         if (updates.size == 1) {
-                            "Dlin Dlon! ${singleInsults.random().replaceFirstChar { it.uppercase() }} di <@!${updates.first()}> è salito di tier. Congratulazioni!"
+                            "Dlin Dlon! ${singleInsults.random().replaceFirstChar { it.uppercase() }} di ${updates.first().second.name} (<@!${updates.first().first}>) è salito di tier. Congratulazioni!"
                         } else if (updates.size > 1) {
-                            val concatenated = updates.subList(0, updates.size-1).joinToString { "${singleInsults.random()} di <@!${updates.first()}>" } +
-                                    " e ${singleInsults.random()} di <@!${updates.last()}>"
+                            val concatenated = updates.subList(0, updates.size-1).joinToString { "${singleInsults.random()} di ${it.second.name} (<@!${it.first}>)" } +
+                                    " e ${singleInsults.random()} di ${updates.last().second.name} (<@!${updates.last().first}>)"
                             "Dlin Dlon! ${concatenated.replaceFirstChar { it.uppercase() }} sono saliti di tier. Congratulazioni!"
                         } else null
                     }?.let { message ->
