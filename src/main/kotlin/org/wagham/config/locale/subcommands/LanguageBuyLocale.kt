@@ -16,6 +16,12 @@ enum class LanguageBuyLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Questo linguaggio non può essere acquistato."
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Buy a language with the current character",
+            Locale.ITALIAN to "Compra la competenza in un linguaggio con il personaggio corrente"
+        )
+    ),
     MISSING_MATERIALS(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "You need the following additional materials to buy this language",
