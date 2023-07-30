@@ -4,6 +4,12 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class AssignToolLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Assign a tool proficiency to a player",
+            Locale.ITALIAN to "Assegna la competenza in uno strumento a un giocatore"
+        )
+    ),
     TOOL(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The tool proficiency to assign",

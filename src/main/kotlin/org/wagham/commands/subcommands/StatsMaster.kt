@@ -30,7 +30,7 @@ import org.wagham.config.locale.subcommands.StatsMasterLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.pipelines.sessions.PlayerMasteredSessions
 import org.wagham.entities.PaginatedList
-import org.wagham.utils.createGenericEmbedError
+import org.wagham.utils.*
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.concurrent.TimeUnit
@@ -44,11 +44,8 @@ class StatsMaster(
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "master"
-    override val defaultDescription = "Buy a building"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Show the session mastered by you or by another player",
-        Locale.ITALIAN to "Visualizza le sessioni masterate da te o da un altro giocatore"
-    )
+    override val defaultDescription = StatsMasterLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = StatsMasterLocale.DESCRIPTION.localeMap
     private val interactionCache: Cache<Snowflake, Triple<Snowflake, User, PaginatedList<PlayerMasteredSessions>>> =
         Caffeine.newBuilder()
             .expireAfterWrite(5, TimeUnit.MINUTES)
@@ -124,6 +121,7 @@ class StatsMaster(
         fun InteractionResponseModifyBuilder.() {
             embed {
                 title = "${StatsMasterLocale.SESSION_MASTERED_TITLE.locale(locale)}${user.username} ${sessions.size}"
+                color = Colors.DEFAULT.value
                 sessions.aggregateByCharacter().forEach {
                     field {
                         name = it.key
@@ -168,17 +166,17 @@ class StatsMaster(
         }
 
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val params = event.extractCommonParameters()
-        val user = event.interaction.command.users["master"] ?: event.interaction.user
-        val sessions = PaginatedList(db.sessionScope.getAllMasteredSessions(params.guildId.toString(), user.id.toString()).toList().sortedBy { it.date }.reversed())
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
+        val user = event.interaction.command.users["master"] ?: responsible
+        val sessions = PaginatedList(db.sessionScope.getAllMasteredSessions(guildId.toString(), user.id.toString()).toList().sortedBy { it.date }.reversed())
         return if (!sessions.isEmpty()) {
-            generateSessionEmbed(sessions, user, params.locale)
+            generateSessionEmbed(sessions, user, locale)
         } else {
             fun InteractionResponseModifyBuilder.() {
                 embed {
-                    title = "${StatsMasterLocale.NEVER_MASTERED_TITLE.locale(params.locale)}${user.username}"
-                    description = StatsMasterLocale.NEVER_MASTERED_DESCRIPTION.locale(params.locale)
+                    color = Colors.DEFAULT.value
+                    title = "${StatsMasterLocale.NEVER_MASTERED_TITLE.locale(locale)}${user.username}"
+                    description = StatsMasterLocale.NEVER_MASTERED_DESCRIPTION.locale(locale)
                 }
             }
         }

@@ -21,28 +21,25 @@ import org.wagham.config.locale.subcommands.ItemBuyLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.Character
 import org.wagham.db.models.Item
 import org.wagham.db.models.embed.Transaction
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.*
-import java.lang.IllegalStateException
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.IllegalStateException
 
 @BotSubcommand("all", ItemCommand::class)
-class ItemBuyCommand(
+class ItemBuy(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "buy"
-    override val defaultDescription = "Buy an item with the current character"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Buy an item with the current character",
-        Locale.ITALIAN to "Compra un oggetto con il personaggio corrente"
-    )
-    private val interactionCache: Cache<Snowflake, Snowflake> =
+    override val defaultDescription = ItemBuyLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = ItemBuyLocale.DESCRIPTION.localeMap
+    private val interactionCache: Cache<String, Pair<Snowflake, Character>> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .build()
@@ -67,24 +64,21 @@ class ItemBuyCommand(
 
     override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
-            val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-            if(interaction.componentId.startsWith("${this@ItemBuyCommand::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == interaction.user.id) {
-                val guildId = interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-                val target = interactionCache.getIfPresent(interaction.message.id) ?: throw IllegalStateException("Cannot find targets")
-                val (item, amount) = Regex("${this@ItemBuyCommand::class.qualifiedName}-(.+)-([0-9]+)")
-                    .find(interaction.componentId)
-                    ?.groupValues
-                    ?.let {
-                        Pair(it[1], it[2].toInt())
-                    } ?: throw IllegalStateException("Cannot parse parameters")
-                val items = cacheManager.getCollectionOfType<Item>(guildId)
-                checkRequirementsAndBuyItem(guildId, items.first { it.name == item }, amount, target, locale).let {
-                    interaction.deferPublicMessageUpdate().edit(it)
+            if(verifyId(interaction.componentId)) {
+                val params = interaction.extractCommonParameters()
+                val (item, rawAmount, id) = extractComponentsFromComponentId(interaction.componentId)
+                val amount = rawAmount.toIntOrNull() ?: throw IllegalStateException("Wrong format for amount")
+                val data = interactionCache.getIfPresent(id)
+                when {
+                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data.first != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
+                    else -> {
+                        val items = cacheManager.getCollectionOfType<Item>(params.guildId)
+                        checkRequirementsAndBuyItem(params.guildId.toString(), items.first { it.name == item }, amount, data.second, params.locale).let {
+                            interaction.deferPublicMessageUpdate().edit(it)
+                        }
+                    }
                 }
-            } else if (interaction.componentId.startsWith("${this@ItemBuyCommand::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
-                interaction.deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.INTERACTION_EXPIRED.locale(locale)))
-            } else if (interaction.componentId.startsWith("${this@ItemBuyCommand::class.qualifiedName}")) {
-                interaction.deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
             }
         }
     }
@@ -107,32 +101,31 @@ class ItemBuyCommand(
             }
         }
 
-    private suspend fun checkRequirementsAndBuyItem(guildId: String, item: Item, amount: Int, player: Snowflake, locale: String): InteractionResponseModifyBuilder.() -> Unit {
-        val character = db.charactersScope.getActiveCharacter(guildId, player.toString())
-        return when {
+    private suspend fun checkRequirementsAndBuyItem(guildId: String, item: Item, amount: Int, character: Character, locale: String): InteractionResponseModifyBuilder.() -> Unit =
+        when {
             item.buy == null -> createGenericEmbedError(ItemBuyLocale.CANNOT_BUY.locale(locale))
             character.money < (item.buy!!.cost * amount) -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
             else -> assignItemToCharacter(guildId, item, amount, character.id, locale)
         }
-    }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit  = withEventParameters(event) {
         val items = cacheManager.getCollectionOfType<Item>(guildId)
         val amount = event.interaction.command.integers["amount"]?.toInt()?.takeIf { it > 0 }
             ?: throw IllegalStateException("Invalid quantity")
         val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not found")
-        val target = event.interaction.user.id
-        return try {
-            if (items.firstOrNull { it.name == item } == null) {
-                val probableItem = items.maxByOrNull { item.levenshteinDistance(it.name) }
-                alternativeOptionMessage(locale, item, probableItem?.name, "${this@ItemBuyCommand::class.qualifiedName}-${probableItem?.name}-$amount")
-            } else {
-                checkRequirementsAndBuyItem(guildId, items.first { it.name == item }, amount, target, locale)
-            }
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+        withOneActiveCharacterOrErrorMessage(responsible, this) { character ->
+            items.firstOrNull { it.name == item }?.let {
+                checkRequirementsAndBuyItem(guildId.toString(), items.first { it.name == item }, amount, character, locale)
+            } ?: items.maxByOrNull { item.levenshteinDistance(it.name) }?.let { probableItem ->
+                val interactionId = compactUuid().substring(0,6)
+                interactionCache.put(
+                    interactionId,
+                    Pair(responsible.id, character)
+                )
+                alternativeOptionMessage(locale, item, probableItem.name, buildElementId(probableItem.name, amount, interactionId))
+            } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
+
         }
     }
 
@@ -141,11 +134,8 @@ class ItemBuyCommand(
         event: GuildChatInputCommandInteractionCreateEvent
     ) {
         val response = event.interaction.deferPublicResponse()
-        val msg = response.respond(builder)
-        interactionCache.put(
-            msg.message.id,
-            event.interaction.user.id
-        )
+        response.respond(builder)
+
     }
 
 }

@@ -5,7 +5,9 @@ import dev.kord.core.Kord
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SlashCommandWithSubcommands
 import org.wagham.components.CacheManager
+import org.wagham.config.locale.commands.AssignLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class AssignCommand(
@@ -15,10 +17,7 @@ class AssignCommand(
 ) : SlashCommandWithSubcommands(kord, db, cacheManager) {
 
     override val commandName = "assign"
-    override val defaultDescription = "Assign money, items, and proficiencies to the players"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Assign money, items, and proficiencies to the players",
-        Locale.ITALIAN to "Assegna monete, oggetti e competenze ai giocatori"
-    )
+    override val defaultDescription = AssignLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = AssignLocale.DESCRIPTION.localeMap
 
 }

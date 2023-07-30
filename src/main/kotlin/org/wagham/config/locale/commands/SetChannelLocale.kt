@@ -21,6 +21,12 @@ enum class SetChannelLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Il canale da impostare",
             Locale.ENGLISH_GREAT_BRITAIN to "The channel to set"
         )
+    ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Configure the channels for the bot",
+            Locale.ITALIAN to "Configura i canali per il bot"
+        )
     );
     override fun locale(language: String) = locale(Locale.fromString(language))
     override fun locale(locale: Locale) = localeMap[locale] ?: localeMap[Locale.ENGLISH_GREAT_BRITAIN]!!

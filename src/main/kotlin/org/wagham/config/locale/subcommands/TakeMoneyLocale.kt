@@ -22,6 +22,12 @@ enum class TakeMoneyLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Un altro utente a cui togliere monete"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Take an amount of money from a player",
+            Locale.ITALIAN to "Rimuovi delle monete a un giocatore"
+        )
+    ),
     NOT_FOUND(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Player has not enough items: ",

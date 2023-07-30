@@ -12,6 +12,7 @@ import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.commands.HelpLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class HelpCommand(
@@ -21,11 +22,8 @@ class HelpCommand(
 ) : SimpleResponseSlashCommand() {
 
     override val commandName = "help"
-    override val defaultDescription = "Show info about the commands of this bot"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Show info about the commands of this bot",
-        Locale.ITALIAN to "Mostra i comandi di questo bot"
-    )
+    override val defaultDescription = HelpLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = HelpLocale.DESCRIPTION.localeMap
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(

@@ -4,6 +4,12 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class GiveLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Give an item to another player",
+            Locale.ITALIAN to "Cedi un oggetto a un altro giocatore"
+        )
+    ),
     ITEM(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The item to give",

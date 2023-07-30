@@ -5,7 +5,9 @@ import dev.kord.core.Kord
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SlashCommandWithSubcommands
 import org.wagham.components.CacheManager
+import org.wagham.config.locale.commands.ItemLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class ItemCommand (
@@ -15,10 +17,6 @@ class ItemCommand (
 ) : SlashCommandWithSubcommands(kord, db, cacheManager) {
 
     override val commandName = "item"
-    override val defaultDescription = "Buy, sell and craft items"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Buy, sell and craft items",
-        Locale.ITALIAN to "Compra e vendi oggetti"
-    )
-
+    override val defaultDescription = ItemLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = ItemLocale.DESCRIPTION.localeMap
 }

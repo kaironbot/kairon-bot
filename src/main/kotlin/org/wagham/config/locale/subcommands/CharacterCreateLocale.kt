@@ -58,6 +58,12 @@ enum class CharacterCreateLocale(val localeMap: Map<Locale, String>): LocaleEnum
             Locale.ITALIAN to "Razza"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Create a new character for a player",
+            Locale.ITALIAN to "Crea un nuovo personaggio per un giocatore"
+        )
+    ),
     INSERT_MISSING(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Choose an option for the character:",

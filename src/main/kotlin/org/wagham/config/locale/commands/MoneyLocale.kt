@@ -4,10 +4,10 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class MoneyLocale(val localeMap: Map<Locale, String>): LocaleEnum {
-    MONEY(
+    DESCRIPTION(
         mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Current balance of:",
-            Locale.ITALIAN to "Monete di:"
+            Locale.ENGLISH_GREAT_BRITAIN to "Show your balance or the balance of another user",
+            Locale.ITALIAN to "Mostra le tue monete o quelle di un altro utente"
         )
     ),
     TARGET(

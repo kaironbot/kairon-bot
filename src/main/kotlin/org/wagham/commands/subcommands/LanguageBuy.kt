@@ -27,26 +27,30 @@ import org.wagham.db.models.Character
 import org.wagham.db.models.LanguageProficiency
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.db.models.embed.Transaction
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.*
 import java.lang.IllegalStateException
 import java.util.*
 import java.util.concurrent.TimeUnit
 
 @BotSubcommand("all", LanguageCommand::class)
-class LanguageBuyCommand(
+class LanguageBuy(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
+    companion object {
+        private data class AssignLanguageInteractionData(
+            val responsible: Snowflake,
+            val character: Character,
+            val language: LanguageProficiency
+        )
+    }
+
     override val commandName = "buy"
-    override val defaultDescription = "Buy a language with the current character"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Buy a language with the current character",
-        Locale.ITALIAN to "Compra la competenza in un linguaggio con il personaggio corrente"
-    )
-    private val interactionCache: Cache<Snowflake, Snowflake> =
+    override val defaultDescription = LanguageBuyLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = LanguageBuyLocale.DESCRIPTION.localeMap
+    private val interactionCache: Cache<String, AssignLanguageInteractionData> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .build()
@@ -65,27 +69,22 @@ class LanguageBuyCommand(
 
     override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
-            val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-            if(interaction.componentId.startsWith("${this@LanguageBuyCommand::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == interaction.user.id) {
-                val guildId = interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-                val target = interactionCache.getIfPresent(interaction.message.id) ?: throw IllegalStateException("Cannot find targets")
-                val choice = Regex("${this@LanguageBuyCommand::class.qualifiedName}-(.+)")
-                    .find(interaction.componentId)
-                    ?.groupValues
-                    ?.get(1) ?: throw IllegalStateException("Cannot parse parameters")
-                val languages = cacheManager.getCollectionOfType<LanguageProficiency>(guildId)
-                checkRequirementsAndBuyLanguage(guildId, languages.first { it.name == choice }, target, locale).let {
-                    interaction.deferPublicMessageUpdate().edit(it)
+            if(verifyId(interaction.componentId)) {
+                val params = interaction.extractCommonParameters()
+                val (id) = extractComponentsFromComponentId(interaction.componentId)
+                val data = interactionCache.getIfPresent(id)
+                when {
+                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
+                    else -> checkRequirementsAndBuyLanguage(params.guildId.toString(), data.language, data.character, params.locale).let {
+                        interaction.deferPublicMessageUpdate().edit(it)
+                    }
                 }
-            } else if (interaction.componentId.startsWith("${this@LanguageBuyCommand::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
-                interaction.deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.INTERACTION_EXPIRED.locale(locale)))
-            } else if (interaction.componentId.startsWith("${this@LanguageBuyCommand::class.qualifiedName}")) {
-                interaction.deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
             }
         }
     }
 
-    private suspend fun assignLanguageLocale(guildId: String, language: LanguageProficiency, character: String, locale: String) =
+    private suspend fun assignLanguageTransaction(guildId: String, language: LanguageProficiency, character: String, locale: String) =
         db.transaction(guildId) { s ->
             val moneyStep = db.charactersScope.subtractMoney(s, guildId, character, language.cost!!.moCost)
             val itemsStep = language.cost!!.itemsCost.all { (material, qty) ->
@@ -118,35 +117,44 @@ class LanguageBuyCommand(
             it > 0
         } ?: emptyMap()
 
-    private suspend fun checkRequirementsAndBuyLanguage(guildId: String, language: LanguageProficiency, player: Snowflake, locale: String): InteractionResponseModifyBuilder.() -> Unit {
-        val character = db.charactersScope.getActiveCharacter(guildId, player.toString())
+    private suspend fun checkRequirementsAndBuyLanguage(guildId: String, language: LanguageProficiency, character: Character, locale: String): InteractionResponseModifyBuilder.() -> Unit {
         return when {
-            character.languages.any { it.id == language.id } -> createGenericEmbedError(LanguageBuyLocale.ALREADY_POSSESS.locale(locale))
+            character.languages.any { it.id == language.id } -> createGenericEmbedError(
+                LanguageBuyLocale.ALREADY_POSSESS.locale(
+                    locale
+                )
+            )
             language.cost == null -> createGenericEmbedError(LanguageBuyLocale.CANNOT_BUY.locale(locale))
-            character.money < language.cost!!.moCost -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
+            character.money < language.cost!!.moCost -> createGenericEmbedError(
+                CommonLocale.NOT_ENOUGH_MONEY.locale(
+                    locale
+                )
+            )
             character.missingMaterials(language).isNotEmpty() -> createGenericEmbedError(
-                LanguageBuyLocale.MISSING_MATERIALS.locale(locale) + ": " + character.missingMaterials(language).entries.joinToString(", ") {
+                LanguageBuyLocale.MISSING_MATERIALS.locale(locale) + ": " + character.missingMaterials(language).entries.joinToString(
+                    ", "
+                ) {
                     "${it.key} x${it.value}"
                 }
             )
-            else -> assignLanguageLocale(guildId, language, character.id, locale)
+            else -> assignLanguageTransaction(guildId, language, character.id, locale)
         }
     }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val params = event.extractCommonParameters()
-        val languages = cacheManager.getCollectionOfType<LanguageProficiency>(params.guildId)
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
+        val languages = cacheManager.getCollectionOfType<LanguageProficiency>(guildId)
         val choice = event.interaction.command.strings["language"] ?: throw IllegalStateException("Language not found")
-        val target = event.interaction.user.id
-        return try {
-            if (languages.firstOrNull { it.name == choice } == null) {
-                val probableItem = languages.maxByOrNull { choice.levenshteinDistance(it.name) }
-                alternativeOptionMessage(params.locale, choice, probableItem?.name ?: "", buildElementId(probableItem?.name ?: ""))
-            } else {
-                checkRequirementsAndBuyLanguage(params.guildId.toString(), languages.first { it.name == choice }, target, params.locale)
-            }
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(params.locale))
+        withOneActiveCharacterOrErrorMessage(responsible, this) { character ->
+            languages.firstOrNull { it.name == choice }?.let {
+                checkRequirementsAndBuyLanguage(guildId.toString(), it, character, locale)
+            } ?: languages.maxByOrNull { choice.levenshteinDistance(it.name) }?.let {
+                val id = compactUuid()
+                interactionCache.put(
+                    id,
+                    AssignLanguageInteractionData(responsible.id, character, it)
+                )
+                alternativeOptionMessage(locale, choice, it.name, buildElementId(id))
+            } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
         }
     }
 
@@ -155,11 +163,7 @@ class LanguageBuyCommand(
         event: GuildChatInputCommandInteractionCreateEvent
     ) {
         val response = event.interaction.deferPublicResponse()
-        val msg = response.respond(builder)
-        interactionCache.put(
-            msg.message.id,
-            event.interaction.user.id
-        )
+        response.respond(builder)
     }
 
 }

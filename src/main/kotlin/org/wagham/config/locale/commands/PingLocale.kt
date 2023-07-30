@@ -10,16 +10,16 @@ enum class PingLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Comandi"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Checks if the bot is online",
+            Locale.ITALIAN to "Controlla se il bot è online"
+        )
+    ),
     EVENTS(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Events",
             Locale.ITALIAN to "Eventi"
-        )
-    ),
-    ONLINE(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "WaghamBot is online",
-            Locale.ITALIAN to "WaghamBot è online"
         )
     ),
     NO_COMMAND_FOUND(

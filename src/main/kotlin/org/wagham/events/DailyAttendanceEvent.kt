@@ -13,6 +13,8 @@ import dev.kord.rest.builder.message.create.UserMessageCreateBuilder
 import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.wagham.annotations.BotEvent
@@ -50,12 +52,19 @@ class DailyAttendanceEvent(
         }
 
     private fun Map<String, AttendanceReportPlayer>.appendList(buildCtx: StringBuilder) = entries
-        .groupBy { it.value.tier }.entries
+        .flatMap { (k, v) ->
+            v.tiers.map { tier ->
+                tier to Pair(k, v.daysSinceLastPlayed)
+            }
+        }.groupBy { it.first }
+        .mapValues { (_, v) ->
+            v.map { it.second }
+        }.entries
         .sortedBy { it.key }
         .forEach { (tier, players) ->
             buildCtx.append("**$tier**: ")
             players.forEach { p ->
-                buildCtx.append("<@${p.key}> (${p.value.daysSinceLastPlayed.takeIf { it >= 0 } ?: "-"}) ")
+                buildCtx.append("<@${p.first}> (${p.second.takeIf { it >= 0 } ?: "-"}) ")
             }
             buildCtx.append("\n")
         }
@@ -110,13 +119,14 @@ class DailyAttendanceEvent(
                 val expTable = cacheManager.getExpTable(guildId)
                 val currentAttendance = db.utilityScope.getLastAttendance(guildId.toString())
                 try {
-                    val character = db.charactersScope.getActiveCharacter(guildId.toString(), interaction.user.id.toString())
+                    val characters = db.charactersScope.getActiveCharacters(guildId.toString(), interaction.user.id.toString()).toList()
+                    val player = characters.first().player
                     when {
                         interaction.componentId.contains("abort-afternoon") -> {
                             db.utilityScope.updateAttendance(
                                 guildId.toString(),
                                 currentAttendance.copy(
-                                    afternoonPlayers = currentAttendance.afternoonPlayers - character.player
+                                    afternoonPlayers = currentAttendance.afternoonPlayers - player
                                 )
                             )
                         }
@@ -124,20 +134,20 @@ class DailyAttendanceEvent(
                             db.utilityScope.updateAttendance(
                                 guildId.toString(),
                                 currentAttendance.copy(
-                                    players = currentAttendance.players - character.player
+                                    players = currentAttendance.players - player
                                 )
                             )
                         }
-                        interaction.componentId.contains("register-evening") && currentAttendance.players.containsKey(character.player) -> true
-                        interaction.componentId.contains("register-afternoon") && currentAttendance.afternoonPlayers.containsKey(character.player) -> true
+                        interaction.componentId.contains("register-evening") && currentAttendance.players.containsKey(player) -> true
+                        interaction.componentId.contains("register-afternoon") && currentAttendance.afternoonPlayers.containsKey(player) -> true
                         interaction.componentId.contains("register-evening") -> {
                             db.utilityScope.updateAttendance(
                                 guildId.toString(),
                                 currentAttendance.copy(
                                     players = currentAttendance.players +
-                                        (character.player to AttendanceReportPlayer(
-                                            character.lastPlayed?.let(::daysToToday) ?: -1,
-                                            expTable.expToTier(character.ms().toFloat())
+                                        (player to AttendanceReportPlayer(
+                                            characters.mapNotNull { it.lastPlayed?.let(::daysToToday) }.minOfOrNull { it } ?: -1,
+                                            characters.map { expTable.expToTier(it.ms().toFloat()) }
                                         ))
                                 )
                             )
@@ -147,10 +157,10 @@ class DailyAttendanceEvent(
                                 guildId.toString(),
                                 currentAttendance.copy(
                                     afternoonPlayers = currentAttendance.afternoonPlayers +
-                                            (character.player to AttendanceReportPlayer(
-                                                character.lastPlayed?.let(::daysToToday) ?: -1,
-                                                expTable.expToTier(character.ms().toFloat())
-                                            ))
+                                        (player to AttendanceReportPlayer(
+                                            characters.mapNotNull { it.lastPlayed?.let(::daysToToday) }.minOfOrNull { it } ?: -1,
+                                            characters.map { expTable.expToTier(it.ms().toFloat()) }
+                                        ))
                                 )
                             )
                         }

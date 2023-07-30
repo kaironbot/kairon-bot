@@ -2,6 +2,8 @@ package org.wagham.commands.impl
 
 import dev.kord.common.Locale
 import dev.kord.core.Kord
+import dev.kord.core.behavior.interaction.response.edit
+import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
@@ -10,16 +12,18 @@ import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
+import org.wagham.components.MultiCharacterCommand
+import org.wagham.components.MultiCharacterManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.GiveLocale
+import org.wagham.config.locale.components.MultiCharacterLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.TransactionType
-import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.Character
 import org.wagham.db.models.Item
 import org.wagham.db.models.embed.Transaction
-import org.wagham.exceptions.GuildNotFoundException
-import org.wagham.utils.createGenericEmbedError
-import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.entities.InteractionParameters
+import org.wagham.utils.*
 import java.util.*
 
 @BotCommand("all")
@@ -27,14 +31,19 @@ class GiveCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : SimpleResponseSlashCommand() {
+) : SimpleResponseSlashCommand(), MultiCharacterCommand<GiveCommand.Companion.GiveCommandContext> {
+
+    companion object {
+        data class GiveCommandContext(
+            val item: Item,
+            val amount: Int
+        )
+    }
 
     override val commandName = "give"
-    override val defaultDescription = "Give an item to another player"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Give an item to another player",
-        Locale.ITALIAN to "Cedi un oggetto a un altro giocatore"
-    )
+    override val defaultDescription = GiveLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = GiveLocale.DESCRIPTION.localeMap
+    private val multiCharacterManager = MultiCharacterManager(db, kord, this)
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
@@ -67,40 +76,73 @@ class GiveCommand(
 
     }
 
+    override suspend fun multiCharacterAction(
+        interaction: ComponentInteraction,
+        characters: List<Character>,
+        context: GiveCommandContext,
+        sourceCharacter: Character?
+    ) {
+        val params = interaction.extractCommonParameters()
+        val updateBehaviour = interaction.deferPublicMessageUpdate()
+        if(sourceCharacter == null) {
+            createGenericEmbedError(MultiCharacterLocale.NO_SOURCE.locale(params.locale))
+        } else {
+            executeTransaction(
+                params,
+                sourceCharacter,
+                characters.first(),
+                context.item,
+                context.amount
+            )
+        }.let { updateBehaviour.edit(it) }
+    }
+
+    private suspend fun executeTransaction(
+        params: InteractionParameters,
+        character: Character,
+        targetCharacter: Character,
+        item: Item,
+        amount: Int
+    ) = db.transaction(params.guildId.toString()) { s ->
+        val guildId = params.guildId.toString()
+        val givenTransaction = Transaction(
+            Date(), targetCharacter.id, "GIVE", TransactionType.REMOVE, mapOf(item.name to amount.toFloat())
+        )
+        val receivedTransaction = Transaction(
+            Date(), character.id, "GIVE", TransactionType.ADD, mapOf(item.name to (amount*item.giveRatio))
+        )
+        db.charactersScope.removeItemFromInventory(s, guildId, character.id, item.name, amount) &&
+                db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, item.name, (amount*item.giveRatio).toInt()) &&
+                db.characterTransactionsScope.addTransactionForCharacter(s, guildId, character.id, givenTransaction) &&
+                db.characterTransactionsScope.addTransactionForCharacter(s, guildId, targetCharacter.id, receivedTransaction)
+    }.let {
+        if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
+        else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+    }
+
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        val sender = event.interaction.user.id
+        val params = event.extractCommonParameters()
         val amount = event.interaction.command.integers["quantity"]?.toInt() ?: throw IllegalStateException("Amount not set")
-        val item = cacheManager.getCollectionOfType<Item>(guildId).firstOrNull {
+        val item = cacheManager.getCollectionOfType<Item>(params.guildId).firstOrNull {
             event.interaction.command.strings["item"] == it.name
         } ?: throw IllegalStateException("Item not found")
-        val target = event.interaction.command.users["target"]?.id ?: throw IllegalStateException("Target not set")
-        return try {
-            val character = db.charactersScope.getActiveCharacter(guildId, sender.toString())
+        val target = event.interaction.command.users["target"] ?: throw IllegalStateException("Target not set")
+        return withOneActiveCharacterOrErrorMessage(params.responsible, params) { character ->
             if((character.inventory[item.name] ?: 0) < amount)
-                createGenericEmbedError("${GiveLocale.NOT_ENOUGH_ITEMS.locale(locale)} ${item.name}")
+                createGenericEmbedError("${GiveLocale.NOT_ENOUGH_ITEMS.locale(params.locale)} ${item.name}")
             else {
-                db.transaction(guildId) { s ->
-                    val targetCharacter = db.charactersScope.getActiveCharacter(guildId, target.toString())
-                    val givenTransaction = Transaction(
-                        Date(), targetCharacter.id, "GIVE", TransactionType.REMOVE, mapOf(item.name to amount.toFloat())
-                    )
-                    val receivedTransaction = Transaction(
-                        Date(), character.id, "GIVE", TransactionType.ADD, mapOf(item.name to (amount*item.giveRatio))
-                    )
-                    db.charactersScope.removeItemFromInventory(s, guildId, character.id, item.name, amount) &&
-                        db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, item.name, (amount*item.giveRatio).toInt()) &&
-                        db.characterTransactionsScope.addTransactionForCharacter(s, guildId, character.id, givenTransaction) &&
-                        db.characterTransactionsScope.addTransactionForCharacter(s, guildId, targetCharacter.id, receivedTransaction)
-                }.let {
-                    if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                    else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+                val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(
+                    listOf(target),
+                    character,
+                    GiveCommandContext(item, amount),
+                    params
+                )
+                when {
+                    targetsOrSelectionContext.characters != null -> executeTransaction(params, character, targetsOrSelectionContext.characters.first(), item, amount)
+                    targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
+                    else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
                 }
             }
-
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
         }
     }
 

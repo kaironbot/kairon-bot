@@ -16,6 +16,12 @@ enum class ItemBuyLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Questo oggetto non può essere acquistato."
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Buy an item with the current character",
+            Locale.ITALIAN to "Compra un oggetto con il personaggio corrente"
+        )
+    ),
     ITEM(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The item to buy",

@@ -21,6 +21,12 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
             Locale.ENGLISH_GREAT_BRITAIN to "Assegna "
         )
     ),
+    CONFIRM(
+        mapOf(
+            Locale.ITALIAN to "Conferma",
+            Locale.ENGLISH_GREAT_BRITAIN to "Confirm"
+        )
+    ),
     CONTINUE(
         mapOf(
             Locale.ITALIAN to "Continua",
@@ -57,6 +63,12 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
             Locale.ENGLISH_GREAT_BRITAIN to "You did not start this interaction"
         )
     ),
+    MULTIPLE_CHARACTERS(
+        mapOf(
+            Locale.ITALIAN to "Hai più di un personaggio attivo, imposta il personaggio corrente col comando `/as character`",
+            Locale.ENGLISH_GREAT_BRITAIN to "You have more than one active character. Set your current character with the `/as character` command"
+        )
+    ),
     NO(
         mapOf(
             Locale.ITALIAN to "No",
@@ -65,8 +77,8 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
     ),
     NO_ACTIVE_CHARACTER(
         mapOf(
-            Locale.ITALIAN to "Non hai nessun personaggio attivo",
-            Locale.ENGLISH_GREAT_BRITAIN to "You have no active character"
+            Locale.ITALIAN to "non ha nessun personaggio attivo",
+            Locale.ENGLISH_GREAT_BRITAIN to "has no active character"
         )
     ),
     NOT_ENOUGH_ITEMS(

@@ -10,6 +10,12 @@ enum class AllowRoleCommandLocale(val localeMap: Map<Locale, String>): LocaleEnu
             Locale.ITALIAN to "Il comando da configurare"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Limits the access of a command to a role",
+            Locale.ITALIAN to "Limita agli utenti di un ruolo di eseguire questo comando"
+        )
+    ),
     ROLE(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The role to allow",

@@ -14,6 +14,7 @@ import org.wagham.db.models.BaseBuilding
 import org.wagham.db.models.Character
 import org.wagham.db.models.ServerConfig
 import org.wagham.db.pipelines.buildings.BuildingWithBounty
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class BuildingCommand(
@@ -23,14 +24,10 @@ class BuildingCommand(
 ) : SlashCommandWithSubcommands(kord, db, cacheManager) {
 
     override val commandName = "building"
-    override val defaultDescription = "Buy, upgrade, and get info about buildings."
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Buy, upgrade and get info about buildings.",
-        Locale.ITALIAN to "Compra, potenzia e ottieni informazioni sugli edifici. "
-    )
+    override val defaultDescription =  BuildingLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = BuildingLocale.DESCRIPTION.localeMap
 
     companion object {
-
         fun Int.proficiencyDiscount(building: BaseBuilding, character: Character) =
             this.takeIf { _ ->
                     building.proficiencyReduction == null ||

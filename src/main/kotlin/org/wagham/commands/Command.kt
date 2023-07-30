@@ -2,10 +2,8 @@ package org.wagham.commands
 
 import dev.kord.common.Locale
 import dev.kord.core.Kord
-import dev.kord.core.entity.interaction.response.PublicMessageInteractionResponse
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.RequestBuilder
-import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import org.wagham.components.CacheManager
 import org.wagham.components.Identifiable
 import org.wagham.db.KabotMultiDBClient
@@ -27,9 +25,4 @@ interface Command<T: RequestBuilder<*>> : Identifiable {
         builder: T.() -> Unit,
         event: GuildChatInputCommandInteractionCreateEvent)
 
-    fun GuildChatInputCommandInteractionCreateEvent.extractCommonParameters(): InteractionParameters {
-        val guildId = this.interaction.data.guildId.value ?: throw GuildNotFoundException()
-        val locale = this.interaction.locale?.language ?: this.interaction.guildLocale?.language ?: "en"
-        return InteractionParameters(guildId, locale)
-    }
 }

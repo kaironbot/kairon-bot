@@ -4,6 +4,12 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class StatsTransactionLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Get a list of the last item and money transactions",
+            Locale.ITALIAN to "Visualizza una lista gli ultimi movimenti di oggetti e monete"
+        )
+    ),
     NO_TRANSACTIONS(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "There are no transactions for this character",

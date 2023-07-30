@@ -7,6 +7,7 @@ import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEve
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.toList
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
@@ -14,8 +15,9 @@ import org.wagham.config.Colors
 import org.wagham.config.locale.commands.ExpLocale
 import org.wagham.config.locale.commands.PayLocale
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Character
+import org.wagham.utils.defaultLocale
+import org.wagham.utils.extractCommonParameters
 
 @BotCommand("all")
 class ExpCommand(
@@ -25,11 +27,8 @@ class ExpCommand(
 ) : SimpleResponseSlashCommand() {
 
     override val commandName = "exp"
-    override val defaultDescription = "Show your level and exp"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Show your level and MS",
-        Locale.ITALIAN to "Mostra il tuo livello e la tua exp"
-    )
+    override val defaultDescription = ExpLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = ExpLocale.DESCRIPTION.localeMap
     private val additionalUsers: Int = 5
 
     override suspend fun registerCommand() {
@@ -62,18 +61,20 @@ class ExpCommand(
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
         val params = event.extractCommonParameters()
         val expTable = cacheManager.getExpTable(params.guildId)
-        val (characters, inactives) = listOf(
+        val (characters, playersWithNoCharacter) = listOf(
             listOfNotNull(event.interaction.command.users["target"]?.id),
             (1 .. additionalUsers).mapNotNull { paramNum ->
                 event.interaction.command.users["target-$paramNum"]?.id
             }
-        ).flatten().toSet().fold(Pair<List<Character>, List<Snowflake>>(emptyList(), emptyList())) { acc, it ->
-            try {
-                val character = db.charactersScope.getActiveCharacter(params.guildId.toString(), it.toString())
+        ).flatten().ifEmpty {
+            listOf(event.interaction.user.id)
+        }.toSet().fold(Pair<List<Character>, List<Snowflake>>(emptyList(), emptyList())) { acc, it ->
+            val characters = db.charactersScope.getActiveCharacters(params.guildId.toString(), it.toString()).toList()
+            if(characters.isNotEmpty()) {
                 acc.copy(
-                    first = acc.first + character
+                    first = acc.first + characters
                 )
-            } catch (e: NoActiveCharacterException) {
+            } else {
                 acc.copy(second = acc.second + it)
             }
         }
@@ -84,7 +85,7 @@ class ExpCommand(
                 description = buildString {
                     append(ExpLocale.NO_ACTIVE_CHARACTERS.locale(params.locale))
                     append(" ")
-                    append(inactives.joinToString(", ") { "<@!$it>"})
+                    append(playersWithNoCharacter.joinToString(", ") { "<@!$it>"})
                 }
                 characters.forEach {
                     field {

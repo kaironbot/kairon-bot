@@ -75,6 +75,8 @@ suspend fun guaranteeActiveCharacters(locale: String, block: suspend (locale: St
     return try {
         block(locale)
     } catch (e: NoActiveCharacterException) {
-        createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+        createGenericEmbedError(
+            "<@!${e.playerId}> ${CommonLocale.NO_ACTIVE_CHARACTER.locale(locale)}"
+        )
     }
 }

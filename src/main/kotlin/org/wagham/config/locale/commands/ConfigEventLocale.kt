@@ -22,6 +22,13 @@ enum class ConfigEventLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Permette l'accesso a un canale ad un evento"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Configures the channels for the events",
+            Locale.ITALIAN to "Configura il canale di attivazione per un evento"
+        )
+
+    ),
     DISABLE_SUBCOMMAND_DESCRIPTION(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Disabled an event",

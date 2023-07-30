@@ -22,6 +22,12 @@ enum class MeLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Classe"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Show information about your character",
+            Locale.ITALIAN to "Mostra informazioni sul tuo personaggio"
+        )
+    ),
     LANGUAGES(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Languages",

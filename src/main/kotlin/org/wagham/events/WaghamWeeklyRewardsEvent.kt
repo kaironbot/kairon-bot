@@ -80,14 +80,18 @@ class WaghamWeeklyRewardsEvent(
             ?.filter { m ->
                 m.roles.toList().any { it.name == "Delegato" }
             }?.toList()
-            ?.mapNotNull {
+            ?.mapNotNull { member ->
                 try {
                     db.charactersScope
-                        .getActiveCharacter(guildId.toString(), it.id.toString())
-                        .takeIf { character -> character.hasActivityInLast30Days() }
-                        ?.let { character ->
+                        .getActiveCharacters(guildId.toString(), member.id.toString())
+                        .toList()
+                        .takeIf { characters ->
+                            characters.isNotEmpty() && characters.any {it.hasActivityInLast30Days() }
+                        }?.let { characters ->
+                            characters.minByOrNull { it.created ?: Date() } ?: characters.first()
+                        }?.let { character ->
                             val tier = expTable.expToTier(character.ms().toFloat())
-                            it.id.toString() to (tierRewards[tier]!! * 2)
+                            member.id.toString() to (tierRewards[tier]!! * 2)
                         }
                 } catch (e: NoActiveCharacterException) {
                     null

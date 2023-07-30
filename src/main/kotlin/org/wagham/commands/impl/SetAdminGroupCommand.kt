@@ -12,6 +12,7 @@ import org.wagham.config.locale.commands.SetAdminGroupLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.exceptions.*
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.defaultLocale
 
 @BotCommand("all")
 class SetAdminGroupCommand(
@@ -21,11 +22,8 @@ class SetAdminGroupCommand(
 ) : SimpleResponseSlashCommand() {
 
     override val commandName = "set_admin_role"
-    override val defaultDescription = "Configure the admin role for this server"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Configure the admin role for this server",
-        Locale.ITALIAN to "Configura il ruolo di amministratore per questo server"
-    )
+    override val defaultDescription = SetAdminGroupLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = SetAdminGroupLocale.DESCRIPTION.localeMap
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(

@@ -7,8 +7,8 @@ import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.edit
-import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.entity.User
+import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
@@ -17,16 +17,19 @@ import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.actionRow
 import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotCommand
-import org.wagham.commands.SlashCommand
+import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
+import org.wagham.components.MultiCharacterCommand
+import org.wagham.components.MultiCharacterManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.InventoryLocale
 import org.wagham.config.locale.commands.ExpLocale
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.Character
+import org.wagham.entities.InteractionParameters
 import org.wagham.entities.PaginatedList
-import org.wagham.utils.createGenericEmbedError
+import org.wagham.utils.*
 import java.util.concurrent.TimeUnit
 
 @BotCommand("all")
@@ -34,15 +37,26 @@ class InventoryCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : SlashCommand<InteractionResponseModifyBuilder>() {
+) : SimpleResponseSlashCommand(), MultiCharacterCommand<User> {
+
+    companion object {
+        const val previous = "previous"
+        const val next  = "next"
+
+        private data class InventoryCacheData(
+            val responsible: Snowflake,
+            val target: User,
+            val money: Float,
+            val list: PaginatedList<Pair<String, Int>>,
+            val characterName: String
+        )
+    }
 
     override val commandName = "inventory"
-    override val defaultDescription = "Show your inventory or the inventory of another player"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Show your inventory or the inventory of another player",
-        Locale.ITALIAN to "Mostra il tuo inventario o l'inventario di un altro giocatore"
-    )
-    private val interactionCache: Cache<Snowflake, InventoryCacheData> =
+    override val defaultDescription = InventoryLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = InventoryLocale.DESCRIPTION.localeMap
+    private val multiCharacterManager = MultiCharacterManager(db, kord, this)
+    private val interactionCache: Cache<String, InventoryCacheData> =
         Caffeine.newBuilder()
             .expireAfterWrite(30, TimeUnit.SECONDS)
             .build()
@@ -63,78 +77,56 @@ class InventoryCommand(
                 autocomplete = true
             }
         }
-        kord.on<ButtonInteractionCreateEvent> {
-            val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-            if(interaction.componentId.startsWith("${this@InventoryCommand::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id)?.user == interaction.user.id) {
-                when(interaction.componentId) {
-                    "${this@InventoryCommand::class.qualifiedName}-previous" -> {
-                        val currentData = interactionCache.getIfPresent(interaction.message.id)!!
-                        val newPage = currentData.list.previousPage()
-                        interactionCache.put(interaction.message.id, currentData.copy(list = newPage))
-                        interaction.deferPublicMessageUpdate().edit(generateInventoryEmbed(newPage, currentData.money, currentData.target, currentData.characterName, locale))
-                    }
-                    "${this@InventoryCommand::class.qualifiedName}-next" -> {
-                        val currentData = interactionCache.getIfPresent(interaction.message.id)!!
-                        val newPage = currentData.list.nextPage()
-                        interactionCache.put(interaction.message.id,  currentData.copy(list = newPage))
-                        interaction.deferPublicMessageUpdate().edit(generateInventoryEmbed(newPage, currentData.money, currentData.target, currentData.characterName, locale))
-                    }
-                    else -> {
-                        interaction.deferPublicMessageUpdate().edit(createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale)))
-                    }
-                }
-            } else if (interaction.componentId.startsWith("${this@InventoryCommand::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
-                interaction.deferEphemeralMessageUpdate().edit {
-                    embed {
-                        title = CommonLocale.INTERACTION_EXPIRED.locale(locale)
-                        color = Colors.DEFAULT.value
-                    }
-                    components = mutableListOf()
-                }
-            } else if (interaction.componentId.startsWith("${this@InventoryCommand::class.qualifiedName}")) {
-                interaction.deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
-            }
-        }
+        handleButton()
     }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        val guildId = event.interaction.guildId
-        val user = event.interaction.command.users["target"] ?: event.interaction.user
-        return try {
-            val character =  db.charactersScope.getActiveCharacter(guildId.toString(), user.id.toString())
-            val inventory = PaginatedList(
-                character.inventory.toList().sortedBy { it.first },
-                pageSize = 15
-            )
-            generateInventoryEmbed(inventory, character.money, user, character.name, locale)
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+        val params = event.extractCommonParameters()
+        return event.interaction.command.users["target"]?.takeIf { it.id != params.responsible.id }?.let {
+            val targetOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(listOf(it), null, it, params)
+            when {
+                targetOrSelectionContext.characters != null -> generateInventory(targetOrSelectionContext.characters.first(), it, params)
+                targetOrSelectionContext.response != null -> targetOrSelectionContext.response
+                else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
+            }
+        } ?: withOneActiveCharacterOrErrorMessage(params.responsible, params) {
+            generateInventory(it, params.responsible, params)
         }
     }
 
-    override suspend fun handleResponse(
-        builder: InteractionResponseModifyBuilder.() -> Unit,
-        event: GuildChatInputCommandInteractionCreateEvent
+
+    override suspend fun multiCharacterAction(
+        interaction: ComponentInteraction,
+        characters: List<Character>,
+        context: User,
+        sourceCharacter: Character?
     ) {
-        val response = event.interaction.deferPublicResponse()
-        val msg = response.respond(builder)
-        val guildId = event.interaction.guildId
-        val user = event.interaction.command.users["target"] ?: event.interaction.user
-        val character = db.charactersScope.getActiveCharacter(guildId.toString(), user.id.toString())
+        val params = interaction.extractCommonParameters()
+        interaction.deferPublicMessageUpdate().edit(
+            generateInventory(characters.first(), context, params)
+        )
+    }
+
+    private fun generateInventory(character: Character, user: User, params: InteractionParameters): InteractionResponseModifyBuilder.() -> Unit {
+        val inventory = PaginatedList(
+            character.inventory.toList().sortedBy { it.first },
+            pageSize = 15
+        )
+        val interactionId = compactUuid()
         interactionCache.put(
-            msg.message.id,
+            interactionId,
             InventoryCacheData(
-                event.interaction.user.id,
+                params.responsible.id,
                 user,
                 character.money,
                 PaginatedList(character.inventory.toList().sortedBy { it.first }, pageSize = 15),
                 character.name
             )
         )
+        return generateInventoryEmbed(interactionId, inventory, character.money, user, character.name, params.locale)
     }
 
-    private fun generateInventoryEmbed(inventory: PaginatedList<Pair<String, Int>>, money: Float, user: User, characterName: String, locale: String): InteractionResponseModifyBuilder.() -> Unit =
+    private fun generateInventoryEmbed(interactionId: String, inventory: PaginatedList<Pair<String, Int>>, money: Float, user: User, characterName: String, locale: String): InteractionResponseModifyBuilder.() -> Unit =
         fun InteractionResponseModifyBuilder.() {
             embed {
                 author {
@@ -152,20 +144,41 @@ class InventoryCommand(
                 color = Colors.DEFAULT.value
             }
             actionRow {
-                interactionButton(ButtonStyle.Secondary, "${this@InventoryCommand::class.qualifiedName}-previous") {
+                interactionButton(ButtonStyle.Secondary, buildElementId(previous, interactionId)) {
                     label = InventoryLocale.LABEL_PREVIOUS.locale(locale)
                 }
-                interactionButton(ButtonStyle.Secondary, "${this@InventoryCommand::class.qualifiedName}-next") {
+                interactionButton(ButtonStyle.Secondary, buildElementId(next, interactionId)) {
                     label = InventoryLocale.LABEL_NEXT.locale(locale)
                 }
             }
         }
 
-    private data class InventoryCacheData(
-        val user: Snowflake,
-        val target: User,
-        val money: Float,
-        val list: PaginatedList<Pair<String, Int>>,
-        val characterName: String
-    )
+    private fun handleButton() {
+        kord.on<ButtonInteractionCreateEvent> {
+            if(verifyId(interaction.componentId)) {
+                val (op, id) = extractComponentsFromComponentId(interaction.componentId)
+                val data = interactionCache.getIfPresent(id)
+                val params = interaction.extractCommonParameters()
+                when {
+                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
+                    op == previous -> {
+                        val newPage = data.list.previousPage()
+                        interactionCache.put(id, data.copy(list = newPage))
+                        interaction.deferPublicMessageUpdate().edit(
+                            generateInventoryEmbed(id, newPage, data.money, data.target, data.characterName, params.locale)
+                        )
+                    }
+                    op == next -> {
+                        val newPage = data.list.nextPage()
+                        interactionCache.put(id, data.copy(list = newPage))
+                        interaction.deferPublicMessageUpdate().edit(
+                            generateInventoryEmbed(id, newPage, data.money, data.target, data.characterName, params.locale)
+                        )
+                    }
+                    else -> interaction.respondWithGenericError(params.locale)
+                }
+            }
+        }
+    }
 }

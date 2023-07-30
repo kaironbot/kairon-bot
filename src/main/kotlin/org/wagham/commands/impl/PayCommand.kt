@@ -2,6 +2,8 @@ package org.wagham.commands.impl
 
 import dev.kord.common.Locale
 import dev.kord.core.Kord
+import dev.kord.core.behavior.interaction.response.edit
+import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.number
 import dev.kord.rest.builder.interaction.user
@@ -9,16 +11,17 @@ import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
+import org.wagham.components.MultiCharacterCommand
+import org.wagham.components.MultiCharacterManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.PayLocale
+import org.wagham.config.locale.components.MultiCharacterLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.TransactionType
-import org.wagham.db.exceptions.NoActiveCharacterException
+import org.wagham.db.models.Character
 import org.wagham.db.models.embed.Transaction
-import org.wagham.exceptions.GuildNotFoundException
-import org.wagham.utils.createGenericEmbedError
-import org.wagham.utils.createGenericEmbedSuccess
-import org.wagham.utils.transactionMoney
+import org.wagham.entities.InteractionParameters
+import org.wagham.utils.*
 import java.util.*
 import kotlin.math.floor
 
@@ -27,15 +30,13 @@ class PayCommand(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
-) : SimpleResponseSlashCommand() {
+) : SimpleResponseSlashCommand(), MultiCharacterCommand<Float> {
 
     override val commandName = "pay"
-    override val defaultDescription = "Pay another player"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Pay another player",
-        Locale.ITALIAN to "Paga un altro giocatore"
-    )
+    override val defaultDescription = PayLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = PayLocale.DESCRIPTION.localeMap
     private val additionalUsers: Int = 5
+    private val multiCharacterManager = MultiCharacterManager(db, kord, this)
 
     override suspend fun registerCommand() {
         kord.createGlobalChatInputCommand(
@@ -71,46 +72,71 @@ class PayCommand(
     }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
-        val sender = event.interaction.user.id
-        val amount = (event.interaction.command.numbers["amount"]!!.toFloat()).let { floor(it * 100).toInt() / 100f }
+        val params = event.extractCommonParameters()
+        val amount = (event.interaction.command.numbers["amount"]?.toFloat())?.let {
+            floor(it * 100).toInt() / 100f
+        } ?: throw IllegalStateException("Amount not found")
         val targets = listOf(
-            listOfNotNull(event.interaction.command.users["target"]?.id),
+            listOfNotNull(event.interaction.command.users["target"]),
             (1 .. additionalUsers).mapNotNull { paramNum ->
-                event.interaction.command.users["target-$paramNum"]?.id
+                event.interaction.command.users["target-$paramNum"]
             }
         ).flatten().toSet()
-        return try {
-            val character = db.charactersScope.getActiveCharacter(guildId, sender.toString())
+        return withOneActiveCharacterOrErrorMessage(params.responsible, params) { character ->
             if(character.money < (amount * targets.size))
-                createGenericEmbedError(PayLocale.NOT_ENOUGH_MONEY.locale(locale))
+                createGenericEmbedError(PayLocale.NOT_ENOUGH_MONEY.locale(params.locale))
             else {
-                db.transaction(guildId) { s ->
-                    val subtraction = db.charactersScope.subtractMoney(s, guildId, character.id, amount*targets.size)
-                    targets.fold(subtraction) { acc, it ->
-                        val targetCharacter = db.charactersScope.getActiveCharacter(guildId, it.toString())
-                        val givenTransaction = Transaction(
-                            Date(), targetCharacter.id, "PAY", TransactionType.REMOVE, mapOf(transactionMoney to amount)
-                        )
-                        val receivedTransaction = Transaction(
-                            Date(), character.id, "PAY", TransactionType.ADD, mapOf(transactionMoney to amount)
-                        )
-                        acc &&
-                            db.charactersScope.addMoney(s, guildId, targetCharacter.id, amount) &&
-                            db.characterTransactionsScope.addTransactionForCharacter(s, guildId, character.id, givenTransaction) &&
-                            db.characterTransactionsScope.addTransactionForCharacter(s, guildId, targetCharacter.id, receivedTransaction)
-                    }
-                }.let {
-                    if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                    else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+                val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(
+                    targets.toList(),
+                    character,
+                    amount,
+                    params
+                )
+                when {
+                    targetsOrSelectionContext.characters != null ->  executeTransaction(params, character, targetsOrSelectionContext.characters, amount)
+                    targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
+                    else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
                 }
             }
-
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
         }
     }
 
+    override suspend fun multiCharacterAction(
+        interaction: ComponentInteraction,
+        characters: List<Character>,
+        context: Float,
+        sourceCharacter: Character?
+    ) {
+        val params = interaction.extractCommonParameters()
+        val updateBehaviour = interaction.deferPublicMessageUpdate()
+        if(sourceCharacter == null) {
+            createGenericEmbedError(MultiCharacterLocale.NO_SOURCE.locale(params.locale))
+        } else {
+            executeTransaction(
+                params,
+                sourceCharacter,
+                characters,
+                context
+            )
+        }.let { updateBehaviour.edit(it) }
+    }
 
+    private suspend fun executeTransaction(params: InteractionParameters, sourceCharacter: Character, targetCharacters: Collection<Character>, amount: Float) = db.transaction(params.guildId.toString()) { s ->
+        val subtraction = db.charactersScope.subtractMoney(s, params.guildId.toString(), sourceCharacter.id, amount*targetCharacters.size)
+        targetCharacters.fold(subtraction) { acc, targetCharacter ->
+            val givenTransaction = Transaction(
+                Date(), targetCharacter.id, "PAY", TransactionType.REMOVE, mapOf(transactionMoney to amount)
+            )
+            val receivedTransaction = Transaction(
+                Date(), sourceCharacter.id, "PAY", TransactionType.ADD, mapOf(transactionMoney to amount)
+            )
+            acc &&
+                    db.charactersScope.addMoney(s, params.guildId.toString(), targetCharacter.id, amount) &&
+                    db.characterTransactionsScope.addTransactionForCharacter(s, params.guildId.toString(), sourceCharacter.id, givenTransaction) &&
+                    db.characterTransactionsScope.addTransactionForCharacter(s, params.guildId.toString(), targetCharacter.id, receivedTransaction)
+        }
+    }.let {
+        if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
+        else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+    }
 }

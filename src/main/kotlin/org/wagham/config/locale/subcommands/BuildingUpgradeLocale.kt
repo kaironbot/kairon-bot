@@ -4,6 +4,12 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class BuildingUpgradeLocale(val localeMap: Map<Locale, String>) : LocaleEnum {
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Upgrade a building",
+            Locale.ITALIAN to "Potenzia un edificio"
+        )
+    ),
     SELECT(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Select a building type to start",

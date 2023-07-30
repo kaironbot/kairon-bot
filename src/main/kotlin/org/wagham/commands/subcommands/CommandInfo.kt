@@ -18,6 +18,8 @@ import org.wagham.config.Colors
 import org.wagham.config.locale.subcommands.CommandInfoLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.exceptions.GuildNotFoundException
+import org.wagham.utils.defaultLocale
+import org.wagham.utils.withEventParameters
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", ConfigCmdCommand::class)
@@ -28,14 +30,11 @@ class CommandInfo(
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     override val commandName = "info"
-    override val defaultDescription = "Describes a command"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Describes a command",
-        Locale.ITALIAN to "Descrive un comando"
-    )
+    override val defaultDescription = CommandInfoLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = CommandInfoLocale.DESCRIPTION.localeMap
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
-        localeDescriptions.forEach{ (locale, description) ->
+        localeDescriptions.forEach { (locale, description) ->
             description(locale, description)
         }
         string("command", CommandInfoLocale.COMMAND.locale("en")) {
@@ -51,10 +50,8 @@ class CommandInfo(
 
     override suspend fun registerCommand() { }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val config = cacheManager.getConfig(guildId)
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
         val command = event.interaction.command.strings["command"] ?: throw IllegalStateException("Command not found")
         val guildCommand = kord.getGlobalApplicationCommands(true).first { it.name == command }
         return fun InteractionResponseModifyBuilder.() {

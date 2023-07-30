@@ -16,6 +16,12 @@ enum class ItemUseLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Questo oggetto non può essere usato."
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "USe an item with the current character",
+            Locale.ITALIAN to "Usa un oggetto con il personaggio corrente"
+        )
+    ),
     ITEM(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The item to use",

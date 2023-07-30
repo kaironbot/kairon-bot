@@ -22,6 +22,12 @@ enum class ItemCraftLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Questo oggetto non può essere costruito."
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Craft an item with the current character",
+            Locale.ITALIAN to "Costruisci un oggetto con il personaggio corrente"
+        )
+    ),
     INVALID_QTY(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Invalid quantity provided",

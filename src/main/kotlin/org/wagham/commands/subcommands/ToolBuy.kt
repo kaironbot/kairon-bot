@@ -27,26 +27,30 @@ import org.wagham.db.models.Character
 import org.wagham.db.models.ToolProficiency
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.db.models.embed.Transaction
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.*
 import java.lang.IllegalStateException
 import java.util.*
 import java.util.concurrent.TimeUnit
 
 @BotSubcommand("all", ToolCommand::class)
-class ToolBuyCommand(
+class ToolBuy(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
+    companion object {
+        private data class AssignToolInteractionData(
+            val responsible: Snowflake,
+            val character: Character,
+            val tool: ToolProficiency
+        )
+    }
+
     override val commandName = "buy"
-    override val defaultDescription = "Buy a tool proficiency with the current character"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Buy a tool proficiency with the current character",
-        Locale.ITALIAN to "Compra la competenza in uno strumento con il personaggio corrente"
-    )
-    private val interactionCache: Cache<Snowflake, Snowflake> =
+    override val defaultDescription = ToolBuyLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = ToolBuyLocale.DESCRIPTION.localeMap
+    private val interactionCache: Cache<String, AssignToolInteractionData> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .build()
@@ -65,22 +69,17 @@ class ToolBuyCommand(
 
     override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
-            val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-            if(interaction.componentId.startsWith("${this@ToolBuyCommand::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == interaction.user.id) {
-                val guildId = interaction.data.guildId.value?.toString() ?: throw GuildNotFoundException()
-                val target = interactionCache.getIfPresent(interaction.message.id) ?: throw IllegalStateException("Cannot find targets")
-                val choice = Regex("${this@ToolBuyCommand::class.qualifiedName}-(.+)")
-                    .find(interaction.componentId)
-                    ?.groupValues
-                    ?.get(1) ?: throw IllegalStateException("Cannot parse parameters")
-                val tools = cacheManager.getCollectionOfType<ToolProficiency>(guildId)
-                checkRequirementsAndBuyTool(guildId, tools.first { it.name == choice }, target, locale).let {
-                    interaction.deferPublicMessageUpdate().edit(it)
+            if(verifyId(interaction.componentId)) {
+                val params = interaction.extractCommonParameters()
+                val (id) = extractComponentsFromComponentId(interaction.componentId)
+                val data = interactionCache.getIfPresent(id)
+                when {
+                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
+                    else -> checkRequirementsAndBuyTool(params.guildId.toString(), data.tool, data.character, params.locale).let {
+                        interaction.deferPublicMessageUpdate().edit(it)
+                    }
                 }
-            } else if (interaction.componentId.startsWith("${this@ToolBuyCommand::class.qualifiedName}") && interactionCache.getIfPresent(interaction.message.id) == null) {
-                interaction.deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.INTERACTION_EXPIRED.locale(locale)))
-            } else if (interaction.componentId.startsWith("${this@ToolBuyCommand::class.qualifiedName}")) {
-                interaction.deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
             }
         }
     }
@@ -118,8 +117,7 @@ class ToolBuyCommand(
             it > 0
         } ?: emptyMap()
 
-    private suspend fun checkRequirementsAndBuyTool(guildId: String, tool: ToolProficiency, player: Snowflake, locale: String): InteractionResponseModifyBuilder.() -> Unit {
-        val character = db.charactersScope.getActiveCharacter(guildId, player.toString())
+    private suspend fun checkRequirementsAndBuyTool(guildId: String, tool: ToolProficiency, character: Character, locale: String): InteractionResponseModifyBuilder.() -> Unit {
         return when {
             character.proficiencies.any { it.id == tool.id } -> createGenericEmbedError(ToolBuyLocale.ALREADY_POSSESS.locale(locale))
             tool.cost == null -> createGenericEmbedError(ToolBuyLocale.CANNOT_BUY.locale(locale))
@@ -133,20 +131,20 @@ class ToolBuyCommand(
         }
     }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val params = event.extractCommonParameters()
-        val tools = cacheManager.getCollectionOfType<ToolProficiency>(params.guildId)
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
+        val tools = cacheManager.getCollectionOfType<ToolProficiency>(guildId)
         val choice = event.interaction.command.strings["proficiency"] ?: throw IllegalStateException("Proficiency not found")
-        val target = event.interaction.user.id
-        return try {
-            if (tools.firstOrNull { it.name == choice } == null) {
-                val probableItem = tools.maxByOrNull { choice.levenshteinDistance(it.name) }
-                alternativeOptionMessage(params.locale, choice, probableItem?.name ?: "", buildElementId(probableItem?.name ?: ""))
-            } else {
-                checkRequirementsAndBuyTool(params.guildId.toString(), tools.first { it.name == choice }, target, params.locale)
-            }
-        } catch (e: NoActiveCharacterException) {
-            createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(params.locale))
+        withOneActiveCharacterOrErrorMessage(responsible, this) { character ->
+            tools.firstOrNull { it.name == choice }?.let {
+                checkRequirementsAndBuyTool(guildId.toString(), it, character, locale)
+            } ?: tools.maxByOrNull { choice.levenshteinDistance(it.name) }?.let { probableItem ->
+                val interactionId = compactUuid()
+                interactionCache.put(
+                    interactionId,
+                    AssignToolInteractionData(responsible.id, character, probableItem)
+                )
+                alternativeOptionMessage(locale, choice, probableItem.name, buildElementId(interactionId))
+            } ?:  createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
         }
     }
 
@@ -155,11 +153,7 @@ class ToolBuyCommand(
         event: GuildChatInputCommandInteractionCreateEvent
     ) {
         val response = event.interaction.deferPublicResponse()
-        val msg = response.respond(builder)
-        interactionCache.put(
-            msg.message.id,
-            event.interaction.user.id
-        )
+        response.respond(builder)
     }
 
 }

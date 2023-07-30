@@ -70,6 +70,12 @@ enum class ItemInfoLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Costo"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Show the info about an item",
+            Locale.ITALIAN to "Mostra le informazioni riguardanti un oggetto"
+        )
+    ),
     INSTANTANEOUS(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Istantaneous",

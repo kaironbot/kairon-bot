@@ -4,6 +4,12 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class InventoryLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Show your inventory or the inventory of another player",
+            Locale.ITALIAN to "Mostra il tuo inventario o l'inventario di un altro giocatore"
+        )
+    ),
     ITEMS(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Items",
