@@ -14,9 +14,9 @@ import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.SetBuildingLimitLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.BuildingRestrictionType
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedSuccess
-import org.wagham.utils.extractCommonParameters
+import org.wagham.utils.defaultLocale
+import org.wagham.utils.withEventParameters
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", SetCommand::class)
@@ -28,11 +28,8 @@ class SetBuildingLimit(
 
 
     override val commandName = "building_limit"
-    override val defaultDescription = "Set a limit on the maximum number of buildings a player can have"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Set a limit on the maximum number of buildings a player can have",
-        Locale.ITALIAN to "Imposta il numero massimo di edifici che un giocatore può avere"
-    )
+    override val defaultDescription = SetBuildingLimitLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = SetBuildingLimitLocale.DESCRIPTION.localeMap
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
@@ -57,22 +54,21 @@ class SetBuildingLimit(
 
     override suspend fun registerCommand() {}
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val params = event.extractCommonParameters()
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val limitType = event.interaction.command.strings["limit_type"]?.let {
             BuildingRestrictionType.valueOf(it)
         } ?: throw IllegalStateException("Limit type not found")
         val limit = event.interaction.command.integers["limit"]?.takeIf { it >= 0 }?.toInt()
-            ?: throw IllegalStateException(SetBuildingLimitLocale.INVALID_VALUE.locale(params.locale))
-        val config = cacheManager.getConfig(params.guildId)
+            ?: throw IllegalStateException(SetBuildingLimitLocale.INVALID_VALUE.locale(locale))
+        val config = cacheManager.getConfig(guildId)
         cacheManager.setConfig(
-            params.guildId,
+            guildId,
             config.copy(
                 buildingRestrictions = config.buildingRestrictions +
                     (limitType to limit)
             )
         )
-        return createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
+        createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
     }
 
     override suspend fun handleResponse(

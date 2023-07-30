@@ -13,12 +13,12 @@ import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.SetCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.subcommands.SetBuildingLimitLocale
 import org.wagham.config.locale.subcommands.SetRemoveBuildingLimitLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.BuildingRestrictionType
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedSuccess
+import org.wagham.utils.defaultLocale
+import org.wagham.utils.withEventParameters
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", SetCommand::class)
@@ -28,13 +28,9 @@ class SetRemoveBuildingLimit(
     override val cacheManager: CacheManager
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
-
     override val commandName = "remove_building_limit"
-    override val defaultDescription = "Remove a limit on the maximum number of buildings a player can have"
-    override val localeDescriptions: Map<Locale, String> = mapOf(
-        Locale.ENGLISH_GREAT_BRITAIN to "Remove a limit on the maximum number of buildings a player can have",
-        Locale.ITALIAN to "Rimuove un limite sul massimo numero di edifici che un giocatore può avere"
-    )
+    override val defaultDescription = SetRemoveBuildingLimitLocale.DESCRIPTION.locale(defaultLocale)
+    override val localeDescriptions: Map<Locale, String> = SetRemoveBuildingLimitLocale.DESCRIPTION.localeMap
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
@@ -53,9 +49,7 @@ class SetRemoveBuildingLimit(
 
     override suspend fun registerCommand() {}
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val guildId = event.interaction.data.guildId.value ?: throw GuildNotFoundException()
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val limitType = event.interaction.command.strings["limit_type"]?.let {
             BuildingRestrictionType.valueOf(it)
         } ?: throw IllegalStateException("Limit type not found")
@@ -67,7 +61,7 @@ class SetRemoveBuildingLimit(
                         (limitType to null)
             )
         )
-        return createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
+        createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
     }
 
     override suspend fun handleResponse(

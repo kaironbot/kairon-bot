@@ -10,6 +10,12 @@ enum class StatsMasterLocale(val localeMap: Map<Locale, String>) : LocaleEnum {
             Locale.ITALIAN to "Data"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Show the session mastered by you or by another player",
+            Locale.ITALIAN to "Visualizza le sessioni masterate da te o da un altro giocatore"
+        )
+    ),
     LABEL_EXPORT(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Export",

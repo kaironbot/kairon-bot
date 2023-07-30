@@ -4,16 +4,10 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class SetRemoveBuildingLimitLocale(val localeMap: Map<Locale, String>): LocaleEnum {
-    INVALID_VALUE(
+    DESCRIPTION(
         mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Value not allowed",
-            Locale.ITALIAN to "Value not allowed"
-        )
-    ),
-    LIMIT(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "The maximum number of buildings",
-            Locale.ITALIAN to "Il numero massimo di edifici"
+            Locale.ENGLISH_GREAT_BRITAIN to "Remove a limit on the maximum number of buildings a player can have",
+            Locale.ITALIAN to "Rimuove un limite sul massimo numero di edifici che un giocatore può avere"
         )
     ),
     LIMIT_TYPE(

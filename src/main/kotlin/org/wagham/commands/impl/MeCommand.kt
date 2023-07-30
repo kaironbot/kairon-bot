@@ -20,10 +20,7 @@ import org.wagham.config.locale.components.MultiCharacterLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.Character
 import org.wagham.entities.InteractionParameters
-import org.wagham.utils.createGenericEmbedError
-import org.wagham.utils.defaultLocale
-import org.wagham.utils.extractCommonParameters
-import org.wagham.utils.withOneActiveCharacterOrErrorMessage
+import org.wagham.utils.*
 
 @BotCommand("all")
 class MeCommand(
@@ -55,23 +52,16 @@ class MeCommand(
         }
     }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val params = event.extractCommonParameters()
-        return event.interaction.command.users["target"]?.takeIf { it.id != params.responsible.id }?.let {
-            val targetOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(listOf(it), null, Unit, params)
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
+        return event.interaction.command.users["target"]?.takeIf { it.id != responsible.id }?.let {
+            val targetOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(listOf(it), null, Unit, this)
             when {
-                targetOrSelectionContext.characters != null -> {
-                    if (targetOrSelectionContext.characters.size != 1 ) {
-                        createGenericEmbedError(MultiCharacterLocale.INVALID_TARGET_NUMBER.locale(params.locale))
-                    } else {
-                        generateEmbed(targetOrSelectionContext.characters.first(), params)
-                    }
-                }
+                targetOrSelectionContext.characters != null -> generateEmbed(targetOrSelectionContext.characters.first(), this)
                 targetOrSelectionContext.response != null -> targetOrSelectionContext.response
-                else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
+                else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
             }
-        } ?: withOneActiveCharacterOrErrorMessage(params.responsible, params) {
-            generateEmbed(it, params)
+        } ?: withOneActiveCharacterOrErrorMessage(responsible, this) {
+            generateEmbed(it, this)
         }
     }
 
