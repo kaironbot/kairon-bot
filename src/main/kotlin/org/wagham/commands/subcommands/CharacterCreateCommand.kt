@@ -38,6 +38,7 @@ import org.wagham.db.models.ServerConfig.Companion.PlayerConfigurations.CHARACTE
 import org.wagham.db.models.creation.CharacterCreationData
 import org.wagham.exceptions.ModalValueError
 import org.wagham.utils.replyOnError
+import org.wagham.utils.withEventParameters
 import java.util.concurrent.TimeUnit
 
 @BotSubcommand("all", CharacterCommand::class)
@@ -238,29 +239,28 @@ class CharacterCreateCommand(
         handleSelectionConfirmation()
     }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): ModalBuilder.() -> Unit {
-        val params = event.extractCommonParameters()
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): ModalBuilder.() -> Unit = withEventParameters(event) {
         val userId = event.interaction.user.id
         val targetUser = event.interaction.command.users["user"]
             ?: throw IllegalStateException("Target user not found")
         val characterName = event.interaction.command.strings[nameInput]?.trim()?.takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException(CharacterCreateLocale.CHARACTER_NAME_INVALID.locale(params.locale))
-        val expTable = cacheManager.getExpTable(params.guildId)
-        val config = cacheManager.getConfig(params.guildId)
-        val characterOptions = db.utilityScope.getPlayableResources(params.guildId.toString())
+            ?: throw IllegalStateException(CharacterCreateLocale.CHARACTER_NAME_INVALID.locale(locale))
+        val expTable = cacheManager.getExpTable(guildId)
+        val config = cacheManager.getConfig(guildId)
+        val characterOptions = db.utilityScope.getPlayableResources(guildId.toString())
         interactionCache.put(
             targetUser.id,
             PartialCharacterData(userId, targetUser, characterName)
         )
         return fun ModalBuilder.() {
             title = buildString {
-                append(CharacterCreateLocale.MODAL_TITLE.locale(params.locale))
+                append(CharacterCreateLocale.MODAL_TITLE.locale(locale))
                 append(": $characterName")
             }
             customId = buildElementId(createModal, targetUser.id.toString())
             actionRow {
                 textInput(
-                    TextInputStyle.Short, startingLevel, CharacterCreateLocale.CHARACTER_LEVEL.locale(params.locale)
+                    TextInputStyle.Short, startingLevel, CharacterCreateLocale.CHARACTER_LEVEL.locale(locale)
                 ) {
                     value = expTable.table.entries.toList().minByOrNull { it.key }?.value
                     allowedLength = 1 .. 10
@@ -270,7 +270,7 @@ class CharacterCreateCommand(
             if (!config.playerConfigurations.getOrDefault(CHARACTER_CREATION_STRICT_CHECK, false) || characterOptions.classes.isEmpty()) {
                 actionRow {
                     textInput(
-                        TextInputStyle.Short, startingClass, CharacterCreateLocale.CHARACTER_CLASS.locale(params.locale)
+                        TextInputStyle.Short, startingClass, CharacterCreateLocale.CHARACTER_CLASS.locale(locale)
                     ) {
                         allowedLength = 1 .. 20
                         required = true
@@ -280,7 +280,7 @@ class CharacterCreateCommand(
             if (!config.playerConfigurations.getOrDefault(CHARACTER_CREATION_STRICT_CHECK, false) || characterOptions.races.isEmpty()) {
                 actionRow {
                     textInput(
-                        TextInputStyle.Short, race, CharacterCreateLocale.CHARACTER_RACE.locale(params.locale)
+                        TextInputStyle.Short, race, CharacterCreateLocale.CHARACTER_RACE.locale(locale)
                     ) {
                         allowedLength = 1 .. 50
                         required = true
@@ -289,7 +289,7 @@ class CharacterCreateCommand(
             }
             actionRow {
                 textInput(
-                    TextInputStyle.Short, origin, CharacterCreateLocale.ORIGIN.locale(params.locale)
+                    TextInputStyle.Short, origin, CharacterCreateLocale.ORIGIN.locale(locale)
                 ) {
                     allowedLength = 1 .. 100
                     required = false
@@ -297,7 +297,7 @@ class CharacterCreateCommand(
             }
             actionRow {
                 textInput(
-                    TextInputStyle.Short, age, CharacterCreateLocale.AGE.locale(params.locale)
+                    TextInputStyle.Short, age, CharacterCreateLocale.AGE.locale(locale)
                 ) {
                     allowedLength = 1 .. 10
                     required = false
