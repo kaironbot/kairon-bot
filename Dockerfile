@@ -1,4 +1,4 @@
-FROM gradle:7.2.0-jdk17 AS BUILD
+FROM gradle:8.2.1-jdk17 AS BUILD
 
 COPY . /src
 WORKDIR /src
