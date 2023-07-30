@@ -13,14 +13,13 @@ import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.AllowRoleCommandLocale
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.createGenericEmbedSuccess
 import org.wagham.utils.defaultLocale
-import org.wagham.utils.extractCommonParameters
+import org.wagham.utils.withEventParameters
 import java.lang.IllegalStateException
 
 @BotSubcommand("all", ConfigCmdCommand::class)
-class AllowRoleCommand(
+class AllowRole(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
     override val cacheManager: CacheManager
@@ -54,19 +53,18 @@ class AllowRoleCommand(
 
     override suspend fun registerCommand() { }
 
-    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val params = event.extractCommonParameters()
+    override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val command = event.interaction.command.strings["command"] ?: throw IllegalStateException("Command not found")
         val role = event.interaction.command.roles["role"] ?: throw IllegalStateException("Role not found")
-        val config = cacheManager.getConfig(params.guildId)
+        val config = cacheManager.getConfig(guildId)
         cacheManager.setConfig(
-            params.guildId,
+            guildId,
             config.copy(
                 commandsPermissions = config.commandsPermissions +
                     (command to (config.commandsPermissions[command] ?: emptySet()) + role.id.toString())
             )
         )
-        return createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
+        createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
     }
 
     override suspend fun handleResponse(
