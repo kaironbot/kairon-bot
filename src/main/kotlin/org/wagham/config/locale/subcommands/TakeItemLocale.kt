@@ -10,6 +10,12 @@ enum class TakeItemLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "La quantità di oggetti da rimuovere"
         )
     ),
+    DESCRIPTION(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Take an item from a player",
+            Locale.ITALIAN to "Togli un oggetto a un giocatore"
+        )
+    ),
     ITEM(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The item to take",

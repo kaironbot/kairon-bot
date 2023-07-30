@@ -121,6 +121,7 @@ class StatsMaster(
         fun InteractionResponseModifyBuilder.() {
             embed {
                 title = "${StatsMasterLocale.SESSION_MASTERED_TITLE.locale(locale)}${user.username} ${sessions.size}"
+                color = Colors.DEFAULT.value
                 sessions.aggregateByCharacter().forEach {
                     field {
                         name = it.key
@@ -173,6 +174,7 @@ class StatsMaster(
         } else {
             fun InteractionResponseModifyBuilder.() {
                 embed {
+                    color = Colors.DEFAULT.value
                     title = "${StatsMasterLocale.NEVER_MASTERED_TITLE.locale(locale)}${user.username}"
                     description = StatsMasterLocale.NEVER_MASTERED_DESCRIPTION.locale(locale)
                 }
