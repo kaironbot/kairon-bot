@@ -16,7 +16,6 @@ import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.ServerConfig
 import org.wagham.utils.createGenericEmbedSuccess
 import org.wagham.utils.defaultLocale
-import org.wagham.utils.extractCommonParameters
 import org.wagham.utils.withEventParameters
 import java.lang.IllegalStateException
 
