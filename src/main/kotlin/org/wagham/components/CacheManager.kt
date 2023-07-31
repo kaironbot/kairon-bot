@@ -43,6 +43,8 @@ class CacheManager(
     suspend fun getExpTable(guildId: Snowflake): ExpTable =
         expTableCache.getIfPresent(guildId) ?:
             db.utilityScope.getExpTable(guildId.toString()).also {
+                println(guildId)
+                println(it)
                 expTableCache.put(guildId, it)
             }
 
