@@ -86,7 +86,7 @@ class ExpCommand(
                     append(ExpLocale.NO_ACTIVE_CHARACTERS.locale(params.locale))
                     append(" ")
                     append(playersWithNoCharacter.joinToString(", ") { "<@!$it>"})
-                }
+                }.takeIf { playersWithNoCharacter.isNotEmpty() }
                 characters.forEach {
                     field {
                         name = "${it.name} (${it.characterClass})"
