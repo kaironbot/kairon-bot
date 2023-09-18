@@ -44,7 +44,9 @@ class AssignItem(
     companion object {
         private data class AssignItemInteractionParameters(
             val responsible: Snowflake,
-            val users: Set<User>
+            val users: Set<User>,
+            val item: String,
+            val amount: Int
         )
     }
 
@@ -95,8 +97,7 @@ class AssignItem(
     override suspend fun registerCommand() {
         kord.on<ButtonInteractionCreateEvent> {
             if (verifyId(interaction.componentId)) {
-                val (item, rawAmount, id) = extractComponentsFromComponentId(interaction.componentId)
-                val amount = rawAmount.toIntOrNull() ?: throw IllegalStateException("Wrong amount format")
+                val (id) = extractComponentsFromComponentId(interaction.componentId)
                 val data = interactionCache.getIfPresent(id)
                 val params = interaction.extractCommonParameters()
                 when {
@@ -107,11 +108,11 @@ class AssignItem(
                             val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(
                                 data.users.toList(),
                                 null,
-                                Pair(item, amount),
+                                Pair(data.item, data.amount),
                                 params
                             )
                             when {
-                                targetsOrSelectionContext.characters != null -> assignItemToCharacters(item, amount, targetsOrSelectionContext.characters, params)
+                                targetsOrSelectionContext.characters != null -> assignItemToCharacters(data.item, data.amount, targetsOrSelectionContext.characters, params)
                                 targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
                                 else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
                             }
@@ -170,10 +171,12 @@ class AssignItem(
                 interactionId,
                 AssignItemInteractionParameters(
                     responsible.id,
-                    targets
+                    targets,
+                    item,
+                    amount
                 )
             )
-            alternativeOptionMessage(locale, item, it.name, buildElementId(it.name, amount, interactionId))
+            alternativeOptionMessage(locale, item, it.name, buildElementId(interactionId))
         } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
 
     }

@@ -37,6 +37,7 @@ abstract class SlashCommandWithSubcommands(
                         && (ann.baseCommand == this::class)
             }
         }.map {
+            @Suppress("UNCHECKED_CAST")
             it.primaryConstructor!!.call(kord, cacheManager.db, cacheManager)
                     as org.wagham.commands.SubCommand<RequestBuilder<Any>>
         }
