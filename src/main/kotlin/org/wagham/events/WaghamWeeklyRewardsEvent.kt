@@ -68,7 +68,7 @@ class WaghamWeeklyRewardsEvent(
             }.map {
                 val character = db.charactersScope.getCharacter(guildId.toString(), it.key)
                 val tier = expTable.expToTier(character.ms().toFloat())
-                character.player to (tierRewards[tier]!! * 2 * it.value)
+                character.id to (tierRewards[tier]!! * 2 * it.value)
             }.toMap()
     }
 
@@ -91,7 +91,7 @@ class WaghamWeeklyRewardsEvent(
                             characters.minByOrNull { it.created ?: Date() } ?: characters.first()
                         }?.let { character ->
                             val tier = expTable.expToTier(character.ms().toFloat())
-                            member.id.toString() to (tierRewards[tier]!! * 2)
+                            character.id to (tierRewards[tier]!! * 2)
                         }
                 } catch (e: NoActiveCharacterException) {
                     null
@@ -110,9 +110,6 @@ class WaghamWeeklyRewardsEvent(
     private fun getAllEligibleCharacters(guildId: Snowflake) =
         db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
             .filter { character -> character.hasActivityInLast30Days() }
-
-    private fun getBuildingTierAsInt(buildingId: String) =
-        buildingId.split(":").last().last().digitToIntOrNull() ?: 6
 
     private suspend fun giveRewards(guildId: Snowflake) {
         val bounties = db.buildingsScope.getBuildingsWithBounty(guildId.toString())
@@ -140,13 +137,10 @@ class WaghamWeeklyRewardsEvent(
         val updatedLog = getAllEligibleCharacters(guildId)
             .filter { it.buildings.isNotEmpty() }
             .fold(rewardsLog) { log, character ->
-                val tier = expTable.expToTier(character.ms().toFloat())
-
                 // Calculates the buildings rewards
                 val buildingsLog = character.buildings.entries
-                    .filter { it.value.isNotEmpty() &&
-                            getBuildingTierAsInt(it.key) <= tier.toInt()
-                    }.fold(emptyMap<String, BuildingReward>()) { bLog, (buildingId, buildings) ->
+                    .filter { it.value.isNotEmpty() }
+                    .fold(emptyMap<String, BuildingReward>()) { bLog, (buildingId, buildings) ->
                         val buildingName = buildingId.split(":").first()
                         val prize = bounties[buildingName]!!.sample()
                         val additionalItem = prize.randomItems.takeIf { it.isNotEmpty() }?.let { p ->
@@ -164,15 +158,15 @@ class WaghamWeeklyRewardsEvent(
                         bLog + (buildingName to buildingRewardLog)
                     }
                 log.copy(
-                    playerRewards = log.playerRewards + (character.player to buildingsLog)
+                    playerRewards = log.playerRewards + (character.id to buildingsLog)
                 )
             }
 
         val transactionResult = db.transaction(guildId.toString()) { session ->
             getAllEligibleCharacters(guildId).fold(true) { status, character ->
-                    val moneyToGive = (updatedLog.master[character.player]?.toFloat() ?: 0f) +
-                            (updatedLog.delegates[character.player]?.toFloat() ?: 0f) +
-                            (updatedLog.playerRewards[character.player]
+                    val moneyToGive = (updatedLog.master[character.id]?.toFloat() ?: 0f) +
+                            (updatedLog.delegates[character.id]?.toFloat() ?: 0f) +
+                            (updatedLog.playerRewards[character.id]
                                 ?.values
                                 ?.map{ it.money }?.sum() ?: 0f)
                     val moneyResult = if(moneyToGive > 0f) {
@@ -182,7 +176,7 @@ class WaghamWeeklyRewardsEvent(
                     } else true
 
 
-                    val itemsToGive = updatedLog.playerRewards[character.player]?.values
+                    val itemsToGive = updatedLog.playerRewards[character.id]?.values
                         ?.flatMap { it.items.entries }
                         ?.fold(emptyMap<String, Int>()) { acc, it ->
                             acc + (it.key to (acc[it.key]?.plus(it.value) ?: it.value))
@@ -272,14 +266,15 @@ class WaghamWeeklyRewardsEvent(
 
         fun jackpotMessage() = buildString {
             append("**Cosa è successo nei vari negozi questa settimana?**")
-            playerRewards.forEach { (player, rewards) ->
+            playerRewards.forEach { (characterId, rewards) ->
+                val (playerId, _) = characterId.split(":")
                 rewards.values
                     .mapNotNull {
                         it.announcement
                     }
                     .forEach { (building, announcement) ->
                         append(announcement.format(mapOf(
-                            "PLAYER_ID" to player,
+                            "PLAYER_ID" to playerId,
                             "BUILDING_NAME" to building
                         )))
                     }
@@ -299,8 +294,9 @@ class WaghamWeeklyRewardsEvent(
                 append("<@!${it.key}>: ${it.value}\n")
             }
             append("\n**Premi Edifici**\n")
-            playerRewards.entries.forEach{ (player, buildingsReport) ->
-                append("<@!$player>\n")
+            playerRewards.entries.forEach{ (characterId, buildingsReport) ->
+                val (playerId, characterName) = characterId.split(":")
+                append("$characterName - (<@!$playerId>)\n")
                 val totalMo = buildingsReport.values.map { it.money }.sum()
                 append("\t*MO Totali: $totalMo*\n")
                 buildingsReport.entries.forEach { (buildingType, prize) ->
