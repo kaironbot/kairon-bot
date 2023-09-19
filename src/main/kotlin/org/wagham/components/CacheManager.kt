@@ -3,18 +3,24 @@ package org.wagham.components
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.kord.common.entity.Snowflake
+import kotlinx.coroutines.channels.Channel
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.ExpTable
 import org.wagham.db.models.ScheduledEvent
 import org.wagham.db.models.ServerConfig
 import org.wagham.utils.ActiveUsersReport
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 class CacheManager(
     val db: KabotMultiDBClient,
-    val schedulingManager: SchedulingManager,
+    private val schedulingManager: SchedulingManager,
     val profile: String
 ) {
+
+    companion object {
+        private const val CHANNEL_SIZE = 100
+    }
 
     @PublishedApi
     internal val collectionCacheConfig: MutableMap<String, suspend (Snowflake, KabotMultiDBClient) -> Collection<Any>> = mutableMapOf()
@@ -39,6 +45,13 @@ class CacheManager(
 
     private val guildCommands = mutableListOf<String>()
     private val guildEvents = mutableListOf<String>()
+    private val messageChannels = ConcurrentHashMap<String, Channel<String>>()
+
+    fun getChannel(channelId: String): Channel<String> =
+        messageChannels.getOrPut(channelId) { Channel(CHANNEL_SIZE) }
+
+    suspend fun sendToChannel(channelId: String, message: String) =
+        getChannel(channelId).send(message)
 
     suspend fun getExpTable(guildId: Snowflake): ExpTable =
         expTableCache.getIfPresent(guildId) ?:
@@ -77,7 +90,10 @@ class CacheManager(
                            cache.put(guildId, elements)
                        }
                     } ?: throw IllegalAccessError("No config for $it cache"))
-            }?.let { elements -> elements as Collection<T> }
+            }?.let { elements ->
+                @Suppress("UNCHECKED_CAST")
+                elements as Collection<T>
+            }
         } ?: throw IllegalAccessError("Cannot get elements for ${T::class}")
 
     fun getCommands() = guildCommands.toList()
