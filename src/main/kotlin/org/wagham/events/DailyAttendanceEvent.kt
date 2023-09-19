@@ -308,7 +308,9 @@ class DailyAttendanceEvent(
         handleRegistration()
         launchChannelDispatcher()
         Timer(eventId).schedule(
-            getStartingInstantOnNextDay(0, 0, 0).also {
+            getStartingInstantOnNextDay(20, 48, 0) {
+                it.minusDays(1)
+            }.also {
                 logger.info { "$eventId will start on $it"  }
             },
             24 * 60 * 60 * 1000
