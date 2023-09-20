@@ -4,7 +4,6 @@ import dev.kord.common.entity.ButtonStyle
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.entity.channel.MessageChannel
 import dev.kord.rest.builder.component.MessageComponentBuilder
-import dev.kord.rest.builder.message.create.MessageCreateBuilder
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.actionRow
 import dev.kord.rest.builder.message.modify.embed
@@ -60,9 +59,9 @@ fun alternativeOptionMessage(
                     append(it)
                 }
             }
-            color = Colors.DEFAULT.value
+           color = Colors.DEFAULT.value
         }
-        probable?.also { it ->
+        probable?.also {
             actionRow {
                 interactionButton(ButtonStyle.Primary, buttonId) {
                     label = "${CommonLocale.ASSIGN_ALTERNATIVE.locale(locale)}$it"

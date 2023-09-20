@@ -255,6 +255,9 @@ class CharacterCreate(
             title = buildString {
                 append(CharacterCreateLocale.MODAL_TITLE.locale(params.locale))
                 append(": $characterName")
+            }.let {
+                if(it.length <= 45) it
+                else "${it.substring(0, 42)}..."
             }
             customId = buildElementId(CREATE_MODAL, targetUser.id.toString())
             actionRow {
