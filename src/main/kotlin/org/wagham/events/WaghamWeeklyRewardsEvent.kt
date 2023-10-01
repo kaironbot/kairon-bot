@@ -238,8 +238,8 @@ class WaghamWeeklyRewardsEvent(
 
     override fun register() {
         Timer(eventId).schedule(
-            getStartingInstantOnNextDay(18, 0, 0){
-                it.with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
+            getStartingInstantOnNextDay(18, 0, 0) {
+                it.minusDays(3).with(TemporalAdjusters.next(DayOfWeek.TUESDAY))
             }.also {
                 logger.info { "$eventId will start on $it"  }
             },
