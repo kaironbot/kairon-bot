@@ -51,11 +51,11 @@ class WaghamCheckTierEvent(
         kord.on<ReactionAddEvent> {
             if(isEnabled(guildId) && isAllowed(guildId, message) && emoji.name == "🤖") {
                 val guild = guildId ?: throw GuildNotFoundException()
-                cacheManager.sendToChannel(
-                    DailyAttendanceEvent::class.qualifiedName
-                        ?: throw IllegalStateException("Cannot find channel id for daily attendance"),
-                    Json.encodeToString(UpdateGuildAttendanceMessage(guild))
-                )
+//                cacheManager.sendToChannel(
+//                    DailyAttendanceEvent::class.qualifiedName
+//                        ?: throw IllegalStateException("Cannot find channel id for daily attendance"),
+//                    Json.encodeToString(UpdateGuildAttendanceMessage(guild))
+//                )
                 val serverConfig = cacheManager.getConfig(guild)
                 db.charactersScope
                     .getAllCharacters(guildId.toString(), CharacterStatus.active)
