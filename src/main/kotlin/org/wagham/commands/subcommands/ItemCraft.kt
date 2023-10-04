@@ -164,8 +164,14 @@ class ItemCraft(
 
     private fun Character.buildingRequirement(item: Item) =
         item.craft?.buildings.isNullOrEmpty() ||
-            buildings.keys.map { it.split(":").first() }.any {
-                item.craft!!.buildings.contains(it)
+            buildings.keys.map { it.split(":") }.any { (_, type, rawTier) ->
+                //TODO: I don't like this
+                val tier = "T([0-9])".toRegex().find(rawTier)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                item.craft!!.buildings.any {
+                    val (requiredType, rT) = it.split(" ")
+                    val requiredTier = "T([0-9])".toRegex().find(rT)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    requiredType == type && tier >= requiredTier
+                }
             }
 
     private fun Character.proficiencyRequirement(item: Item) =

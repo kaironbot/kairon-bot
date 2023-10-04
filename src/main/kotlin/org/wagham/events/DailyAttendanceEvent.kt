@@ -88,13 +88,17 @@ class DailyAttendanceEvent(
 
     private suspend fun getAttendanceReportForPlayer(guildId: String, playerId: String): List<AttendanceReportPlayer> {
         val expTable = cacheManager.getExpTable(Snowflake(guildId))
-        return db.charactersScope.getActiveCharacters(guildId, playerId).map {
+        val characters = db.charactersScope.getActiveCharacters(guildId, playerId).toList()
+        val minLastPlayer = characters
+            .mapNotNull { it.lastPlayed?.let(::daysToToday) }
+            .minOrNull() ?: -1
+        return characters.map {
             AttendanceReportPlayer(
-                it.lastPlayed?.let(::daysToToday) ?: -1,
+                minLastPlayer,
                 expTable.expToTier(it.ms().toFloat()),
                 it.name
             )
-        }.toList()
+        }
     }
 
     private suspend fun prepareMessage(locale: String, guildId: Snowflake, newAttendance: Boolean = false): UserMessageCreateBuilder.() -> Unit {
@@ -178,7 +182,6 @@ class DailyAttendanceEvent(
             )
         }
     }
-
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun launchGuildDispatcher(guildId: Snowflake) = taskExecutorScope.launch {
