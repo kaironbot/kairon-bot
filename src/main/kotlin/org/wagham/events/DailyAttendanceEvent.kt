@@ -1,6 +1,8 @@
 package org.wagham.events
 
+import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.RemovalCause
 import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
@@ -17,7 +19,6 @@ import dev.kord.rest.builder.message.modify.embed
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
@@ -47,10 +48,15 @@ class DailyAttendanceEvent(
 ) : Event, Identifiable {
 
     override val eventId = "daily_attendance"
+    private var channelDispatcher: Job? = null
     private val logger = KotlinLogging.logger {}
     private val taskExecutorScope = CoroutineScope(Dispatchers.Default)
     private val channels = Caffeine.newBuilder().build<Snowflake, Channel<UpdateGuildAttendanceMessage>>()
-    private val channelConsumers = Caffeine.newBuilder().build<Snowflake, Job>()
+    private val channelConsumers: Cache<Snowflake, Job> = Caffeine
+        .newBuilder()
+        .removalListener { _: Snowflake?, _: Job?, _: RemovalCause ->
+            ensureAllDispatchersAreAlive()
+        }.build<Snowflake, Job>()
 
     private fun Map<String, List<AttendanceReportPlayer>>.appendList(buildCtx: StringBuilder) = entries
         .flatMap { (k, v) ->
@@ -127,15 +133,15 @@ class DailyAttendanceEvent(
     }
 
     private fun launchChannelDispatcher() = taskExecutorScope.launch {
-        val channel = cacheManager.getChannel(DailyAttendanceEvent::class.qualifiedName
-            ?: throw IllegalStateException("Cannot find channel id for daily attendance"))
-        for(rawMessage in channel) {
-            try {
+        try {
+            val channel = cacheManager.getChannel(DailyAttendanceEvent::class.qualifiedName
+                ?: throw IllegalStateException("Cannot find channel id for daily attendance"))
+            for(rawMessage in channel) {
                 val message = Json.decodeFromString<UpdateGuildAttendanceMessage>(rawMessage)
                 channels.getIfPresent(message.guildId)?.send(message)
-            } catch (e: Exception) {
-                logger.info { "Error while decoding attendance op: ${e.stackTraceToString()}" }
             }
+        } catch (e: Exception) {
+            logger.info { "Error while decoding attendance op: ${e.stackTraceToString()}" }
         }
     }
 
@@ -185,35 +191,65 @@ class DailyAttendanceEvent(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun launchGuildDispatcher(guildId: Snowflake) = taskExecutorScope.launch {
-        val channel = channels.get(guildId) { Channel(UNLIMITED) }
-            ?: throw IllegalStateException("Cannot create guild $guildId channel")
-        for(message in channel) {
-            db.utilityScope.getLastAttendance(message.guildId.toString())?.let { currentAttendance ->
-                when {
-                    message.operation == null || message.playerId == null ->
-                        refreshAttendance(currentAttendance, message.guildId.toString())
-                    message.operation == UpdateGuildAttendanceOperation.ABORT_AFTERNOON ->
-                        removePlayerFromAfternoonAttendance(currentAttendance, message.guildId.toString(), message.playerId)
-                    message.operation == UpdateGuildAttendanceOperation.ABORT_EVENING ->
-                        removePlayerFromEveningAttendance(currentAttendance, message.guildId.toString(), message.playerId)
-                    message.operation == UpdateGuildAttendanceOperation.REGISTER_AFTERNOON ->
-                        addPlayerToAfternoonAttendance(currentAttendance, message.guildId.toString(), message.playerId)
-                    message.operation == UpdateGuildAttendanceOperation.REGISTER_EVENING ->
-                        addPlayerToEveningAttendance(currentAttendance, message.guildId.toString(), message.playerId)
-                }
-                if (channel.isEmpty) {
-                    val discordChannel = kord.getChannelOfType(guildId, Channels.ATTENDANCE_CHANNEL, cacheManager)
-                    val locale = kord.getGuildOrNull(guildId)?.preferredLocale?.language ?: "en"
-                    val desc = buildDescription(locale, guildId)
-                    discordChannel.getMessage(Snowflake(currentAttendance.message)).edit {
-                        embed {
-                            title = DailyAttendanceLocale.TITLE.locale(locale)
-                            description = desc
-                            color = Colors.DEFAULT.value
+        try {
+            val channel = channels.get(guildId) { Channel(UNLIMITED) }
+                ?: throw IllegalStateException("Cannot create guild $guildId channel")
+            for(message in channel) {
+                db.utilityScope.getLastAttendance(message.guildId.toString())?.let { currentAttendance ->
+                    when {
+                        message.operation == null || message.playerId == null ->
+                            refreshAttendance(currentAttendance, message.guildId.toString())
+
+                        message.operation == UpdateGuildAttendanceOperation.ABORT_AFTERNOON ->
+                            removePlayerFromAfternoonAttendance(
+                                currentAttendance,
+                                message.guildId.toString(),
+                                message.playerId
+                            )
+
+                        message.operation == UpdateGuildAttendanceOperation.ABORT_EVENING ->
+                            removePlayerFromEveningAttendance(
+                                currentAttendance,
+                                message.guildId.toString(),
+                                message.playerId
+                            )
+
+                        message.operation == UpdateGuildAttendanceOperation.REGISTER_AFTERNOON ->
+                            addPlayerToAfternoonAttendance(
+                                currentAttendance,
+                                message.guildId.toString(),
+                                message.playerId
+                            )
+
+                        message.operation == UpdateGuildAttendanceOperation.REGISTER_EVENING ->
+                            addPlayerToEveningAttendance(
+                                currentAttendance,
+                                message.guildId.toString(),
+                                message.playerId
+                            )
+                    }
+                    if (channel.isEmpty) {
+                        val discordChannel = kord.getChannelOfType(guildId, Channels.ATTENDANCE_CHANNEL, cacheManager)
+                        val locale = kord.getGuildOrNull(guildId)?.preferredLocale?.language ?: "en"
+                        val desc = buildDescription(locale, guildId)
+                        discordChannel.getMessage(Snowflake(currentAttendance.message)).edit {
+                            embed {
+                                title = DailyAttendanceLocale.TITLE.locale(locale)
+                                description = desc
+                                color = Colors.DEFAULT.value
+                            }
                         }
                     }
                 }
             }
+        } catch (e: Exception) {
+            logger.info { buildString {
+                append("Error while parsing attendance message in guild $guildId\n")
+                append("Error: $e\n")
+                append(e.stackTraceToString())
+            } }
+        } finally {
+            channelConsumers.invalidate(guildId)
         }
     }
 
@@ -307,9 +343,22 @@ class DailyAttendanceEvent(
         }
     }
 
+    private fun ensureAllDispatchersAreAlive() = taskExecutorScope.launch {
+        if(channelDispatcher == null || channelDispatcher?.isActive == false) {
+            channelDispatcher = launchChannelDispatcher()
+        }
+        kord.guilds.collect {
+            val dispatcher = channelConsumers.get(it.id) { guildId -> launchGuildDispatcher(guildId) }
+                ?: throw IllegalStateException("Cannot create guild ${it.id} dispatcher")
+            if(!dispatcher.isActive) {
+                channelConsumers.put(it.id, launchGuildDispatcher(it.id))
+            }
+        }
+    }
+
     override fun register() {
         handleRegistration()
-        launchChannelDispatcher()
+        ensureAllDispatchersAreAlive()
         Timer(eventId).schedule(
             getStartingInstantOnNextDay(0, 0, 0).also {
                 logger.info { "$eventId will start on $it"  }
@@ -319,7 +368,7 @@ class DailyAttendanceEvent(
             runBlocking {
                 kord.guilds.collect {
                     if (cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
-                        channelConsumers.get(it.id) { guildId -> launchGuildDispatcher(guildId) }
+                        ensureAllDispatchersAreAlive()
                         val reportDate = Calendar.getInstance().time
                         val locale = it.preferredLocale.language
                         val message = kord.getChannelOfType(it.id, Channels.ATTENDANCE_CHANNEL, cacheManager).createMessage(
