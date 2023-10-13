@@ -159,7 +159,7 @@ class DailyAttendanceEvent(
             val charactersAttendance = getAttendanceReportForPlayer(guildId, playerId)
             db.utilityScope.updateAttendance(
                 guildId,
-                attendance.copy(afternoonPlayers = attendance.players + (playerId to charactersAttendance))
+                attendance.copy(afternoonPlayers = attendance.afternoonPlayers + (playerId to charactersAttendance))
             )
         }
     }
