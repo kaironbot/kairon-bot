@@ -9,6 +9,12 @@ enum class CommonLocale(private val localeMap: Map<Locale, String>): LocaleEnum 
             Locale.ENGLISH_GREAT_BRITAIN to "Abort"
         )
     ),
+    ABORTED(
+        mapOf(
+            Locale.ITALIAN to "Operazione annullata",
+            Locale.ENGLISH_GREAT_BRITAIN to "Operation canceled succesfully"
+        )
+    ),
     ALTERNATIVE(
         mapOf(
             Locale.ITALIAN to "Forse intendevi: ",

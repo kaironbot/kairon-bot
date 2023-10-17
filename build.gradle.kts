@@ -2,8 +2,8 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.8.0"
-    kotlin("plugin.serialization") version "1.8.0"
+    kotlin("jvm") version "1.8.10"
+    kotlin("plugin.serialization") version "1.8.10"
     id("com.github.johnrengelman.shadow") version "8.1.1"
     application
 }
@@ -33,14 +33,14 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.8.10")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.10")
     implementation(group = "org.litote.kmongo", name = "kmongo-coroutine", version = "4.8.0")
     implementation(group = "dev.kord", name = "kord-core", version = "0.8.2")
     implementation(group = "org.jetbrains.kotlinx", name="kotlinx-coroutines-core", version = "1.6.4")
     implementation(group = "org.jetbrains.kotlinx", name="kotlinx-coroutines-reactor", version = "1.6.4")
     implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.5.1")
-    implementation(group = "org.wagham", name = "kabot-db-connector", version = "0.18.8")
+    implementation(group = "org.wagham", name = "kabot-db-connector", version = "0.19.1")
     implementation(group = "com.github.h0tk3y.betterParse", name = "better-parse", version = "0.4.4")
     implementation(group = "com.fasterxml.jackson.module", name="jackson-module-kotlin", version = "2.13.4")
     implementation(group = "org.slf4j", name = "slf4j-api", version = "2.0.5")

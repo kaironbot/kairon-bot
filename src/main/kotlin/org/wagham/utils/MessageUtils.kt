@@ -23,7 +23,10 @@ suspend fun MessageChannel.sendTextMessage(message: String) =
             }
         }
 
-fun createGenericEmbedError(message: String, actionRows: MutableList<MessageComponentBuilder> = mutableListOf()) = fun InteractionResponseModifyBuilder.() {
+fun createGenericEmbedError(
+    message: String,
+    actionRows: MutableList<MessageComponentBuilder> = mutableListOf()
+): InteractionResponseModifyBuilder.() -> Unit = {
         embed {
             color = Colors.WARNING.value
             title = "Error"
@@ -32,7 +35,10 @@ fun createGenericEmbedError(message: String, actionRows: MutableList<MessageComp
         components = actionRows
     }
 
-fun createGenericEmbedSuccess(message: String, actionRows: MutableList<MessageComponentBuilder> = mutableListOf()) = fun InteractionResponseModifyBuilder.() {
+fun createGenericEmbedSuccess(
+    message: String,
+    actionRows: MutableList<MessageComponentBuilder> = mutableListOf()
+): InteractionResponseModifyBuilder.() -> Unit = {
         embed {
             color = Colors.DEFAULT.value
             title = "Ok"
@@ -46,8 +52,7 @@ fun alternativeOptionMessage(
     notFound: String,
     probable: String?,
     buttonId: String
-): InteractionResponseModifyBuilder.() -> Unit =
-    fun InteractionResponseModifyBuilder.() {
+): InteractionResponseModifyBuilder.() -> Unit = {
         embed {
             title = CommonLocale.ERROR.locale(locale)
             description = buildString {

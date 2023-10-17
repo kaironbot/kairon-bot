@@ -16,7 +16,6 @@ import org.wagham.components.MultiCharacterManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.commands.MeLocale
-import org.wagham.config.locale.components.MultiCharacterLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.Character
 import org.wagham.entities.InteractionParameters
