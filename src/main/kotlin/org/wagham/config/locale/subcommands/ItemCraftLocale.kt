@@ -4,22 +4,22 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class ItemCraftLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    ALTERNATIVE_RECIPES(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "You have multiple ways of crafting this item.",
+            Locale.ITALIAN to "Puoi costruire questo oggetto in più modi."
+        )
+    ),
+    ALTERNATIVE_RECIPES_SELECT(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Choose a recipe:",
+            Locale.ITALIAN to "Scegli una ricetta:"
+        )
+    ),
     AMOUNT(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The quantity of items to craft",
             Locale.ITALIAN to "La quantità di oggetti da costruire"
-        )
-    ),
-    BUILDINGS_REQUIRED(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Buildings required to craft the item",
-            Locale.ITALIAN to "Edifici richiesti per costruire l'oggetto"
-        )
-    ),
-    CANNOT_CRAFT(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "This item cannot be crafted.",
-            Locale.ITALIAN to "Questo oggetto non può essere costruito."
         )
     ),
     DESCRIPTION(
@@ -40,16 +40,10 @@ enum class ItemCraftLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "L'oggetto da costruire"
         )
     ),
-    MISSING_MATERIALS(
+    NOT_CRAFTABLE(
         mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "You need the following additional materials to craft this item",
-            Locale.ITALIAN to "Ti mancano i seguenti materiali per craftre questo oggetto"
-        )
-    ),
-    NOT_ENOUGH(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "The minimum craft quantity for this item is",
-            Locale.ITALIAN to "La quantità minima costruibile di questo oggetto è"
+            Locale.ENGLISH_GREAT_BRITAIN to "This item cannot be crafted",
+            Locale.ITALIAN to "Questo oggetto non può essere craftato"
         )
     ),
     NOT_FOUND(
@@ -58,28 +52,28 @@ enum class ItemCraftLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Oggetto non trovato: "
         )
     ),
+    NO_RECIPE_AVAILABLE(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "You do not have enough resources to craft this item.",
+            Locale.ITALIAN to "Non hai abbastanza risorse per costruire questo oggetto."
+        )
+    ),
     READY_ON(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Item will be ready on",
             Locale.ITALIAN to "L'oggetto sarà pronto"
         )
     ),
+    RECIPE(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "Recipe",
+            Locale.ITALIAN to "Ricetta"
+        )
+    ),
     TARGET(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The user to give the item to",
             Locale.ITALIAN to "L'utente a cui assegnare l'oggetto"
-        )
-    ),
-    TOOLS_REQUIRED(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Proficiencies required to craft the item",
-            Locale.ITALIAN to "Competenze richieste per costruire l'oggetto"
-        )
-    ),
-    TOO_MUCH(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "The maximum craft quantity for this item is",
-            Locale.ITALIAN to "La quantità massima costruibile di questo oggetto è"
         )
     );
     override fun locale(language: String) = locale(Locale.fromString(language))

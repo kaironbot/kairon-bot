@@ -33,8 +33,8 @@ abstract class SlashCommandWithSubcommands(
         .filter {
             it.annotations.any { ann ->
                 ann is BotSubcommand
-                        && (ann.profile == "all" || ann.profile == cacheManager.profile)
-                        && (ann.baseCommand == this::class)
+                    && (ann.profile == "all" || ann.profile == cacheManager.profile)
+                    && (ann.baseCommand == this::class)
             }
         }.map {
             @Suppress("UNCHECKED_CAST")

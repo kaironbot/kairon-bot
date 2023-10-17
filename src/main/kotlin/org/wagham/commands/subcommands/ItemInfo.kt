@@ -15,11 +15,13 @@ import org.wagham.commands.impl.ItemCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
+import org.wagham.config.locale.subcommands.ItemCraftLocale
 import org.wagham.config.locale.subcommands.ItemInfoLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.models.Item
 import org.wagham.utils.defaultLocale
 import org.wagham.utils.levenshteinDistance
+import org.wagham.utils.summary
 import org.wagham.utils.withEventParameters
 import java.lang.IllegalStateException
 
@@ -92,50 +94,14 @@ class ItemInfo(
                 }
                 field {
                     name = "Crafting"
-                    value = if (item.craft != null) ItemInfoLocale.CAN_CRAFT.locale(locale) else ItemInfoLocale.CANNOT_CRAFT.locale(locale)
+                    value = if (item.craft.isNotEmpty()) ItemInfoLocale.CAN_CRAFT.locale(locale) else ItemInfoLocale.CANNOT_CRAFT.locale(locale)
                     inline = false
                 }
-                if (item.craft != null) {
+                item.craft.forEachIndexed { idx, recipe ->
                     field {
-                        name = ItemInfoLocale.COST.locale(locale)
-                        value = "${item.craft?.cost} MO"
-                        inline = true
-                    }
-                    field {
-                        name = ItemInfoLocale.MATERIALS.locale(locale)
-                        value = item.craft?.materials?.entries?.joinToString(", ") { "${it.key} x${it.value}" }
-                            ?: ItemInfoLocale.NO_MATERIALS_REQUIRED.locale(locale)
-                        inline = true
-                    }
-                    field {
-                        name = ItemInfoLocale.TOOL_PROFICIENCIES.locale(locale)
-                        value = item.craft?.tools?.takeIf { it.isNotEmpty() }?.joinToString(", ")
-                            ?: ItemInfoLocale.NO_PROFICIENCIES_REQUIRED.locale(locale)
-                        inline = true
-                    }
-                    field {
-                        name = ItemInfoLocale.BUILDINGS_REQUIRED.locale(locale)
-                        value = item.craft?.buildings?.takeIf { it.isNotEmpty() }?.joinToString(", ")
-                            ?: ItemInfoLocale.NO_BUILDINGS_REQUIRED.locale(locale)
-                        inline = true
-                    }
-                    field {
-                        name = ItemInfoLocale.TIME_REQUIRED.locale(locale)
-                        value = item.craft?.timeRequired?.toString()
-                            ?: ItemInfoLocale.INSTANTANEOUS.locale(locale)
-                        inline = true
-                    }
-                    field {
-                        name = ItemInfoLocale.MIN_QTY.locale(locale)
-                        value = item.craft?.minQuantity?.toString() ?: "1"
-                        inline = true
-                    }
-                    if (item.craft?.maxQuantity != null) {
-                        field {
-                            name = ItemInfoLocale.MAX_QTY.locale(locale)
-                            value = item.craft?.maxQuantity!!.toString()
-                            inline = true
-                        }
+                        name = recipe.label ?: "${ItemCraftLocale.RECIPE.locale(locale)} $idx"
+                        value = recipe.summary()
+                        inline = false
                     }
                 }
                 if(item.manual != null) {

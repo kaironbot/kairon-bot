@@ -60,7 +60,7 @@ class ItemRow(
                                     tier = it["Tier"]!!.takeIf { tier -> tier != "None" },
                                     attunement = (it["Attunement"]!!.formatToInt()) == 1,
                                     giveRatio = it["give_ratio"]!!.formatToFloat(),
-                                    craft = CraftRequirement(
+                                    craft = listOfNotNull(CraftRequirement(
                                         it["craft_time"]!!.formatToInt().toLong().takeIf { it > 0 },
                                         it["craft_min_qty"]!!.formatToInt(),
                                         it["craft_max_qty"]!!.formatToInt(),
@@ -72,10 +72,11 @@ class ItemRow(
                                                     map + (matches.groupValues[1] to matches.groupValues[2].formatToInt())
                                                 else map
                                             },
+                                        null,
                                         it["craft_mo_cost"]!!.formatToFloat(),
                                         it["Craft_BuildingInRecipe"]!!.split(",").filter { it.isNotBlank() }.toSet(),
                                         it["craft_tools"]!!.split(",").filter { it.isNotBlank() }.toSet(),
-                                    ).takeIf { it.cost > 0 }
+                                    ).takeIf { it.cost > 0 })
                                 )
                             )
                         }

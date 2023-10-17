@@ -25,6 +25,9 @@ suspend fun <T: ComponentInteractionBehavior> replyOnError(interaction: T, block
 suspend fun ComponentInteractionBehavior.respondWithExpirationError(locale: String) =
     deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.INTERACTION_EXPIRED.locale(locale)))
 
+suspend fun ComponentInteractionBehavior.operationCanceled(locale: String) =
+    deferEphemeralMessageUpdate().edit(createGenericEmbedSuccess(CommonLocale.ABORTED.locale(locale)))
+
 suspend fun ComponentInteractionBehavior.respondWithForbiddenError(locale: String) =
     deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
 
