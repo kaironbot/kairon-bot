@@ -5,6 +5,7 @@ import dev.kord.core.Kord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -13,6 +14,7 @@ import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.enums.CharacterStatus
 import org.wagham.db.enums.LabelType
 import org.wagham.db.models.Character
 import org.wagham.db.models.Item
@@ -59,7 +61,9 @@ class AssignItemAfterSessionEvent(
                 val characterToItem = db.charactersScope.getCharacters(
                     registeredSession.guildId,
                     session.characters.map { it.character }
-                ).associateTo {
+                ).filter {
+                    it.status == CharacterStatus.active
+                }.associateTo {
                     getRandomItem(registeredSession.guildId, itemLabels)
                 }
                 val transactionResult = db.transaction(registeredSession.guildId) { s ->
