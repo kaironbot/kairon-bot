@@ -11,6 +11,7 @@ import org.wagham.db.models.ServerConfig
 import org.wagham.utils.ActiveUsersReport
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import kotlin.reflect.KClass
 
 class CacheManager(
     val db: KabotMultiDBClient,
@@ -19,7 +20,7 @@ class CacheManager(
 ) {
 
     companion object {
-        private const val CHANNEL_SIZE = 100
+        const val CHANNEL_SIZE = 100
     }
 
     @PublishedApi
@@ -27,6 +28,9 @@ class CacheManager(
 
     @PublishedApi
     internal val collectionCaches: MutableMap<String, Cache<Snowflake, Collection<Any>>> = mutableMapOf()
+
+    @PublishedApi
+    internal val messageChannels = ConcurrentHashMap<String, Channel<Any>>()
 
     private val expTableCache: Cache<Snowflake, ExpTable> =
         Caffeine.newBuilder()
@@ -45,13 +49,30 @@ class CacheManager(
 
     private val guildCommands = mutableListOf<String>()
     private val guildEvents = mutableListOf<String>()
-    private val messageChannels = ConcurrentHashMap<String, Channel<String>>()
 
-    fun getChannel(channelId: String): Channel<String> =
-        messageChannels.getOrPut(channelId) { Channel(CHANNEL_SIZE) }
+    /**
+     * Creates a new channel for the class of type [K] passed as parameter for the message type [T].
+     * If the channel already exists, it retrieves it.
+     *
+     * @param T the type of messages handled by the channel.
+     * @param K the type fo the class.
+     * @return a [Channel] of [T].
+     */
+    @Suppress("UNCHECKED_CAST")
+    inline fun <reified K, reified T> getChannel(): Channel<T> =
+        messageChannels.getOrPut("${K::class.qualifiedName}-${T::class.qualifiedName}") {
+            Channel<T>(CHANNEL_SIZE) as Channel<Any>
+        } as Channel<T>
 
-    suspend fun sendToChannel(channelId: String, message: String) =
-        getChannel(channelId).send(message)
+    /**
+     * Retrieves a channel for a class of type [K] that handles messages of type [T] and sends a new message on it.
+     * If the channel does not exist, it will be created.
+     *
+     * @param T the type of messages handled by the channel.
+     * @param K the type of the class.
+ù     * @param message an instance of [T] to send on the channel.
+     */
+    suspend inline fun <reified K, reified T> sendToChannel(message: T) = getChannel<K, T>().send(message)
 
     suspend fun getExpTable(guildId: Snowflake): ExpTable =
         expTableCache.getIfPresent(guildId) ?:

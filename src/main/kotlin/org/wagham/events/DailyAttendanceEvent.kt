@@ -20,7 +20,6 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
 import kotlinx.coroutines.flow.toList
-import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
@@ -134,14 +133,12 @@ class DailyAttendanceEvent(
 
     private fun launchChannelDispatcher() = taskExecutorScope.launch {
         try {
-            val channel = cacheManager.getChannel(DailyAttendanceEvent::class.qualifiedName
-                ?: throw IllegalStateException("Cannot find channel id for daily attendance"))
-            for(rawMessage in channel) {
-                val message = Json.decodeFromString<UpdateGuildAttendanceMessage>(rawMessage)
+            val channel = cacheManager.getChannel<DailyAttendanceEvent, UpdateGuildAttendanceMessage>()
+            for(message in channel) {
                 channels.getIfPresent(message.guildId)?.send(message)
             }
         } catch (e: Exception) {
-            logger.info { "Error while decoding attendance op: ${e.stackTraceToString()}" }
+            logger.info { "Error while dispatching attendance op: ${e.stackTraceToString()}" }
         }
     }
 
