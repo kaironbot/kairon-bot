@@ -19,6 +19,7 @@ import org.wagham.annotations.BotCommand
 import org.wagham.annotations.BotEvent
 import org.wagham.commands.Command
 import org.wagham.components.CacheManager
+import org.wagham.components.ExternalGateway
 import org.wagham.components.SchedulingManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
@@ -130,6 +131,11 @@ class KaironBot(
 
         cacheManager.createNewCollectionCache<ToolProficiency> { guildId, db ->
             db.proficiencyScope.getToolProficiencies(guildId.toString()).toList()
+        }
+
+        launch {
+            val gateway = ExternalGateway(cacheManager)
+            gateway.open()
         }
 
         kord.login {

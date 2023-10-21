@@ -10,8 +10,6 @@ import dev.kord.core.event.message.ReactionAddEvent
 import dev.kord.core.on
 import dev.kord.core.supplier.EntitySupplier
 import kotlinx.coroutines.flow.*
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
@@ -51,10 +49,8 @@ class WaghamCheckTierEvent(
         kord.on<ReactionAddEvent> {
             if(isEnabled(guildId) && isAllowed(guildId, message) && emoji.name == "🤖") {
                 val guild = guildId ?: throw GuildNotFoundException()
-                cacheManager.sendToChannel(
-                    DailyAttendanceEvent::class.qualifiedName
-                        ?: throw IllegalStateException("Cannot find channel id for daily attendance"),
-                    Json.encodeToString(UpdateGuildAttendanceMessage(guild))
+                cacheManager.sendToChannel<DailyAttendanceEvent, UpdateGuildAttendanceMessage>(
+                    UpdateGuildAttendanceMessage(guild)
                 )
                 val serverConfig = cacheManager.getConfig(guild)
                 db.charactersScope

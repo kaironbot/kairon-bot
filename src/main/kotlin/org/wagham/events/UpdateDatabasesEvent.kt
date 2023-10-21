@@ -134,10 +134,10 @@ class UpdateDatabasesEvent(
             val itemsToUpdate = items.filter { it.operation == ImportOperation.UPDATE }.map { it.item }
             val itemsToDelete = items.filter { it.operation == ImportOperation.DELETE }.map { it.item.name }
             if (itemsToUpdate.isNotEmpty()) {
-                db.itemsScope.updateItems(guildId.toString(), itemsToUpdate).let {
-                    if (it) getLogChannel(guildId).sendTextMessage("${itemsToUpdate.size} items updated")
-                    else getLogChannel(guildId).sendTextMessage("There was an error updating items")
-                }
+//                db.itemsScope.updateItems(guildId.toString(), itemsToUpdate).let {
+//                    if (it) getLogChannel(guildId).sendTextMessage("${itemsToUpdate.size} items updated")
+//                    else getLogChannel(guildId).sendTextMessage("There was an error updating items")
+//                }
             }
             if(itemsToDelete.isNotEmpty()) {
                 db.itemsScope.deleteItems(guildId.toString(), itemsToDelete).let {
