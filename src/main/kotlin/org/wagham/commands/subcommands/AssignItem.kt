@@ -101,7 +101,7 @@ class AssignItem(
                 val data = interactionCache.getIfPresent(id)
                 val params = interaction.extractCommonParameters()
                 when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data == null -> interaction.updateWithExpirationError(params.locale)
                     data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     else -> {
                         try {

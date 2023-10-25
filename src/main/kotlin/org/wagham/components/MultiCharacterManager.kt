@@ -24,7 +24,7 @@ import org.wagham.entities.CharactersOrSelectionMessage
 import org.wagham.entities.InteractionParameters
 import org.wagham.utils.compactUuid
 import org.wagham.utils.extractCommonParameters
-import org.wagham.utils.respondWithExpirationError
+import org.wagham.utils.updateWithExpirationError
 import org.wagham.utils.respondWithForbiddenError
 import java.util.concurrent.TimeUnit
 
@@ -91,7 +91,7 @@ class MultiCharacterManager<T>(
             val params = interaction.extractCommonParameters()
             val selection = interaction.values.firstOrNull()
             when {
-                data == null -> interaction.respondWithExpirationError(params.locale)
+                data == null -> interaction.updateWithExpirationError(params.locale)
                 data.responsible != params.responsible -> interaction.respondWithForbiddenError(params.locale)
                 selection != null -> {
                     interactionCache.put(id, data.copy(nextSelection = selection))
@@ -108,7 +108,7 @@ class MultiCharacterManager<T>(
             val data = interactionCache.getIfPresent(id)
             val params = interaction.extractCommonParameters()
             when {
-                data == null -> interaction.respondWithExpirationError(params.locale)
+                data == null -> interaction.updateWithExpirationError(params.locale)
                 data.responsible != params.responsible -> interaction.respondWithForbiddenError(params.locale)
                 data.nextSelection != null -> {
                     val updatedData = data.addToSelected(data.nextSelection)

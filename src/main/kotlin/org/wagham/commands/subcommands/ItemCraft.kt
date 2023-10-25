@@ -102,7 +102,7 @@ class ItemCraft(
             val data = interactionCache.getIfPresent(id)
             when {
                 operation == ABORT -> interaction.operationCanceled(params.locale)
-                data == null -> interaction.respondWithExpirationError(params.locale)
+                data == null -> interaction.updateWithExpirationError(params.locale)
                 data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                 operation == ALTERNATIVE -> {
                     checkRequirementsAndCraftItem(params.guildId.toString(), params.responsible.id, data.item, data.amount, data.target, params.locale).let {
@@ -124,7 +124,7 @@ class ItemCraft(
             val (id, _) = extractComponentsFromComponentId(interaction.componentId)
             val data = interactionCache.getIfPresent(id)
             if(data == null) {
-                interaction.respondWithExpirationError(params.locale)
+                interaction.updateWithExpirationError(params.locale)
             } else {
                 interactionCache.put(
                     id,

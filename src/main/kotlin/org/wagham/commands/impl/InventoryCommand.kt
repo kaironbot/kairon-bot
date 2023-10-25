@@ -160,7 +160,7 @@ class InventoryCommand(
                 val data = interactionCache.getIfPresent(id)
                 val params = interaction.extractCommonParameters()
                 when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data == null -> interaction.updateWithExpirationError(params.locale)
                     data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     op == previous -> {
                         val newPage = data.list.previousPage()
@@ -176,7 +176,7 @@ class InventoryCommand(
                             generateInventoryEmbed(id, newPage, data.money, data.target, data.characterName, params.locale)
                         )
                     }
-                    else -> interaction.respondWithGenericError(params.locale)
+                    else -> interaction.updateWithGenericError(params.locale)
                 }
             }
         }

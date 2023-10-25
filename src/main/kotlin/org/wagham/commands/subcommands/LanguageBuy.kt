@@ -74,7 +74,7 @@ class LanguageBuy(
                 val (id) = extractComponentsFromComponentId(interaction.componentId)
                 val data = interactionCache.getIfPresent(id)
                 when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data == null -> interaction.updateWithExpirationError(params.locale)
                     data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     else -> checkRequirementsAndBuyLanguage(params.guildId.toString(), data.language, data.character, params.locale).let {
                         interaction.deferPublicMessageUpdate().edit(it)

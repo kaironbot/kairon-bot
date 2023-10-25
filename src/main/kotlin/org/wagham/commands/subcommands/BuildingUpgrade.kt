@@ -80,7 +80,7 @@ class BuildingUpgrade(
                 val (_, id) = extractComponentsFromComponentId(interaction.componentId)
                 val data = interactionCache.getIfPresent(id)
                 when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data == null -> interaction.updateWithExpirationError(params.locale)
                     data.userId != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     else -> {
                         val (buildingName, buildingType) = data.character.buildingWithType(interaction.values.first())
@@ -151,7 +151,7 @@ class BuildingUpgrade(
                 val (_, id) = extractComponentsFromComponentId(interaction.componentId)
                 val data = interactionCache.getIfPresent(id)
                 when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data == null -> interaction.updateWithExpirationError(params.locale)
                     data.userId != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     data.building != null && data.upgradeTo != null && data.existingBuilding != null -> {
                         val config = cacheManager.getConfig(params.guildId)
@@ -230,7 +230,7 @@ class BuildingUpgrade(
                             }
                         }
                     }
-                    else -> interaction.respondWithGenericError(params.locale)
+                    else -> interaction.updateWithGenericError(params.locale)
                 }
 
             }

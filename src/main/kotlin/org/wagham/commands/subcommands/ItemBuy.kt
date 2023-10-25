@@ -70,7 +70,7 @@ class ItemBuy(
                 val amount = rawAmount.toIntOrNull() ?: throw IllegalStateException("Wrong format for amount")
                 val data = interactionCache.getIfPresent(id)
                 when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data == null -> interaction.updateWithExpirationError(params.locale)
                     data.first != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     else -> {
                         val items = cacheManager.getCollectionOfType<Item>(params.guildId)
