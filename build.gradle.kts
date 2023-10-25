@@ -1,6 +1,8 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+val ktorVersion = "2.3.5"
+
 plugins {
     kotlin("jvm") version "1.8.10"
     kotlin("plugin.serialization") version "1.8.10"
@@ -33,18 +35,19 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.8.10")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.10")
-    implementation("io.ktor:ktor-server-core-jvm:2.3.5")
-    implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.5")
-    implementation("io.ktor:ktor-server-cio-jvm:2.3.5")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.5")
+    implementation(group = "org.jetbrains.kotlin", name = "kotlin-reflect", version = "1.8.10")
+    implementation(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = "1.8.10")
+    implementation(group = "io.ktor", name="ktor-server-core-jvm", version=ktorVersion)
+    implementation(group = "io.ktor", name="ktor-server-content-negotiation-jvm", version=ktorVersion)
+    implementation(group = "io.ktor", name="ktor-server-cio-jvm", version=ktorVersion)
+    implementation(group = "io.ktor", name="ktor-serialization-kotlinx-json", version=ktorVersion)
+    implementation(group = "dev.inmo", name = "krontab", version="2.2.1")
     implementation(group = "org.litote.kmongo", name = "kmongo-coroutine", version = "4.8.0")
     implementation(group = "dev.kord", name = "kord-core", version = "0.8.2")
     implementation(group = "org.jetbrains.kotlinx", name="kotlinx-coroutines-core", version = "1.6.4")
     implementation(group = "org.jetbrains.kotlinx", name="kotlinx-coroutines-reactor", version = "1.6.4")
     implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.5.1")
-    implementation(group = "org.wagham", name = "kabot-db-connector", version = "0.19.5")
+    implementation(group = "org.wagham", name = "kabot-db-connector", version = "0.19.9")
     implementation(group = "com.github.h0tk3y.betterParse", name = "better-parse", version = "0.4.4")
     implementation(group = "com.fasterxml.jackson.module", name="jackson-module-kotlin", version = "2.13.4")
     implementation(group = "org.slf4j", name = "slf4j-api", version = "2.0.5")
