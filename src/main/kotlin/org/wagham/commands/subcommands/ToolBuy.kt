@@ -2,6 +2,7 @@ package org.wagham.commands.subcommands
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.mongodb.reactivestreams.client.ClientSession
 import dev.kord.common.Locale
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
@@ -21,16 +22,22 @@ import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.ToolBuyLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.enums.ScheduledEventArg
+import org.wagham.db.enums.ScheduledEventState
+import org.wagham.db.enums.ScheduledEventType
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Character
+import org.wagham.db.models.ScheduledEvent
 import org.wagham.db.models.ToolProficiency
+import org.wagham.db.models.embed.AbilityCost
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.db.models.embed.Transaction
 import org.wagham.utils.*
-import java.lang.IllegalStateException
+import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.IllegalStateException
 
 @BotSubcommand("all", ToolCommand::class)
 class ToolBuy(
@@ -48,6 +55,7 @@ class ToolBuy(
     }
 
     override val commandName = "buy"
+    private val dateFormatter = SimpleDateFormat("dd/MM/YYYY HH:mm:ss")
     override val defaultDescription = ToolBuyLocale.DESCRIPTION.locale(defaultLocale)
     override val localeDescriptions: Map<Locale, String> = ToolBuyLocale.DESCRIPTION.localeMap
     private val interactionCache: Cache<String, AssignToolInteractionData> =
@@ -84,27 +92,65 @@ class ToolBuy(
         }
     }
 
-    private suspend fun assignToolToCharacter(guildId: String, tool: ToolProficiency, character: String, locale: String) =
+    private suspend fun payToolCost(
+        s: ClientSession,
+        guildId: String,
+        characterId: String,
+        cost: AbilityCost
+    ): Boolean {
+        val moneyStep = db.charactersScope.subtractMoney(s, guildId, characterId, cost.moCost)
+        val itemsStep = cost.itemsCost.all { (material, qty) ->
+            db.charactersScope.removeItemFromInventory(s, guildId, characterId, material, qty)
+        }
+        val itemsRecord = cost.itemsCost.mapValues { it.value.toFloat() } + (transactionMoney to cost.moCost)
+        val transactionsStep = db.characterTransactionsScope.addTransactionForCharacter(
+            s, guildId, characterId, Transaction(
+                Date(), null, "BUY TOOL", TransactionType.REMOVE, itemsRecord))
+        return moneyStep && itemsStep && transactionsStep
+    }
+
+    private suspend fun assignToolToCharacterImmediately(guildId: String, tool: ToolProficiency, character: String, locale: String) =
         db.transaction(guildId) { s ->
-            val moneyStep = db.charactersScope.subtractMoney(s, guildId, character, tool.cost!!.moCost)
-            val itemsStep = tool.cost!!.itemsCost.all { (material, qty) ->
-                db.charactersScope.removeItemFromInventory(s, guildId, character, material, qty)
-            }
+            val cost = tool.cost ?: throw IllegalStateException("This tool cannot be bought")
+            val payStep = payToolCost(s, guildId, character, cost)
             val proficiencyStep = db.charactersScope.addProficiencyToCharacter(s, guildId, character, ProficiencyStub(tool.id, tool.name))
 
-            val itemsRecord = tool.cost!!.itemsCost.mapValues { it.value.toFloat() } +
-                    (transactionMoney to tool.cost!!.moCost)
-
-            val transactionsStep = db.characterTransactionsScope.addTransactionForCharacter(
-                    s, guildId, character, Transaction(
-                        Date(), null, "BUY TOOL", TransactionType.REMOVE, itemsRecord)) &&
-                db.characterTransactionsScope.addTransactionForCharacter(
-                    s, guildId, character, Transaction(Date(), null, "BUY TOOL", TransactionType.ADD, mapOf(tool.name to 1f))
-                )
-            moneyStep && itemsStep && proficiencyStep && transactionsStep
+            payStep && proficiencyStep && db.characterTransactionsScope.addTransactionForCharacter(
+                s, guildId, character, Transaction(Date(), null, "BUY TOOL", TransactionType.ADD, mapOf(tool.name to 1f))
+            )
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
+                it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+                else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
+            }
+        }
+
+    private suspend fun payAndDelayAssignment(guildId: String, tool: ToolProficiency, character: String, locale: String) =
+        db.transaction(guildId) { s ->
+            val cost = tool.cost ?: throw IllegalStateException("This tool cannot be bought")
+            val payStep = payToolCost(s, guildId, character, cost)
+
+            val task = ScheduledEvent(
+                uuid(),
+                ScheduledEventType.GIVE_TOOL,
+                Date(),
+                Date(System.currentTimeMillis() + (cost.timeRequired ?: 0)),
+                ScheduledEventState.SCHEDULED,
+                mapOf(
+                    ScheduledEventArg.PROFICIENCY_ID to tool.id,
+                    ScheduledEventArg.TARGET to character
+                )
+            )
+
+            cacheManager.scheduleEvent(Snowflake(guildId), task)
+
+            payStep
+        }.let {
+            when {
+                it.committed -> createGenericEmbedSuccess(
+                "${ToolBuyLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(System.currentTimeMillis() + tool.cost?.timeRequired!!))}"
+            )
                 it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
                 else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
             }
@@ -127,7 +173,8 @@ class ToolBuy(
                     "${it.key} x${it.value}"
                 }
             )
-            else -> assignToolToCharacter(guildId, tool, character.id, locale)
+            tool.cost?.timeRequired == null -> assignToolToCharacterImmediately(guildId, tool, character.id, locale)
+            else -> payAndDelayAssignment(guildId, tool, character.id, locale)
         }
     }
 
