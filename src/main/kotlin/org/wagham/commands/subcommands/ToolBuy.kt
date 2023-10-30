@@ -15,6 +15,7 @@ import dev.kord.rest.builder.interaction.RootInputChatBuilder
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.*
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ToolCommand
@@ -38,8 +39,9 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.IllegalStateException
+import kotlin.time.Duration.Companion.days
 
-@BotSubcommand("all", ToolCommand::class)
+@BotSubcommand("wagham", ToolCommand::class)
 class ToolBuy(
     override val kord: Kord,
     override val db: KabotMultiDBClient,
@@ -62,6 +64,7 @@ class ToolBuy(
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .build()
+    private val delaysPerToolNumber = listOf(0.days, 3.days, 3.days, 7.days, 7.days, 14.days, 14.days, 21.days, 21.days, 28.days)
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
@@ -126,16 +129,22 @@ class ToolBuy(
             }
         }
 
-    private suspend fun payAndDelayAssignment(guildId: String, tool: ToolProficiency, character: String, locale: String) =
+    private suspend fun payAndDelayAssignment(guildId: String, tool: ToolProficiency, character: String, toolCount: Int, locale: String) =
         db.transaction(guildId) { s ->
             val cost = tool.cost ?: throw IllegalStateException("This tool cannot be bought")
             val payStep = payToolCost(s, guildId, character, cost)
+
+            val delay = Date(
+                System.currentTimeMillis()
+                    + (cost.timeRequired ?: 0)
+                    + delaysPerToolNumber[toolCount.coerceAtMost(delaysPerToolNumber.size - 1)].inWholeMilliseconds
+            )
 
             val task = ScheduledEvent(
                 uuid(),
                 ScheduledEventType.GIVE_TOOL,
                 Date(),
-                Date(System.currentTimeMillis() + (cost.timeRequired ?: 0)),
+                delay,
                 ScheduledEventState.SCHEDULED,
                 mapOf(
                     ScheduledEventArg.PROFICIENCY_ID to tool.id,
@@ -149,7 +158,11 @@ class ToolBuy(
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(
-                "${ToolBuyLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(System.currentTimeMillis() + tool.cost?.timeRequired!!))}"
+                "${ToolBuyLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(
+                    System.currentTimeMillis()
+                            + (tool.cost?.timeRequired ?: 0)
+                            + delaysPerToolNumber[toolCount.coerceAtMost(delaysPerToolNumber.size - 1)].inWholeMilliseconds
+                ))}"
             )
                 it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
                 else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
@@ -164,8 +177,18 @@ class ToolBuy(
         } ?: emptyMap()
 
     private suspend fun checkRequirementsAndBuyTool(guildId: String, tool: ToolProficiency, character: Character, locale: String): InteractionResponseModifyBuilder.() -> Unit {
+        val tasks = db.scheduledEventsScope.getAllScheduledEvents(guildId, ScheduledEventState.SCHEDULED)
+        val futureTools = tasks.filter { task ->
+            task.type == ScheduledEventType.GIVE_TOOL && task.args.any {
+                it.key == ScheduledEventArg.TARGET && it.value == character.id
+            }
+        }.mapNotNull { task ->
+            task.args[ScheduledEventArg.PROFICIENCY_ID]
+        }.map { ProficiencyStub(it, it) }.toSet()
+        val totalToolsNumber = futureTools.size + character.proficiencies.size
         return when {
             character.proficiencies.any { it.id == tool.id } -> createGenericEmbedError(ToolBuyLocale.ALREADY_POSSESS.locale(locale))
+            futureTools.any { it.id == tool.id } -> createGenericEmbedError(ToolBuyLocale.ALREADY_POSSESS.locale(locale))
             tool.cost == null -> createGenericEmbedError(ToolBuyLocale.CANNOT_BUY.locale(locale))
             character.money < tool.cost!!.moCost -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
             character.missingMaterials(tool).isNotEmpty() -> createGenericEmbedError(
@@ -173,8 +196,8 @@ class ToolBuy(
                     "${it.key} x${it.value}"
                 }
             )
-            tool.cost?.timeRequired == null -> assignToolToCharacterImmediately(guildId, tool, character.id, locale)
-            else -> payAndDelayAssignment(guildId, tool, character.id, locale)
+            tool.cost?.timeRequired == null && totalToolsNumber == 0 -> assignToolToCharacterImmediately(guildId, tool, character.id, locale)
+            else -> payAndDelayAssignment(guildId, tool, character.id, totalToolsNumber, locale)
         }
     }
 
