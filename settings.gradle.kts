@@ -7,5 +7,5 @@
  * in the user manual at https://docs.gradle.org/7.5.1/userguide/multi_project_builds.html
  */
 
-rootProject.name = "wagham-bot"
+rootProject.name = "kairon-bot"
 include("app")

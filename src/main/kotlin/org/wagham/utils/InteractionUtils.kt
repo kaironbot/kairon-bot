@@ -41,8 +41,41 @@ suspend fun ComponentInteractionBehavior.respondWithExpirationError(locale: Stri
 suspend fun ComponentInteractionBehavior.operationCanceled(locale: String) =
     deferEphemeralMessageUpdate().edit(createGenericEmbedSuccess(CommonLocale.ABORTED.locale(locale)))
 
+/**
+ * Defers the update of the interaction message and publishes an ephemeral response to communicate to the user that they
+ * are not authorized to interact with that message.
+ *
+ * @param locale a locale to format the message.
+ */
+suspend fun ComponentInteractionBehavior.updateWithForbiddenError(locale: String) =
+    deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
+
+/**
+ * Defers the response of the interaction message and publishes an ephemeral update to communicate that contains a
+ * custom error message, passed as parameter.
+ *
+ * @param message the message to publish.
+ */
+suspend fun ComponentInteractionBehavior.updateWithCustomError(message: String) =
+    deferEphemeralMessageUpdate().edit(createGenericEmbedError(message))
+
+
+/**
+ * Defers the update of the interaction message and publishes an ephemeral response to communicate to the user that they
+ * are not authorized to interact with that message.
+ *
+ * @param locale a locale to format the message.
+ */
 suspend fun ComponentInteractionBehavior.respondWithForbiddenError(locale: String) =
     deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.INTERACTION_STARTED_BY_OTHER.locale(locale)))
+
+/**
+ * Defers the response of the interaction message and publishes an ephemeral update to communicate a generic success
+ *
+ * @param locale a locale to format the message.
+ */
+suspend fun ComponentInteractionBehavior.updateWithGenericSuccess(locale: String) =
+    deferEphemeralMessageUpdate().edit(createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale)))
 
 /**
  * Defers the update of the interaction message and publishes an ephemeral update to communicate to the user that an
@@ -52,6 +85,15 @@ suspend fun ComponentInteractionBehavior.respondWithForbiddenError(locale: Strin
  */
 suspend fun ComponentInteractionBehavior.updateWithGenericError(locale: String) =
     deferEphemeralMessageUpdate().edit(createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale)))
+
+/**
+ * Defers the update of the interaction message and publishes an ephemeral response to communicate to the user that an
+ * error happened.
+ *
+ * @param locale a locale to format the message.
+ */
+suspend fun ComponentInteractionBehavior.respondWithGenericError(locale: String) =
+    deferEphemeralResponse().respond(createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale)))
 
 /**
  * Defers the response of the interaction message and publishes an ephemeral response to communicate that contains a
