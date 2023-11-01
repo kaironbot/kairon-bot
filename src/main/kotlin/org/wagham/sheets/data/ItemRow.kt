@@ -17,14 +17,14 @@ class ItemRow(
     companion object {
 
         private val sheetId = System.getenv("SHEET_ID")!!
-        private const val range = "ITEM_BOT!B1:Z2000"
+        private const val RANGE = "ITEM_BOT!B1:Z2000"
 
         private fun baseIngredients(tier: String?, qty: Int): Map<String, Int> =
             mapOf("1Day${tier}Badge" to qty).takeIf { tier != null && qty > 0 } ?: emptyMap()
 
         fun parseRows(): List<ItemRow> =
             GoogleSheetsUtils
-                .downloadRawDataFromSheet(sheetId, range)
+                .downloadRawDataFromSheet(sheetId, RANGE)
                 .let { values ->
                     val header = values.getHeaderMapping()
                     values.getValues()
@@ -82,5 +82,19 @@ class ItemRow(
                         }
                 }
 
+        private fun Map<String, String>.toItem() {
+            return Item(
+                name = getValue("Name_Item"),
+                sell = getValue("Item_Sell_Price").formatToFloat().takeIf { it > 0 }?.let {
+                    BuySellRequirement(cost = it)
+                },
+                buy = getValue("Item_Buy_Price").formatToFloat().takeIf { it > 0 }?.let {
+                    BuySellRequirement(cost = it)
+                }.takeIf { getValue("Item Always purchasable?").formatToInt() == 1 },
+                usable = getValue("usable?").formatToInt() == 1,
+                link = getValue("Link").takeIf { it.isNotBlank() },
+
+            )
+        }
     }
 }
