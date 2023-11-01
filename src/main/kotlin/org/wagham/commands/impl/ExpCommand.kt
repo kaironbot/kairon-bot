@@ -89,7 +89,7 @@ class ExpCommand(
                 }.takeIf { playersWithNoCharacter.isNotEmpty() }
                 characters.forEach {
                     field {
-                        name = "${it.name} (${it.characterClass})"
+                        name = "${it.name} (${it.characterClass.joinToString(", ")})"
                         value = "<@!${it.player}>"
                         inline = false
                     }
