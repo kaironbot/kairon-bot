@@ -286,12 +286,14 @@ class WaghamWeeklyRewardsEvent(
             append("**Premi della settimana dal ${dateFormatter.format(weekStart)} al ${dateFormatter.format(weekEnd)}**\n\n")
             append("*TBadge assegnati*: ${tBadge}\n\n")
             append("**Premi master**\n")
-            master.entries.forEach {
-                append("<@!${it.key}>: ${it.value}\n")
+            master.entries.forEach { (characterId, prize) ->
+                val (playerId, characterName) = characterId.split(":")
+                append("$characterName - (<@!$playerId>): $prize\n")
             }
             append("\n**Stipendi Delegati**\n")
-            delegates.entries.forEach {
-                append("<@!${it.key}>: ${it.value}\n")
+            delegates.entries.forEach { (characterId, prize) ->
+                val (playerId, characterName) = characterId.split(":")
+                append("$characterName - (<@!$playerId>): $prize\n")
             }
             append("\n**Premi Edifici**\n")
             playerRewards.entries.forEach{ (characterId, buildingsReport) ->
