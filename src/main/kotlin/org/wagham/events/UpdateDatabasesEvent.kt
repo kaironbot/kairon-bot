@@ -1,17 +1,30 @@
 package org.wagham.events
 
+import dev.inmo.krontab.doInfinity
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.asChannelOf
 import dev.kord.core.entity.channel.MessageChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
+import org.litote.kmongo.eq
+import org.litote.kmongo.`in`
 import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.models.Item
 import org.wagham.sheets.data.*
+import org.wagham.utils.associateBy
+import org.wagham.utils.associateTo
 import org.wagham.utils.getStartingInstantOnNextDay
+import org.wagham.utils.getTimezoneOffset
 import org.wagham.utils.sendTextMessage
 import java.util.*
 import kotlin.concurrent.schedule
@@ -24,6 +37,7 @@ class UpdateDatabasesEvent(
 ) : Event {
 
     override val eventId = "update_databases"
+    private val taskExecutorScope = CoroutineScope(Dispatchers.IO)
     private val logger = KotlinLogging.logger {}
 
     private suspend fun getLogChannel(guildId: Snowflake) =
@@ -130,14 +144,17 @@ class UpdateDatabasesEvent(
         }
     private suspend fun updateItems(guildId: Snowflake) {
         try {
-            val items = ItemRow.parseRows()
+            val labelsByName = db.labelsScope.getLabels(guildId.toString()).associateBy {
+                it.name
+            }
+            val items = ItemRow.parseRows(labelsByName)
             val itemsToUpdate = items.filter { it.operation == ImportOperation.UPDATE }.map { it.item }
             val itemsToDelete = items.filter { it.operation == ImportOperation.DELETE }.map { it.item.name }
             if (itemsToUpdate.isNotEmpty()) {
-//                db.itemsScope.updateItems(guildId.toString(), itemsToUpdate).let {
-//                    if (it) getLogChannel(guildId).sendTextMessage("${itemsToUpdate.size} items updated")
-//                    else getLogChannel(guildId).sendTextMessage("There was an error updating items")
-//                }
+                db.itemsScope.createOrUpdateItems(guildId.toString(), itemsToUpdate).let { result ->
+                    if (result.committed) getLogChannel(guildId).sendTextMessage("**Updated ${itemsToUpdate.size} items**")
+                    else getLogChannel(guildId).sendTextMessage("**There was an error updating items**:\n${result.exception?.stackTraceToString()}")
+                }
             }
             if(itemsToDelete.isNotEmpty()) {
                 db.itemsScope.deleteItems(guildId.toString(), itemsToDelete).let {
@@ -151,7 +168,7 @@ class UpdateDatabasesEvent(
                 }
             }
         } catch (e: Exception) {
-            getLogChannel(guildId).sendTextMessage("There was an error refreshing items: ${e.message}")
+            getLogChannel(guildId).sendTextMessage("There was an error refreshing items:\n${e.stackTraceToString()}")
         }
     }
     private suspend fun updateRaces(guildId: Snowflake) =
@@ -216,26 +233,25 @@ class UpdateDatabasesEvent(
         }
 
     override fun register() {
-        Timer(eventId).schedule(
-            getStartingInstantOnNextDay(1, 0, 0).also {
-                logger.info { "$eventId will start on $it"  }
-            },
-            24 * 60 * 60 * 1000
-        ) {
-            runBlocking {
-                kord.guilds.collect {
-                    if(cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
-                        updateAnnouncements(it.id)
-                        // updateBackgrounds(it.id)
-                        updateBounties(it.id)
-                        updateBuildings(it.id)
-                        updateClasses(it.id)
-                        updateFeats(it.id)
-                        updateItems(it.id)
-                        updateRaces(it.id)
-                        updateSpells(it.id)
-                        updateLanguages(it.id)
-                        updateTools(it.id)
+        runBlocking {
+            kord.guilds.collect { guild ->
+                if (cacheManager.getConfig(guild.id).eventChannels[eventId]?.enabled == true) {
+                    taskExecutorScope.launch {
+                        val schedulerConfig = "0 0 10 * * ${getTimezoneOffset()}o"
+                        logger.info { "Starting Update Database for guild ${guild.name} at $schedulerConfig" }
+                        doInfinity(schedulerConfig) {
+                            // updateAnnouncements(guild.id)
+                            // updateBackgrounds(guild.id)
+                            // updateBounties(guild.id)
+                            // updateBuildings(guild.id)
+                            // updateClasses(guild.id)
+                            // updateFeats(guild.id)
+                            updateItems(guild.id)
+                            // updateRaces(guild.id)
+                            // updateSpells(guild.id)
+                            // updateLanguages(guild.id)
+                            // updateTools(guild.id)
+                        }
                     }
                 }
             }

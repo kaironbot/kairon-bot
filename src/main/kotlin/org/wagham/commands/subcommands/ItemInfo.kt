@@ -9,6 +9,7 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import dev.kord.rest.builder.message.modify.embed
+import kotlinx.coroutines.flow.toList
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ItemCommand
@@ -56,6 +57,7 @@ class ItemInfo(
         val item = items.firstOrNull { it.name == rawItem }
             ?: items.maxByOrNull { rawItem.levenshteinDistance(it.name) }
             ?: throw IllegalStateException("Item not found")
+        val materialOf = db.itemsScope.isMaterialOf(guildId.toString(), item).toList()
         return fun InteractionResponseModifyBuilder.() {
             embed {
                 title = item.name
@@ -95,7 +97,7 @@ class ItemInfo(
                 field {
                     name = "Crafting"
                     value = if (item.craft.isNotEmpty()) ItemInfoLocale.CAN_CRAFT.locale(locale) else ItemInfoLocale.CANNOT_CRAFT.locale(locale)
-                    inline = false
+                    inline = true
                 }
                 item.craft.forEachIndexed { idx, recipe ->
                     field {
@@ -104,11 +106,19 @@ class ItemInfo(
                         inline = false
                     }
                 }
+                if (materialOf.isNotEmpty()) {
+                    field {
+                        name = ItemInfoLocale.MATERIAL_OF.locale(locale)
+                        value = materialOf.joinToString(", ") { it.name }
+                        inline = true
+                    }
+                }
+
                 if(item.manual != null) {
                     field {
                         name = ItemInfoLocale.SOURCE.locale(locale)
                         value = item.manual!!
-                        inline = false
+                        inline = true
                     }
                 }
             }

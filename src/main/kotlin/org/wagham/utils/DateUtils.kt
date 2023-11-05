@@ -36,6 +36,9 @@ fun maxOrNull(first: Date?, second: Date?): Date? =
 /**
  * @return the offset, in minutes, between the current timezone and the UTC timezone
  */
-fun getTimezoneOffset() = TimeZone.getDefault().let {
-    it.rawOffset + it.dstSavings
-}.milliseconds.inWholeMinutes
+fun getTimezoneOffset(): Long {
+    val calendar = Calendar.getInstance()
+    val timeZone = calendar.timeZone
+    val isDaylightTime = timeZone.inDaylightTime(Date())
+    return timeZone.rawOffset.milliseconds.inWholeMinutes + (60.takeIf { isDaylightTime } ?: 0)
+}

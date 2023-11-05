@@ -1,0 +1,66 @@
+[
+  { "_id": "b7fad60e-c169-4c96-924e-cd95b0e2560d", "name": "T1", "types": ["ITEM", "SESSION"] },
+  { "_id": "8cc79b51-ada0-4986-802f-c4c6c34e7124", "name": "T2", "types": ["ITEM", "SESSION"] },
+  { "_id": "5a204826-61fe-4c07-a989-cab1e4537f92", "name": "T3", "types": ["ITEM", "SESSION"] },
+  { "_id": "290964a2-c86b-4a16-b8c4-cf07cf95dedc", "name": "T4", "types": ["ITEM", "SESSION"] },
+  { "_id": "a8159199-9b4b-4779-8e21-bd6d76ebb0dd", "name": "T5", "types": ["ITEM", "SESSION"] },
+  { "_id": "edd53df7-dbb1-4593-b9ea-df5f90f489cf", "name": "Consumable", "types": ["ITEM"] },
+  { "_id": "f6b0c55a-403c-403a-a783-18d7d94ce9f1", "name": "Alchemist's supplies", "types": ["ITEM"] },
+  { "_id": "3db32b9b-1c9e-46bb-b1b1-cd5e28d472b3", "name": "Calligrapher's supplies", "types": ["ITEM"] },
+  { "_id": "ae7ea9f4-5399-46bd-aa21-85020e26d987", "name": "Carpenter's tools", "types": ["ITEM"] },
+  { "_id": "d2dc028b-9e53-4345-a2c0-10e930916206", "name": "Jeweler's tools", "types": ["ITEM"] },
+  { "_id": "4db7a706-4d64-482d-9781-50fe1c77dc0e", "name": "Leatherworker's tools", "types": ["ITEM"] },
+  { "_id": "90d97885-edca-4617-b8c9-72bc9f43d835", "name": "Painter's supplies", "types": ["ITEM"] },
+  { "_id": "b8812723-4ffa-460e-a4fa-d2ba0e56ff0a", "name": "Smith's tools", "types": ["ITEM"] },
+  { "_id": "3a3cc83f-7966-4e20-8203-e10586f80617", "name": "Tinker's tools", "types": ["ITEM"] },
+  { "_id": "d02812e0-3a49-47f3-b3f6-8ead8c2c27cf", "name": "Weaver's tools", "types": ["ITEM"] },
+  { "_id": "85c20e73-80a1-4d79-838d-743160e43e3a", "name": "Woodcarver's tools", "types": ["ITEM"] },
+  { "_id": "56f6c73e-508b-486a-a066-1dd46aa998c4", "name": "Herbalism kit", "types": ["ITEM"] },
+  { "_id": "ea7d3a90-5de5-4802-ba31-2ff7fa95ab2d", "name": "Poisoner's kit", "types": ["ITEM"] },
+  { "_id": "d10807b3-80b8-42be-8a8c-aa5f1721f71e", "name": "Lore", "types": ["SESSION"] },
+  { "_id": "a7f617e6-bb48-4beb-a9c4-389cc1e002e3", "name": "Market", "types": ["ITEM"] },
+  { "_id": "6d7a8cd9-5bec-4d29-942b-84c47485210a", "name": "SessionPrize", "types": ["ITEM"] },
+  { "_id": "a0629037-18ee-4335-9362-0a55ff6d6e7c", "name": "Artificer", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "b657b549-7186-48bd-ace8-0ad6910baffe", "name": "Barbarian", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "e595b540-12d8-44da-b16c-70c11d8af64c", "name": "Bard", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "6c83aba1-8a92-45b5-98fe-dfd9fd336b5d", "name": "Blood Hunter", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "b6913a0d-af36-4a9a-990b-14376dc1e9f4", "name": "Cleric", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "804f5fbf-321a-4710-b0f7-5a4ef27c38cf", "name": "Druid", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "e4fd999e-abd4-47d1-bc0e-5c06fb3492c7", "name": "Fighter", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "58d27e13-4569-4ba2-a8cb-f9a2166ee658", "name": "Monk", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "a7459813-d194-4cd8-8d59-6d307f118296", "name": "Paladin", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "5421ccc4-90b9-4e7d-8f58-ea2f00607b3e", "name": "Ranger", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "b092fff3-3ff5-4392-a10f-1b0546e732ef", "name": "Rogue", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "f15cf043-7718-45fe-823a-e33d7401793f", "name": "Sorcerer", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "a29f2180-e172-4ab0-9d8a-94ac39dff3d9", "name": "Warlock", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "7b239c8c-bcc5-474e-b75e-b2a8cfb63176", "name": "Wizard", "types": ["ITEM", "CHARACTER"] },
+  { "_id": "8c7f4255-f694-4bc8-ae2b-fb95bbd5bc3f", "name": "Recipe", "types": ["ITEM"] },
+  { "_id": "6a3334ff-cf0a-44f7-9482-d8782a5ea96a", "name": "Other", "types": ["ITEM"] },
+  { "_id": "7bb30d2a-8b60-4dc8-8c3b-eea821a2d83c", "name": "Armor", "types": ["ITEM"] },
+  { "_id": "bf13007c-7f0f-4586-be14-cf347ba8f545", "name": "Potion", "types": ["ITEM"] },
+  { "_id": "868c1298-47ac-40dc-80e5-b2370a86ff36", "name": "Ring", "types": ["ITEM"] },
+  { "_id": "44688731-59fc-4d55-8bbf-74323d448907", "name": "Rod", "types": ["ITEM"] },
+  { "_id": "cbf35f69-30bd-4fd2-b4fc-a236b09823f9", "name": "Scroll", "types": ["ITEM"] },
+  { "_id": "6e180110-63fe-4782-842f-d234c4d90e52", "name": "Staff", "types": ["ITEM"] },
+  { "_id": "e5736af1-f7c3-41cb-958c-34af062400fb", "name": "Wand", "types": ["ITEM"] },
+  { "_id": "e9380485-daa0-4095-9b86-169b683a9c6b", "name": "Weapon", "types": ["ITEM"] },
+  { "_id": "dcb15eed-6998-4407-94b7-2b107b208819", "name": "Wonderous Item", "types": ["ITEM"] },
+  { "_id": "6d925de8-ede5-4a72-8081-8e1e23b180f7", "name": "Tool", "types": ["ITEM"] },
+  { "_id": "ab25f7cf-bbca-4ac2-9cd9-b6855188959b", "name": "Item", "types": ["ITEM"] },
+  { "_id": "da348f8b-fa0f-4aed-b499-701dee81ac59", "name": "Consumable Item", "types": ["ITEM"] },
+  { "_id": "4230692f-7df1-4521-95bb-e02578f1fe31", "name": "Companion", "types": ["ITEM"] }
+]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
