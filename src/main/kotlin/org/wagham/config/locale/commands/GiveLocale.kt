@@ -22,6 +22,12 @@ enum class GiveLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Non hai abbastanza oggetti per completare questa operazione:"
         )
     ),
+    NOT_GIVABLE(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "This item cannot be given",
+            Locale.ITALIAN to "Questo oggetto non può essere ceduto"
+        )
+    ),
     QUANTITY(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "The number of items to give",
