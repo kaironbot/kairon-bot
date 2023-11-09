@@ -241,14 +241,9 @@ class UpdateDatabasesEvent(
                         logger.info { "Starting Update Database for guild ${guild.name} at $schedulerConfig" }
                         doInfinity(schedulerConfig) {
                             // updateAnnouncements(guild.id)
-                            // updateBackgrounds(guild.id)
                             // updateBounties(guild.id)
                             // updateBuildings(guild.id)
-                            // updateClasses(guild.id)
-                            // updateFeats(guild.id)
                             updateItems(guild.id)
-                            // updateRaces(guild.id)
-                            // updateSpells(guild.id)
                             // updateLanguages(guild.id)
                             // updateTools(guild.id)
                         }

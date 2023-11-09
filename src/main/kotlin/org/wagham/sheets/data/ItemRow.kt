@@ -97,11 +97,12 @@ class ItemRow(
             )
 
         private fun Map<String, String>.extractRecipeCraftOrNull() = if(getValue("Name_Recipe").isNotBlank()) {
+            val quantity = getValue("Craft_Quantity").formatToInt()
             CraftRequirement(
                 timeRequired = null,
-                minQuantity = getValue("Craft_Quantity").formatToInt(),
-                maxQuantity = getValue("Craft_Quantity").formatToInt(),
-                materials = mapOf(getValue("Name_Recipe") to 1),
+                minQuantity = quantity,
+                maxQuantity = quantity,
+                materials = mapOf(getValue("Name_Recipe") to 1f/quantity),
                 label = "Craft",
                 cost = getValue("Craft_Mo_Cost").formatToFloat()
             )
@@ -116,7 +117,7 @@ class ItemRow(
                     timeRequired = null,
                     minQuantity = 1,
                     maxQuantity = 1,
-                    materials = mapOf(baseItem.item.name to 1),
+                    materials = mapOf(baseItem.item.name to 1f),
                     label = "Upgrade $itemName",
                     cost = baseItem.item.craft.firstOrNull { it.label == "Craft" }?.cost ?: baseItem.item.buy?.cost ?: 0.0f
                 )

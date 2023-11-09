@@ -39,6 +39,12 @@ enum class LanguageBuyLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ENGLISH_GREAT_BRITAIN to "The language to buy",
             Locale.ITALIAN to "Il linguaggio da acquistare"
         )
+    ),
+    READY_ON(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "You will get the proficiency on",
+            Locale.ITALIAN to "Otterrai la competenza il"
+        )
     );
     override fun locale(language: String) = locale(Locale.fromString(language))
     override fun locale(locale: Locale) = localeMap[locale] ?: localeMap[Locale.ENGLISH_GREAT_BRITAIN]!!

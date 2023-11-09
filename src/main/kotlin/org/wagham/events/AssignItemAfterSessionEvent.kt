@@ -1,5 +1,6 @@
 package org.wagham.events
 
+import dev.inmo.krontab.doInfinity
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import kotlinx.coroutines.CoroutineScope
@@ -16,15 +17,18 @@ import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.CharacterStatus
 import org.wagham.db.enums.LabelType
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.models.Character
 import org.wagham.db.models.Item
 import org.wagham.db.models.embed.LabelStub
+import org.wagham.db.models.embed.Transaction
 import org.wagham.entities.channels.RegisteredSession
+import org.wagham.utils.LORE_LABEL_ID
+import org.wagham.utils.RECIPE_LABEL_ID
 import org.wagham.utils.associateTo
 import org.wagham.utils.getChannelOfType
 import org.wagham.utils.sendTextMessage
 import java.util.*
-import kotlin.concurrent.schedule
 
 @BotEvent("wagham")
 class AssignItemAfterSessionEvent(
@@ -53,8 +57,8 @@ class AssignItemAfterSessionEvent(
 
     private fun assignItemsToParticipants(registeredSession: RegisteredSession) = taskExecutorScope.launch {
         val session = db.sessionScope.getSessionByUid(registeredSession.guildId, registeredSession.sessionId)
-        if(session != null && session.labels.any { true /* it.id == "ID_TO_CHANGE" */ }) { // TODO
-            val itemLabels = db.labelsScope.getLabels(registeredSession.guildId, session.labels.map { it.id }, LabelType.ITEM).map {
+        if(session != null && session.labels.any { it.id == LORE_LABEL_ID }) {
+            val itemLabels = db.labelsScope.getLabels(registeredSession.guildId, session.labels.map { it.id } + RECIPE_LABEL_ID, LabelType.ITEM).map {
                 it.toLabelStub()
             }.toList()
             if (itemLabels.isNotEmpty()) {
@@ -74,6 +78,10 @@ class AssignItemAfterSessionEvent(
                             participant.id,
                             prize.first.name,
                             prize.second
+                        ) && db.characterTransactionsScope.addTransactionForCharacter(
+                            s, registeredSession.guildId, participant.id, Transaction(
+                                Date(), null, "SESSION_REWARD", TransactionType.ADD, mapOf(prize.first.name to prize.second.toFloat())
+                            )
                         )
                     }
                 }
@@ -102,13 +110,12 @@ class AssignItemAfterSessionEvent(
 
     override fun register() {
         launchChannelDispatcher()
-        Timer(eventId).schedule(
-            Date(),
-            60 * 1000
-        ) {
-            if (channelDispatcher?.isActive != true) {
-                logger.info { "Dispatcher is dead, relaunching" }
-                channelDispatcher = launchChannelDispatcher()
+        taskExecutorScope.launch {
+            doInfinity("0 * * * *") {
+                if (channelDispatcher?.isActive != true) {
+                    logger.info { "Dispatcher is dead, relaunching" }
+                    channelDispatcher = launchChannelDispatcher()
+                }
             }
         }
     }

@@ -40,15 +40,24 @@ fun Item.selectCraftOptions(character: Character, amount: Int): List<Int> =
 fun CraftRequirement.summary() = buildString {
     append(this@summary.cost)
     append(" MO, ")
-    append(this@summary.materials.entries.joinToString(", ") { "${it.key} x${it.value}" })
+    val minQty = this@summary.minQuantity
+    val maxQty = this@summary.maxQuantity
+    append(this@summary.materials.entries.joinToString(", ") {
+        if(minQty == maxQty && minQty != null) "${it.key} x${(it.value * minQty).toInt()}"
+        else "${it.key} x${it.value}"
+    })
     this@summary.timeRequired?.also {
         append(" - $it hours")
     } ?: append(" - Instantaneous")
-    this@summary.minQuantity?.also {
-        append(" - Min Qty: $it")
-    }
-    this@summary.maxQuantity?.also {
-        append(" - Max Qty: $it")
+    if(minQty == maxQty && minQty != null) {
+        append(" - Qty: $minQty")
+    } else {
+        this@summary.minQuantity?.also {
+            append(" - Min Qty: $it")
+        }
+        this@summary.maxQuantity?.also {
+            append(" - Max Qty: $it")
+        }
     }
     if(this@summary.buildings.isNotEmpty()) {
         append(" - Buildings: ")

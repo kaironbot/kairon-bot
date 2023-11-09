@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
@@ -14,8 +15,10 @@ import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.CharacterStatus
+import org.wagham.db.enums.TransactionType
 import org.wagham.db.models.Character
 import org.wagham.db.models.Item
+import org.wagham.db.models.embed.Transaction
 import org.wagham.entities.channels.ExpUpdate
 import org.wagham.utils.associateTo
 import org.wagham.utils.getChannelOfType
@@ -35,10 +38,14 @@ class AssignItemOnLevelUpEvent(
     private var channelDispatcher: Job? = null
     private val logger = KotlinLogging.logger {}
 
-    private suspend fun getRandomItem(guildId: String): Pair<Item, Int> =
-        db.itemsScope.getAllItems(guildId).toList().random().let {
+    private suspend fun getRandomItem(guildId: String, tier: String, character: Character): Pair<Item, Int> {
+        val labels = db.labelsScope.getLabels(guildId, listOf("T$tier") + character.characterClass).map {
+            it.toLabelStub()
+        }.toList()
+        return db.itemsScope.getItems(guildId, labels).toList().random().let {
             it to 1
         }
+    }
 
     private fun Map<Character, Pair<Item, Int>>.buildMessage() = buildString {
         append("Alcuni avventurieri sono saliti di livello e hanno ricevuto un premio:\n\n")
@@ -59,11 +66,16 @@ class AssignItemOnLevelUpEvent(
             update.guildId,
             update.updates.keys.toList()
         ).filter { character ->
-        val expDelta = update.updates.getValue(character.id)
+            val expDelta = update.updates.getValue(character.id)
             val currentLevel = expTable.expToLevel(character.ms().toFloat())
             val levelBeforeDelta = expTable.expToLevel(character.ms().toFloat() - expDelta)
-            character.status == CharacterStatus.active && currentLevel != levelBeforeDelta
-        }.associateTo { getRandomItem(update.guildId) }
+            character.status == CharacterStatus.active
+                && currentLevel != levelBeforeDelta
+                && (currentLevel.toInt() % 2 == 1)
+        }.associateTo {
+            val tier = expTable.expToTier(it.ms().toFloat())
+            getRandomItem(update.guildId, tier, it)
+        }
         if(charactersToItems.isNotEmpty()) {
             val transactionResult = db.transaction(update.guildId) {
                 charactersToItems.entries.all { (character, item) ->
@@ -73,15 +85,19 @@ class AssignItemOnLevelUpEvent(
                         character.id,
                         item.first.name,
                         item.second
+                    ) && db.characterTransactionsScope.addTransactionForCharacter(
+                        it, update.guildId, character.id, Transaction(
+                            Date(), null, "LEVEL_UP", TransactionType.ADD, mapOf(item.first.name to item.second.toFloat())
+                        )
                     )
                 }
             }
             if (transactionResult.committed) {
-                kord.getChannelOfType(Snowflake(update.guildId), Channels.MESSAGE_CHANNEL, cacheManager).sendTextMessage(
+                getChannelOfType(Snowflake(update.guildId), Channels.MESSAGE_CHANNEL).sendTextMessage(
                     charactersToItems.buildMessage()
                 )
             } else {
-                val channel = kord.getChannelOfType(Snowflake(update.guildId), Channels.LOG_CHANNEL, cacheManager)
+                val channel = getChannelOfType(Snowflake(update.guildId), Channels.LOG_CHANNEL)
                 channel.sendTextMessage("Cannot assign recipes for level up\n${transactionResult.exception?.stackTraceToString()}")
             }
         }

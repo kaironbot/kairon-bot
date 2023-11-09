@@ -16,8 +16,6 @@ import dev.kord.rest.builder.message.create.UserMessageCreateBuilder
 import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -57,14 +55,27 @@ class PeriodicMarketEvent(
     private val interactionCache: Cache<String, String> = Caffeine.newBuilder()
         .expireAfterWrite(5, TimeUnit.MINUTES)
         .build()
-    private val categories = mapOf<LabelStub, Int>(LabelStub("a", "B") to 10) // TODO
+    private val categories = listOf(
+        Triple(LabelStub("b7fad60e-c169-4c96-924e-cd95b0e2560d", "T1"), 3, false),
+        Triple(LabelStub("8cc79b51-ada0-4986-802f-c4c6c34e7124", "T2"), 6, false),
+        Triple(LabelStub("5a204826-61fe-4c07-a989-cab1e4537f92", "T3"), 4, false),
+        Triple(LabelStub("290964a2-c86b-4a16-b8c4-cf07cf95dedc", "T4"), 2, false),
+        Triple(LabelStub("a8159199-9b4b-4779-8e21-bd6d76ebb0dd", "T5"), 0, false),
+        Triple(LabelStub("b7fad60e-c169-4c96-924e-cd95b0e2560d", "T1"), 2, true),
+        Triple(LabelStub("8cc79b51-ada0-4986-802f-c4c6c34e7124", "T2"), 3, true),
+        Triple(LabelStub("5a204826-61fe-4c07-a989-cab1e4537f92", "T3"), 3, true),
+        Triple(LabelStub("290964a2-c86b-4a16-b8c4-cf07cf95dedc", "T4"), 2, true),
+        Triple(LabelStub("a8159199-9b4b-4779-8e21-bd6d76ebb0dd", "T5"), 0, true)
+    )
 
-    private suspend fun retrieveItemsForCategory(guildId: Snowflake, type: LabelStub, qty: Int) =
-        //db.itemsScope.getItems(guildId.toString(), listOf(type)).toFlow()
-         db.itemsScope.getAllItems(guildId.toString()).filter {
-             it.craft.isNotEmpty()
-         }.take(100)
-        .toList().shuffled().take(qty).associateWith { it.craft.first() }
+    private suspend fun retrieveItemsForCategory(guildId: Snowflake, type: LabelStub, qty: Int, consumable: Boolean): Map<Item, CraftRequirement> =
+        db.itemsScope.getItems(guildId.toString(), listOfNotNull(
+            type,
+            LabelStub("8c7f4255-f694-4bc8-ae2b-fb95bbd5bc3f", "Recipe"),
+            LabelStub("edd53df7-dbb1-4593-b9ea-df5f90f489cf", "Consumable").takeIf { consumable }
+        )).toList().shuffled().take(qty).associateWith { item ->
+            CraftRequirement(cost = item.craft.first { it.label == "Craft" }.cost / 10)
+        }
 
     /**
      * Handles the selection of an item by putting the ID of the corresponding item in the interaction cache.
@@ -148,7 +159,7 @@ class PeriodicMarketEvent(
      */
     private suspend fun disablePreviousMarket(guildId: Snowflake) {
         db.utilityScope.getLastMarket(guildId.toString())?.let { lastMarket ->
-            val channel = kord.getChannelOfType(guildId, Channels.MARKET_CHANNEL, cacheManager)
+            val channel = getChannelOfType(guildId, Channels.MARKET_CHANNEL)
             channel.getMessage(Snowflake(lastMarket.message)).edit {
                 components = mutableListOf()
             }
@@ -194,8 +205,8 @@ class PeriodicMarketEvent(
      */
     private suspend fun generateNewMarket(guildId: Snowflake) {
         disablePreviousMarket(guildId)
-        val newItems = categories.entries.fold(emptyMap<Item, CraftRequirement>()) { acc, (label, qty) ->
-            acc + retrieveItemsForCategory(guildId, label, qty)
+        val newItems = categories.fold(emptyMap<Item, CraftRequirement>()) { acc, (label, qty, consumable) ->
+            acc + retrieveItemsForCategory(guildId, label, qty, consumable)
         }
         val idToItems = newItems.keys.associate { shortId() to it.name }
         val message = kord.getChannelOfType(guildId, Channels.MARKET_CHANNEL, cacheManager).createMessage(

@@ -48,7 +48,8 @@
   { "_id": "6d925de8-ede5-4a72-8081-8e1e23b180f7", "name": "Tool", "types": ["ITEM"] },
   { "_id": "ab25f7cf-bbca-4ac2-9cd9-b6855188959b", "name": "Item", "types": ["ITEM"] },
   { "_id": "da348f8b-fa0f-4aed-b499-701dee81ac59", "name": "Consumable Item", "types": ["ITEM"] },
-  { "_id": "4230692f-7df1-4521-95bb-e02578f1fe31", "name": "Companion", "types": ["ITEM"] }
+  { "_id": "4230692f-7df1-4521-95bb-e02578f1fe31", "name": "Companion", "types": ["ITEM"] },
+  { "_id": "5dae89f9-f041-4e0a-a9ce-f450586f04d1", "name": "Craft", "types": ["PROFICIENCY"] }
 ]
 
 

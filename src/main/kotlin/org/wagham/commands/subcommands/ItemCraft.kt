@@ -152,9 +152,9 @@ class ItemCraft(
         amount: Int) : Boolean {
         val moneyStep = db.charactersScope.subtractMoney(s, guildId, character, recipe.cost * amount)
         val itemsStep = recipe.materials.all { (material, qty) ->
-            db.charactersScope.removeItemFromInventory(s, guildId, character, material, qty*amount)
+            db.charactersScope.removeItemFromInventory(s, guildId, character, material, (qty*amount).toInt())
         }
-        val itemsRecord = recipe.materials.mapValues { (it.value * amount).toFloat() } +
+        val itemsRecord = recipe.materials.mapValues { (it.value * amount) } +
                 (transactionMoney to recipe.cost*amount)
         val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
             s, guildId, character, Transaction(Date(), null, "CRAFT", TransactionType.REMOVE, itemsRecord)

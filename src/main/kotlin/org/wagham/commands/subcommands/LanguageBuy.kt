@@ -2,6 +2,7 @@ package org.wagham.commands.subcommands
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.mongodb.reactivestreams.client.ClientSession
 import dev.kord.common.Locale
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
@@ -14,6 +15,8 @@ import dev.kord.rest.builder.interaction.RootInputChatBuilder
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.toList
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.LanguageCommand
@@ -21,14 +24,20 @@ import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.LanguageBuyLocale
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.db.enums.ScheduledEventArg
+import org.wagham.db.enums.ScheduledEventState
+import org.wagham.db.enums.ScheduledEventType
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Character
 import org.wagham.db.models.LanguageProficiency
+import org.wagham.db.models.ScheduledEvent
+import org.wagham.db.models.embed.AbilityCost
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.db.models.embed.Transaction
 import org.wagham.utils.*
 import java.lang.IllegalStateException
+import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -48,6 +57,7 @@ class LanguageBuy(
     }
 
     override val commandName = "buy"
+    private val dateFormatter = SimpleDateFormat("dd/MM/YYYY HH:mm:ss")
     override val defaultDescription = LanguageBuyLocale.DESCRIPTION.locale(defaultLocale)
     override val localeDescriptions: Map<Locale, String> = LanguageBuyLocale.DESCRIPTION.localeMap
     private val interactionCache: Cache<String, AssignLanguageInteractionData> =
@@ -84,24 +94,65 @@ class LanguageBuy(
         }
     }
 
-    private suspend fun assignLanguageTransaction(guildId: String, language: LanguageProficiency, character: String, locale: String) =
+    private suspend fun payLanguageCost(
+        s: ClientSession,
+        guildId: String,
+        characterId: String,
+        cost: AbilityCost
+    ): Boolean {
+        val moneyStep = db.charactersScope.subtractMoney(s, guildId, characterId, cost.moCost)
+        val itemsStep = cost.itemsCost.all { (material, qty) ->
+            db.charactersScope.removeItemFromInventory(s, guildId, characterId, material, qty)
+        }
+        val itemsRecord = cost.itemsCost.mapValues { it.value.toFloat() } + (transactionMoney to cost.moCost)
+        val transactionsStep = db.characterTransactionsScope.addTransactionForCharacter(
+            s, guildId, characterId, Transaction(
+                Date(), null, "BUY LANGUAGE", TransactionType.REMOVE, itemsRecord))
+        return moneyStep && itemsStep && transactionsStep
+    }
+
+    private suspend fun payAndDelayAssignment(guildId: String, language: LanguageProficiency, character: String, locale: String) =
         db.transaction(guildId) { s ->
-            val moneyStep = db.charactersScope.subtractMoney(s, guildId, character, language.cost!!.moCost)
-            val itemsStep = language.cost!!.itemsCost.all { (material, qty) ->
-                db.charactersScope.removeItemFromInventory(s, guildId, character, material, qty)
+            val cost = language.cost ?: throw IllegalStateException("This tool cannot be bought")
+            val payStep = payLanguageCost(s, guildId, character, cost)
+
+            val delay = Date(System.currentTimeMillis() + (cost.timeRequired ?: 0))
+
+            val task = ScheduledEvent(
+                uuid(),
+                ScheduledEventType.GIVE_LANGUAGE,
+                Date(),
+                delay,
+                ScheduledEventState.SCHEDULED,
+                mapOf(
+                    ScheduledEventArg.PROFICIENCY_ID to language.id,
+                    ScheduledEventArg.TARGET to character
+                )
+            )
+
+            cacheManager.scheduleEvent(Snowflake(guildId), task)
+
+            payStep
+        }.let {
+            when {
+                it.committed -> createGenericEmbedSuccess(
+                    "${LanguageBuyLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(
+                        System.currentTimeMillis() + (language.cost?.timeRequired ?: 0))
+                    )}")
+                it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+                else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
             }
+        }
+
+    private suspend fun assignLanguageToCharacterImmediately(guildId: String, language: LanguageProficiency, character: String, locale: String) =
+        db.transaction(guildId) { s ->
+            val cost = language.cost ?: throw IllegalStateException("This tool cannot be bought")
+            val payStep = payLanguageCost(s, guildId, character, cost)
             val proficiencyStep = db.charactersScope.addLanguageToCharacter(s, guildId, character, ProficiencyStub(language.id, language.name))
 
-            val itemsRecord = language.cost!!.itemsCost.mapValues { it.value.toFloat() } +
-                    (transactionMoney to language.cost!!.moCost)
-
-            val transactionsStep = db.characterTransactionsScope.addTransactionForCharacter(
-                s, guildId, character, Transaction(
-                    Date(), null, "BUY LANGUAGE", TransactionType.REMOVE, itemsRecord)) &&
-                    db.characterTransactionsScope.addTransactionForCharacter(
-                        s, guildId, character, Transaction(Date(), null, "BUY LANGUAGE", TransactionType.ADD, mapOf(language.name to 1f))
-                    )
-            moneyStep && itemsStep && proficiencyStep && transactionsStep
+            payStep && proficiencyStep && db.characterTransactionsScope.addTransactionForCharacter(
+                s, guildId, character, Transaction(Date(), null, "BUY LANGUAGE", TransactionType.ADD, mapOf(language.name to 1f))
+            )
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
@@ -118,26 +169,27 @@ class LanguageBuy(
         } ?: emptyMap()
 
     private suspend fun checkRequirementsAndBuyLanguage(guildId: String, language: LanguageProficiency, character: Character, locale: String): InteractionResponseModifyBuilder.() -> Unit {
+        val tasks = db.scheduledEventsScope.getAllScheduledEvents(guildId, ScheduledEventState.SCHEDULED)
+        val isLearning = tasks.filter { task ->
+            task.type == ScheduledEventType.GIVE_LANGUAGE && task.args.any {
+                it.key == ScheduledEventArg.TARGET && it.value == character.id
+            }
+        }.filter { task ->
+            task.args[ScheduledEventArg.PROFICIENCY_ID] == language.id
+        }.toList().isNotEmpty()
         return when {
-            character.languages.any { it.id == language.id } -> createGenericEmbedError(
-                LanguageBuyLocale.ALREADY_POSSESS.locale(
-                    locale
-                )
-            )
+            isLearning || character.languages.any { it.id == language.id } -> createGenericEmbedError(LanguageBuyLocale.ALREADY_POSSESS.locale(locale))
             language.cost == null -> createGenericEmbedError(LanguageBuyLocale.CANNOT_BUY.locale(locale))
-            character.money < language.cost!!.moCost -> createGenericEmbedError(
-                CommonLocale.NOT_ENOUGH_MONEY.locale(
-                    locale
-                )
-            )
+            language.cost?.moCost?.let {
+                character.money < it
+            } ?: true -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
             character.missingMaterials(language).isNotEmpty() -> createGenericEmbedError(
                 LanguageBuyLocale.MISSING_MATERIALS.locale(locale) + ": " + character.missingMaterials(language).entries.joinToString(
                     ", "
-                ) {
-                    "${it.key} x${it.value}"
-                }
+                ) { "${it.key} x${it.value}" }
             )
-            else -> assignLanguageTransaction(guildId, language, character.id, locale)
+            language.cost?.timeRequired?.let { it > 0 } ?: false -> payAndDelayAssignment(guildId, language, character.id, locale)
+            else -> assignLanguageToCharacterImmediately(guildId, language, character.id, locale)
         }
     }
 
