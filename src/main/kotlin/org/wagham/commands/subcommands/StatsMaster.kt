@@ -137,7 +137,12 @@ class StatsMaster(
                 sessions.page.forEach {
                     field {
                         name = StatsMasterLocale.TITLE.locale(locale)
-                        value = it.title
+                        value = buildString {
+                            append(it.title)
+                            append(" (")
+                            append(it.labels.joinToString(", ") { l -> l.name})
+                            append(")")
+                        }
                         inline = true
                     }
                     field {

@@ -2,23 +2,30 @@ package org.wagham.commands.subcommands
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.mongodb.reactivestreams.client.ClientSession
 import dev.kord.common.Locale
+import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.edit
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
+import dev.kord.core.event.interaction.SelectMenuInteractionCreateEvent
 import dev.kord.core.on
+import dev.kord.rest.builder.component.option
 import dev.kord.rest.builder.interaction.RootInputChatBuilder
 import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
+import dev.kord.rest.builder.message.modify.actionRow
+import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ItemCommand
 import org.wagham.components.CacheManager
+import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.ItemCraftLocale
 import org.wagham.db.KabotMultiDBClient
@@ -30,6 +37,7 @@ import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Character
 import org.wagham.db.models.Item
 import org.wagham.db.models.ScheduledEvent
+import org.wagham.db.models.embed.CraftRequirement
 import org.wagham.db.models.embed.Transaction
 import org.wagham.utils.*
 import java.text.SimpleDateFormat
@@ -48,10 +56,26 @@ class ItemCraft(
     override val defaultDescription = ItemCraftLocale.DESCRIPTION.locale(defaultLocale)
     override val localeDescriptions: Map<Locale, String> = ItemCraftLocale.DESCRIPTION.localeMap
     private val dateFormatter = SimpleDateFormat("dd/MM/YYYY HH:mm:ss")
-    private val interactionCache: Cache<String, Pair<Snowflake, Character>> =
+    private val interactionCache: Cache<String, CraftItemInteractionData> =
         Caffeine.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .build()
+
+    companion object {
+        private const val ABORT = "recipeAbort"
+        private const val ALTERNATIVE = "itemAlternative"
+        private const val CONFIRM = "recipeConfirm"
+        private const val RECIPE_SELECTION = "recipeAlternative"
+
+        private data class CraftItemInteractionData(
+            val responsible: Snowflake,
+            val target: Character,
+            val item: Item,
+            val amount: Int,
+            val recipeIndex: Int = 0
+        )
+
+    }
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
@@ -71,49 +95,85 @@ class ItemCraft(
         }
     }
 
-    override suspend fun registerCommand() {
-        kord.on<ButtonInteractionCreateEvent> {
-            if(verifyId(interaction.componentId)) {
-                val params = interaction.extractCommonParameters()
-                val (item, rawAmount, id) = extractComponentsFromComponentId(interaction.componentId)
-                val amount = rawAmount.toIntOrNull() ?: throw IllegalStateException("Invalid amount format")
-                val data = interactionCache.getIfPresent(id)
-                when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
-                    data.first != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
-                    else -> {
-                        val items = cacheManager.getCollectionOfType<Item>(params.guildId)
-                        checkRequirementsAndCraftItem(params.guildId.toString(), items.first { it.name == item }, amount, data.second, params.locale).let {
-                            interaction.deferPublicMessageUpdate().edit(it)
-                        }
+    private suspend fun handleButtons() = kord.on<ButtonInteractionCreateEvent> {
+        if(verifyId(interaction.componentId)) {
+            val params = interaction.extractCommonParameters()
+            val (id, operation) = extractComponentsFromComponentId(interaction.componentId)
+            val data = interactionCache.getIfPresent(id)
+            when {
+                operation == ABORT -> interaction.operationCanceled(params.locale)
+                data == null -> interaction.updateWithExpirationError(params.locale)
+                data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
+                operation == ALTERNATIVE -> {
+                    checkRequirementsAndCraftItem(params.guildId.toString(), params.responsible.id, data.item, data.amount, data.target, params.locale).let {
+                        interaction.deferPublicMessageUpdate().edit(it)
+                    }
+                }
+                operation == CONFIRM -> {
+                    craftItemAndAssignToCharacter(params.guildId.toString(), data.item, data.recipeIndex, data.amount, data.target.id, params.locale).let {
+                        interaction.deferPublicMessageUpdate().edit(it)
                     }
                 }
             }
         }
     }
 
-    private suspend fun craftItemAndAssignToCharacter(guildId: String, item: Item, amount: Int, character: String, locale: String) =
-        if( (item.craft?.timeRequired ?: 0) > 0) craftItemAndDelayAssignmentToCharacter(guildId, item, amount, character, locale)
-        else craftItemAndAssignImmediatelyToCharacter(guildId, item, amount, character, locale)
-
-    private suspend fun craftItemAndAssignImmediatelyToCharacter(guildId: String, item: Item, amount: Int, character: String, locale: String) =
-        db.transaction(guildId) { s ->
-            val moneyStep = db.charactersScope.subtractMoney(s, guildId, character, item.craft!!.cost*amount)
-            val itemsStep = item.craft!!.materials.all { (material, qty) ->
-                db.charactersScope.removeItemFromInventory(s, guildId, character, material, qty*amount)
+    private fun handleSelection() = kord.on<SelectMenuInteractionCreateEvent> {
+        if(verifyId(interaction.componentId)) {
+            val params = interaction.extractCommonParameters()
+            val (id, _) = extractComponentsFromComponentId(interaction.componentId)
+            val data = interactionCache.getIfPresent(id)
+            if(data == null) {
+                interaction.updateWithExpirationError(params.locale)
+            } else {
+                interactionCache.put(
+                    id,
+                    data.copy(recipeIndex = interaction.values.first().toInt())
+                )
+                interaction.deferPublicMessageUpdate()
             }
+        }
+    }
+
+    override suspend fun registerCommand() {
+        handleButtons()
+        handleSelection()
+    }
+
+    private suspend fun craftItemAndAssignToCharacter(guildId: String, item: Item, recipeIndex: Int, amount: Int, character: String, locale: String) =
+        if( (item.craft[recipeIndex].timeRequired ?: 0) > 0) craftItemAndDelayAssignmentToCharacter(guildId, item, recipeIndex, amount, character, locale)
+        else craftItemAndAssignImmediatelyToCharacter(guildId, item, recipeIndex,amount, character, locale)
+
+    private suspend fun payCostAndRecord(
+        s: ClientSession,
+        guildId: String,
+        character: String,
+        recipe: CraftRequirement,
+        amount: Int) : Boolean {
+        val moneyStep = db.charactersScope.subtractMoney(s, guildId, character, recipe.cost * amount)
+        val itemsStep = recipe.materials.all { (material, qty) ->
+            db.charactersScope.removeItemFromInventory(s, guildId, character, material, (qty*amount).toInt())
+        }
+        val itemsRecord = recipe.materials.mapValues { (it.value * amount) } +
+                (transactionMoney to recipe.cost*amount)
+        val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
+            s, guildId, character, Transaction(Date(), null, "CRAFT", TransactionType.REMOVE, itemsRecord)
+        )
+        return moneyStep && itemsStep && recordStep
+    }
+
+    private suspend fun craftItemAndAssignImmediatelyToCharacter(guildId: String, item: Item, recipeIndex: Int, amount: Int, character: String, locale: String) =
+        db.transaction(guildId) { s ->
+            val recipe = item.craft[recipeIndex]
+            val costStep = payCostAndRecord(s, guildId, character, recipe, amount)
+
             val assignStep = db.charactersScope.addItemToInventory(s, guildId, character, item.name, amount)
 
-            val itemsRecord = item.craft!!.materials.mapValues { (it.value * amount).toFloat() } +
-                    (transactionMoney to item.craft!!.cost*amount)
-
-            val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
-                s, guildId, character, Transaction(Date(), null, "CRAFT", TransactionType.REMOVE, itemsRecord)
-            ) && db.characterTransactionsScope.addTransactionForCharacter(
+            val recordStep = costStep && db.characterTransactionsScope.addTransactionForCharacter(
                 s, guildId, character, Transaction(Date(), null, "CRAFT", TransactionType.ADD, mapOf(item.name to amount.toFloat()))
             )
 
-            moneyStep && itemsStep && assignStep && recordStep
+            assignStep && recordStep
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
@@ -122,25 +182,16 @@ class ItemCraft(
             }
         }
 
-    private suspend fun craftItemAndDelayAssignmentToCharacter(guildId: String, item: Item, amount: Int, character: String, locale: String) =
+    private suspend fun craftItemAndDelayAssignmentToCharacter(guildId: String, item: Item, recipeIndex: Int, amount: Int, character: String, locale: String) =
         db.transaction(guildId) { s ->
-            val moneyStep = db.charactersScope.subtractMoney(s, guildId, character, item.craft!!.cost*amount)
-            val itemsStep = item.craft!!.materials.all { (material, qty) ->
-                db.charactersScope.removeItemFromInventory(s, guildId, character, material, qty*amount)
-            }
-
-            val itemsRecord = item.craft!!.materials.mapValues { (it.value * amount).toFloat() } +
-                    (transactionMoney to item.craft!!.cost*amount)
-
-            val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
-                s, guildId, character, Transaction(Date(), null, "CRAFT", TransactionType.REMOVE, itemsRecord)
-            )
+            val recipe = item.craft[recipeIndex]
+            val result = payCostAndRecord(s, guildId, character, recipe, amount)
 
             val task = ScheduledEvent(
                 uuid(),
                 ScheduledEventType.GIVE_ITEM,
                 Date(),
-                Date(System.currentTimeMillis() + item.craft!!.timeRequired!!),
+                Date(System.currentTimeMillis() + recipe.timeRequired!!),
                 ScheduledEventState.SCHEDULED,
                 mapOf(
                     ScheduledEventArg.ITEM to item.name,
@@ -151,63 +202,75 @@ class ItemCraft(
 
             cacheManager.scheduleEvent(Snowflake(guildId), task)
 
-            moneyStep && itemsStep && recordStep
+            result
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(
-                    "${ItemCraftLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(System.currentTimeMillis() + item.craft!!.timeRequired!!))}"
+                    "${ItemCraftLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(System.currentTimeMillis() + item.craft[recipeIndex].timeRequired!!))}"
                 )
                 it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
                 else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
             }
         }
 
-    private fun Character.buildingRequirement(item: Item) =
-        item.craft?.buildings.isNullOrEmpty() ||
-            buildings.keys.map { it.split(":") }.any { (_, type, rawTier) ->
-                //TODO: I don't like this
-                val tier = "T([0-9])".toRegex().find(rawTier)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                item.craft!!.buildings.any {
-                    val (requiredType, rT) = it.split(" ")
-                    val requiredTier = "T([0-9])".toRegex().find(rT)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                    requiredType == type && tier >= requiredTier
+    private fun generateRecipeDisambiguationMessage(
+        item: Item,
+        recipeIndexes: List<Int>,
+        interactionId: String,
+        locale: String
+    ): InteractionResponseModifyBuilder.() -> Unit = {
+        embed {
+            title = ItemCraftLocale.ALTERNATIVE_RECIPES.locale(locale)
+            description = buildString {
+                append(ItemCraftLocale.ALTERNATIVE_RECIPES_SELECT.locale(locale))
+                append("\n")
+                recipeIndexes.forEach {
+                    append("**${
+                        item.craft[it].label ?: (ItemCraftLocale.RECIPE.locale(locale) + " $it")
+                    }**: ")
+                    append(item.craft[it].summary())
+                    append("\n")
                 }
             }
-
-    private fun Character.proficiencyRequirement(item: Item) =
-        item.craft?.tools.isNullOrEmpty() ||
-                proficiencies.map { it.name }.any {
-                    item.craft!!.tools.contains(it)
-                }
-
-    private fun Character.missingMaterials(item: Item, amount: Int) =
-        item.craft?.materials?.mapValues {
-            (it.value * amount) - inventory.getOrDefault(it.key, 0)
-        }?.filterValues {
-            it > 0
-        } ?: emptyMap()
-
-    private suspend fun checkRequirementsAndCraftItem(guildId: String, item: Item, amount: Int, character: Character, locale: String): InteractionResponseModifyBuilder.() -> Unit =
-        when {
-            item.craft == null -> createGenericEmbedError(ItemCraftLocale.CANNOT_CRAFT.locale(locale))
-            item.craft?.minQuantity != null && amount < item.craft!!.minQuantity!! ->
-                createGenericEmbedError("${ItemCraftLocale.NOT_ENOUGH.locale(locale)} ${item.craft?.minQuantity}")
-            item.craft?.maxQuantity != null && amount > item.craft!!.maxQuantity!! ->
-                createGenericEmbedError("${ItemCraftLocale.TOO_MUCH.locale(locale)} ${item.craft?.maxQuantity}")
-            !character.buildingRequirement(item) -> createGenericEmbedError(
-                ItemCraftLocale.BUILDINGS_REQUIRED.locale(locale) + ": " + item.craft!!.buildings.joinToString(", ")
-            )
-            !character.proficiencyRequirement(item) -> createGenericEmbedError(
-                ItemCraftLocale.TOOLS_REQUIRED.locale(locale) + ": " + item.craft!!.tools.joinToString(", ")
-            )
-            character.missingMaterials(item, amount).isNotEmpty() -> createGenericEmbedError(
-                ItemCraftLocale.MISSING_MATERIALS.locale(locale) + ": " + character.missingMaterials(item, amount).entries.joinToString(", ") {
-                    "${it.key} x${it.value}"
-                }
-            )
-            character.money < (item.craft!!.cost * amount) -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
-            else -> craftItemAndAssignToCharacter(guildId, item, amount, character.id, locale)
+            color = Colors.DEFAULT.value
         }
+
+        actionRow {
+            stringSelect(buildElementId(interactionId, RECIPE_SELECTION)) {
+                recipeIndexes.forEachIndexed { index, it ->
+                    val label = item.craft[it].label ?: (ItemCraftLocale.RECIPE.locale(locale) + " $it")
+                    option(label, "$it") {
+                        default = index == 0
+                    }
+                }
+            }
+        }
+        actionRow {
+            interactionButton(ButtonStyle.Primary, buildElementId(interactionId, CONFIRM)) {
+                label = CommonLocale.CONFIRM.locale(locale)
+            }
+            interactionButton(ButtonStyle.Danger, buildElementId(interactionId, ABORT)) {
+                label = CommonLocale.ABORT.locale(locale)
+            }
+        }
+    }
+
+    private suspend fun checkRequirementsAndCraftItem(guildId: String, responsible: Snowflake, item: Item, amount: Int, character: Character, locale: String): InteractionResponseModifyBuilder.() -> Unit {
+        val recipeIndexes = item.selectCraftOptions(character, amount)
+        return when {
+            item.craft.isEmpty() -> createGenericEmbedError(ItemCraftLocale.NOT_CRAFTABLE.locale(locale))
+            recipeIndexes.isEmpty() -> createGenericEmbedError(ItemCraftLocale.NO_RECIPE_AVAILABLE.locale(locale))
+            recipeIndexes.size == 1 -> craftItemAndAssignToCharacter(guildId, item, recipeIndexes.first(), amount, character.id, locale)
+            else -> {
+                val interactionId = compactUuid().substring(0, 6)
+                interactionCache.put(
+                    interactionId,
+                    CraftItemInteractionData(responsible, character, item, amount)
+                )
+                generateRecipeDisambiguationMessage(item, recipeIndexes, interactionId, locale)
+            }
+        }
+    }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit = withEventParameters(event) {
         val items = cacheManager.getCollectionOfType<Item>(guildId)
@@ -216,14 +279,14 @@ class ItemCraft(
         val item = event.interaction.command.strings["item"] ?: throw IllegalStateException("Item not provided")
         withOneActiveCharacterOrErrorMessage(responsible, this) { character ->
             items.firstOrNull { it.name == item }?.let {
-                checkRequirementsAndCraftItem(guildId.toString(), items.first { it.name == item }, amount, character, locale)
+                checkRequirementsAndCraftItem(guildId.toString(), responsible.id, it, amount, character, locale)
             } ?: items.maxByOrNull { item.levenshteinDistance(it.name) }?.let { probableItem ->
                 val interactionId = compactUuid().substring(0, 6)
                 interactionCache.put(
                     interactionId,
-                    Pair(responsible.id, character)
+                    CraftItemInteractionData(responsible.id, character, probableItem, amount)
                 )
-                alternativeOptionMessage(locale, item, probableItem.name, buildElementId(probableItem.name, amount, interactionId))
+                alternativeOptionMessage(locale, item, probableItem.name, buildElementId(interactionId, ALTERNATIVE))
             } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
         }
     }

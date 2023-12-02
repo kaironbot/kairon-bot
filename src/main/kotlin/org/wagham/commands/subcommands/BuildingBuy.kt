@@ -102,7 +102,7 @@ class BuildingBuy(
                 val config = cacheManager.getConfig(params.guildId)
                 val building = buildings.first { it.name == interaction.values.first() }
                 when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data == null -> interaction.updateWithExpirationError(params.locale)
                     data.userId != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     else -> {
                         interactionCache.put(id, data.copy(building = building))
@@ -137,7 +137,7 @@ class BuildingBuy(
                 val (_, id) = extractComponentsFromComponentId(interaction.componentId)
                 val data = interactionCache.getIfPresent(id)
                 when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data == null -> interaction.updateWithExpirationError(params.locale)
                     data.userId != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     data.building != null -> {
                         interaction.modal(
@@ -166,7 +166,7 @@ class BuildingBuy(
                             }
                         }
                     }
-                    else -> interaction.respondWithGenericError(params.locale)
+                    else -> interaction.updateWithGenericError(params.locale)
                 }
             }
         }
@@ -180,7 +180,7 @@ class BuildingBuy(
                 val data = interactionCache.getIfPresent(id)
                 val config = cacheManager.getConfig(params.guildId)
                 when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data == null -> interaction.updateWithExpirationError(params.locale)
                     data.userId != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     data.building != null -> {
                         val buildingName = interaction.extractInput(modalName)

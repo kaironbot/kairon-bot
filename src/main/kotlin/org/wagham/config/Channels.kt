@@ -6,5 +6,6 @@ enum class Channels(val description: String) {
     MESSAGE_CHANNEL("Main message channel"),
     BUILDINGS_CHANNEL("Buildings channel"),
     BOT_CHANNEL("Main bot channel"),
-    WELCOME_CHANNEL("Welcome channel")
+    WELCOME_CHANNEL("Welcome channel"),
+    MARKET_CHANNEL("Market channel")
 }

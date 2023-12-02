@@ -10,12 +10,6 @@ enum class ItemInfoLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Richiede sintonia?"
         )
     ),
-    BUILDINGS_REQUIRED(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Buildings required",
-            Locale.ITALIAN to "Edifici richiesti"
-        )
-    ),
     CAN_BUY(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Buy price",
@@ -64,22 +58,10 @@ enum class ItemInfoLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "Non vendibile"
         )
     ),
-    COST(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Cost",
-            Locale.ITALIAN to "Costo"
-        )
-    ),
     DESCRIPTION(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Show the info about an item",
             Locale.ITALIAN to "Mostra le informazioni riguardanti un oggetto"
-        )
-    ),
-    INSTANTANEOUS(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Istantaneous",
-            Locale.ITALIAN to "Istantaneo"
         )
     ),
     ITEM(
@@ -88,40 +70,10 @@ enum class ItemInfoLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ITALIAN to "L'oggetto da mostrare"
         )
     ),
-    MATERIALS(
+    MATERIAL_OF(
         mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Required materials",
-            Locale.ITALIAN to "Materiali richiesti"
-        )
-    ),
-    MAX_QTY(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Maximum craftable quantity",
-            Locale.ITALIAN to "Quantità massima craftabile"
-        )
-    ),
-    MIN_QTY(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Minimum craftable quantity",
-            Locale.ITALIAN to "Quantità minima craftabile"
-        )
-    ),
-    NO_BUILDINGS_REQUIRED(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "No buildings required",
-            Locale.ITALIAN to "Nessun edificio richiesto"
-        )
-    ),
-    NO_MATERIALS_REQUIRED(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "No materials required",
-            Locale.ITALIAN to "Nessun materiale richiesto"
-        )
-    ),
-    NO_PROFICIENCIES_REQUIRED(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "No proficiencies required",
-            Locale.ITALIAN to "Nessuna competenza richiesta"
+            Locale.ENGLISH_GREAT_BRITAIN to "Can be used to craft",
+            Locale.ITALIAN to "Può essere usato per craftare"
         )
     ),
     SELLABLE(
@@ -141,19 +93,7 @@ enum class ItemInfoLocale(val localeMap: Map<Locale, String>): LocaleEnum {
             Locale.ENGLISH_GREAT_BRITAIN to "The user to give the item to",
             Locale.ITALIAN to "L'utente a cui assegnare l'oggetto"
         )
-    ),
-    TIME_REQUIRED(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Time required",
-            Locale.ITALIAN to "Tempo necessario"
-        )
-    ),
-    TOOL_PROFICIENCIES(
-        mapOf(
-            Locale.ENGLISH_GREAT_BRITAIN to "Tool proficiencies required",
-            Locale.ITALIAN to "Competenze negli strumenti richieste"
-        )
     );
     override fun locale(language: String) = locale(Locale.fromString(language))
-    override fun locale(locale: Locale) = localeMap[locale] ?: localeMap[Locale.ENGLISH_GREAT_BRITAIN]!!
+    override fun locale(locale: Locale) = localeMap[locale] ?: localeMap.getValue(Locale.ENGLISH_GREAT_BRITAIN)
 }

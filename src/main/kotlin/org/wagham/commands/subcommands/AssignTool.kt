@@ -88,7 +88,7 @@ class AssignTool(
                 val params = interaction.extractCommonParameters()
                 val data = interactionCache.getIfPresent(id)
                 when {
-                    data == null -> interaction.respondWithExpirationError(params.locale)
+                    data == null -> interaction.updateWithExpirationError(params.locale)
                     data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     else -> {
                         try {

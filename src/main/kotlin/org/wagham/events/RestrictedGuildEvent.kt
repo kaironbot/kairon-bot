@@ -2,7 +2,6 @@ package org.wagham.events
 
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.behavior.MessageBehavior
-import dev.kord.core.event.message.MessageCreateEvent
 
 /**
  * This abstract class should be implemented by all the Events that can run on a subset of the channel.

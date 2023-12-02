@@ -57,16 +57,16 @@ class CharacterCreate(
             .expireAfterWrite(20, TimeUnit.MINUTES)
             .build()
     companion object {
-        const val CREATE_MODAL = "createModal"
-        const val NAME_INPUT = "name"
-        const val STARTING_LEVEL = "startingLevel"
-        const val STARTING_CLASS = "startingClass"
-        const val RACE = "race"
-        const val ORIGIN = "territory"
-        const val AGE = "age"
-        const val ABORT = "abort"
-        const val CONFIRM = "confirm"
-        const val OPTION = "option"
+        private const val CREATE_MODAL = "createModal"
+        private const val NAME_INPUT = "name"
+        private const val STARTING_LEVEL = "startingLevel"
+        private const val STARTING_CLASS = "startingClass"
+        private const val RACE = "race"
+        private const val ORIGIN = "territory"
+        private const val AGE = "age"
+        private const val ABORT = "abort"
+        private const val CONFIRM = "confirm"
+        private const val OPTION = "option"
 
         private data class PartialCharacterData (
             val responsible: Snowflake,

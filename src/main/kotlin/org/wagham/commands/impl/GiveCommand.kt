@@ -128,19 +128,23 @@ class GiveCommand(
         } ?: throw IllegalStateException("Item not found")
         val target = event.interaction.command.users["target"] ?: throw IllegalStateException("Target not set")
         return withOneActiveCharacterOrErrorMessage(params.responsible, params) { character ->
-            if((character.inventory[item.name] ?: 0) < amount)
-                createGenericEmbedError("${GiveLocale.NOT_ENOUGH_ITEMS.locale(params.locale)} ${item.name}")
-            else {
-                val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(
-                    listOf(target),
-                    character,
-                    GiveCommandContext(item, amount),
-                    params
-                )
-                when {
-                    targetsOrSelectionContext.characters != null -> executeTransaction(params, character, targetsOrSelectionContext.characters.first(), item, amount)
-                    targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
-                    else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
+            when {
+                (character.inventory[item.name] ?: 0) < amount ->
+                    createGenericEmbedError("${GiveLocale.NOT_ENOUGH_ITEMS.locale(params.locale)} ${item.name}")
+                item.giveRatio == 0.0f ->
+                    createGenericEmbedError("${GiveLocale.NOT_GIVABLE.locale(params.locale)} ${item.name}")
+                else -> {
+                    val targetsOrSelectionContext = multiCharacterManager.startSelectionOrReturnCharacters(
+                        listOf(target),
+                        character,
+                        GiveCommandContext(item, amount),
+                        params
+                    )
+                    when {
+                        targetsOrSelectionContext.characters != null -> executeTransaction(params, character, targetsOrSelectionContext.characters.first(), item, amount)
+                        targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
+                        else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(params.locale))
+                    }
                 }
             }
         }

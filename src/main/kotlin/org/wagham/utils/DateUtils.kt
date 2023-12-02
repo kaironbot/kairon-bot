@@ -4,6 +4,7 @@ import org.wagham.db.utils.daysInBetween
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
 import java.util.*
+import kotlin.time.Duration.Companion.milliseconds
 
 fun getStartingInstantOnNextDay(hour: Int, minute: Int, second: Int, transformer: (LocalDateTime) -> LocalDateTime = { it }): Date {
     val timeZone = TimeZone.getTimeZone("GMT+2")
@@ -30,3 +31,14 @@ fun maxOrNull(first: Date?, second: Date?): Date? =
         first > second -> first
         else -> second
     }
+
+
+/**
+ * @return the offset, in minutes, between the current timezone and the UTC timezone
+ */
+fun getTimezoneOffset(): Long {
+    val calendar = Calendar.getInstance()
+    val timeZone = calendar.timeZone
+    val isDaylightTime = timeZone.inDaylightTime(Date())
+    return timeZone.rawOffset.milliseconds.inWholeMinutes + (60.takeIf { isDaylightTime } ?: 0)
+}

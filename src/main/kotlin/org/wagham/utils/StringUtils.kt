@@ -61,4 +61,9 @@ fun uuid() = UUID.randomUUID().toString()
 
 fun compactUuid() = UUID.randomUUID().toString().replace("-", "")
 
+/**
+ * @return a short ID obtained from the first 6 characters of a UUID v4.
+ */
+fun shortId() = compactUuid().substring(0, 6)
+
 const val transactionMoney = "MONEY"
