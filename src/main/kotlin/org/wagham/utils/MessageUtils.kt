@@ -26,7 +26,7 @@ suspend fun MessageChannel.sendTextMessage(message: String) =
 fun createGenericEmbedError(
     message: String,
     actionRows: MutableList<MessageComponentBuilder> = mutableListOf()
-): InteractionResponseModifyBuilder.() -> Unit {
+): InteractionResponseModifyBuilder.() -> Unit = {
     embed {
         color = Colors.WARNING.value
         title = "Error"
@@ -38,7 +38,7 @@ fun createGenericEmbedError(
 fun createGenericEmbedSuccess(
     message: String,
     actionRows: MutableList<MessageComponentBuilder> = mutableListOf()
-): InteractionResponseModifyBuilder.() -> Unit {
+): InteractionResponseModifyBuilder.() -> Unit = {
     embed {
         color = Colors.DEFAULT.value
         title = "Ok"

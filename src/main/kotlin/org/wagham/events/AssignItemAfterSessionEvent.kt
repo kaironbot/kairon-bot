@@ -23,11 +23,7 @@ import org.wagham.db.models.Item
 import org.wagham.db.models.embed.LabelStub
 import org.wagham.db.models.embed.Transaction
 import org.wagham.entities.channels.RegisteredSession
-import org.wagham.utils.LORE_LABEL_ID
-import org.wagham.utils.RECIPE_LABEL_ID
-import org.wagham.utils.associateTo
-import org.wagham.utils.getChannelOfType
-import org.wagham.utils.sendTextMessage
+import org.wagham.utils.*
 import java.util.*
 
 @BotEvent("wagham")
@@ -56,8 +52,8 @@ class AssignItemAfterSessionEvent(
     }
 
     private fun assignItemsToParticipants(registeredSession: RegisteredSession) = taskExecutorScope.launch {
-        val session = db.sessionScope.getSessionByUid(registeredSession.guildId, registeredSession.sessionId)
-        if(session != null && session.labels.any { it.id == LORE_LABEL_ID }) {
+        val session = db.sessionScope.getSessionById(registeredSession.guildId, registeredSession.sessionId)
+        if(session != null && session.labels.any { it.id == LORE_LABEL_ID } && session.labels.none { it.id == PBV_LABEL_ID}) {
             val itemLabels = db.labelsScope.getLabels(registeredSession.guildId, session.labels.map { it.id } + RECIPE_LABEL_ID, LabelType.ITEM).map {
                 it.toLabelStub()
             }.toList()

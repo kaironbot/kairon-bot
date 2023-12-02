@@ -52,8 +52,8 @@ class WaghamCheckTierEvent(
         val tiers = db.charactersScope.getActiveCharacters(guildId.toString(), player.id.toString()).map {
             expTable.expToTier(it.ms().toFloat())
         }
-        val updatedRoles = player.roles.filter { !Regex("Tier [0-9]").matches(it.name) }.map { it.id }.toList() +
-                tiers.map { tier -> supplier.getGuildRoles(guildId).first { it.name == "Tier $tier" }.id }.toList()
+        val updatedRoles = player.roles.filter { !Regex("Tier [0-9].*").matches(it.name) }.map { it.id }.toList() +
+                tiers.map { tier -> supplier.getGuildRoles(guildId).first { it.name.matches("Tier $tier .*".toRegex()) }.id }.toList()
         player.edit {
             roles = updatedRoles.toMutableSet()
         }
@@ -110,7 +110,7 @@ class WaghamCheckTierEvent(
      * @param registeredSession a [RegisteredSession] message.
      */
     private suspend fun updateRolesAndAssignRecipes(registeredSession: RegisteredSession) {
-        db.sessionScope.getSessionByUid(registeredSession.guildId, registeredSession.sessionId)?.let { session ->
+        db.sessionScope.getSessionById(registeredSession.guildId, registeredSession.sessionId)?.let { session ->
             val activeCharacters = db.charactersScope.getCharacters(
                 registeredSession.guildId,
                 session.characters.map { it.character }

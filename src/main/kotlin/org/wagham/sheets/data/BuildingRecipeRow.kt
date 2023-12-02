@@ -14,11 +14,11 @@ class BuildingRecipeRow(
     companion object {
 
         private val sheetId = System.getenv("SHEET_ID")!!
-        private const val range = "EDIFICI_BOT!A1:M40"
+        private const val RANGE = "EDIFICI_BOT!A1:M40"
 
         fun parseRows(): List<BuildingRecipeRow> =
             GoogleSheetsUtils
-                .downloadRawDataFromSheet(sheetId, range)
+                .downloadRawDataFromSheet(sheetId, RANGE)
                 .let { values ->
                     val header = values.getHeaderMapping()
                     values.getValues()

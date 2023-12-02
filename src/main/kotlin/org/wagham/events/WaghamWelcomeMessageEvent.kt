@@ -5,6 +5,7 @@ import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.asChannelOf
 import dev.kord.core.entity.channel.MessageChannel
 import dev.kord.core.event.guild.MemberJoinEvent
+import dev.kord.core.event.guild.MemberLeaveEvent
 import dev.kord.core.on
 import kotlinx.coroutines.flow.firstOrNull
 import org.wagham.annotations.BotEvent
@@ -40,6 +41,14 @@ class WaghamWelcomeMessageEvent(
                                 append("Buon divertimento!")
                             })
                     }
+            }
+        }
+
+        kord.on<MemberLeaveEvent> {
+            if(cacheManager.getConfig(this.getGuild().id).eventChannels[eventId]?.enabled == true) {
+                getGuild().getChannel(Snowflake("1099399338498719876")).asChannelOf<MessageChannel>().sendTextMessage(
+                    "<@${this.user.id} ha abbandonato il server"
+                )
             }
         }
     }

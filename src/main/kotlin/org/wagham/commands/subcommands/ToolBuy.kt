@@ -65,6 +65,7 @@ class ToolBuy(
             .expireAfterWrite(1, TimeUnit.MINUTES)
             .build()
     private val delaysPerToolNumber = listOf(0.days, 3.days, 3.days, 7.days, 7.days, 14.days, 14.days, 21.days, 21.days, 28.days)
+    private val costPerToolNumber = listOf(150f, 300f, 300f, 750f, 750f, 1500f, 1500f, 3000f, 3000f, 6000f)
 
     override fun create(ctx: RootInputChatBuilder) = ctx.subCommand(commandName, defaultDescription) {
         localeDescriptions.forEach{ (locale, description) ->
@@ -99,23 +100,25 @@ class ToolBuy(
         s: ClientSession,
         guildId: String,
         characterId: String,
-        cost: AbilityCost
+        cost: AbilityCost,
+        totalToolsNumber: Int
     ): Boolean {
-        val moneyStep = db.charactersScope.subtractMoney(s, guildId, characterId, cost.moCost)
+        val moCost = costPerToolNumber[totalToolsNumber.coerceAtMost(delaysPerToolNumber.size - 1)]
+        val moneyStep = db.charactersScope.subtractMoney(s, guildId, characterId, moCost)
         val itemsStep = cost.itemsCost.all { (material, qty) ->
             db.charactersScope.removeItemFromInventory(s, guildId, characterId, material, qty)
         }
-        val itemsRecord = cost.itemsCost.mapValues { it.value.toFloat() } + (transactionMoney to cost.moCost)
+        val itemsRecord = cost.itemsCost.mapValues { it.value.toFloat() } + (transactionMoney to moCost)
         val transactionsStep = db.characterTransactionsScope.addTransactionForCharacter(
             s, guildId, characterId, Transaction(
                 Date(), null, "BUY TOOL", TransactionType.REMOVE, itemsRecord))
         return moneyStep && itemsStep && transactionsStep
     }
 
-    private suspend fun assignToolToCharacterImmediately(guildId: String, tool: ToolProficiency, character: String, locale: String) =
+    private suspend fun assignToolToCharacterImmediately(guildId: String, tool: ToolProficiency, character: String, toolCount: Int, locale: String) =
         db.transaction(guildId) { s ->
             val cost = tool.cost ?: throw IllegalStateException("This tool cannot be bought")
-            val payStep = payToolCost(s, guildId, character, cost)
+            val payStep = payToolCost(s, guildId, character, cost, toolCount)
             val proficiencyStep = db.charactersScope.addProficiencyToCharacter(s, guildId, character, ProficiencyStub(tool.id, tool.name))
 
             payStep && proficiencyStep && db.characterTransactionsScope.addTransactionForCharacter(
@@ -132,7 +135,7 @@ class ToolBuy(
     private suspend fun payAndDelayAssignment(guildId: String, tool: ToolProficiency, character: String, toolCount: Int, locale: String) =
         db.transaction(guildId) { s ->
             val cost = tool.cost ?: throw IllegalStateException("This tool cannot be bought")
-            val payStep = payToolCost(s, guildId, character, cost)
+            val payStep = payToolCost(s, guildId, character, cost, toolCount)
 
             val delay = Date(
                 System.currentTimeMillis()
@@ -190,13 +193,13 @@ class ToolBuy(
             character.proficiencies.any { it.id == tool.id } -> createGenericEmbedError(ToolBuyLocale.ALREADY_POSSESS.locale(locale))
             futureTools.any { it.id == tool.id } -> createGenericEmbedError(ToolBuyLocale.ALREADY_POSSESS.locale(locale))
             tool.cost == null -> createGenericEmbedError(ToolBuyLocale.CANNOT_BUY.locale(locale))
-            character.money < tool.cost!!.moCost -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
+            character.money < costPerToolNumber[totalToolsNumber.coerceAtMost(delaysPerToolNumber.size - 1)] -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
             character.missingMaterials(tool).isNotEmpty() -> createGenericEmbedError(
                 ToolBuyLocale.MISSING_MATERIALS.locale(locale) + ": " + character.missingMaterials(tool).entries.joinToString(", ") {
                     "${it.key} x${it.value}"
                 }
             )
-            tool.cost?.timeRequired == null && totalToolsNumber == 0 -> assignToolToCharacterImmediately(guildId, tool, character.id, locale)
+            tool.cost?.timeRequired == null && totalToolsNumber == 0 -> assignToolToCharacterImmediately(guildId, tool, character.id, totalToolsNumber, locale)
             else -> payAndDelayAssignment(guildId, tool, character.id, totalToolsNumber, locale)
         }
     }

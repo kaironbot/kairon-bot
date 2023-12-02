@@ -15,6 +15,7 @@ import org.wagham.db.enums.ScheduledEventState
 import org.wagham.db.enums.ScheduledEventType
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.models.Item
+import org.wagham.db.models.LanguageProficiency
 import org.wagham.db.models.ScheduledEvent
 import org.wagham.db.models.ToolProficiency
 import org.wagham.db.models.embed.ProficiencyStub
@@ -108,7 +109,7 @@ class SchedulingManager(
         }
         if (tool == null) {
             channel.sendTextMessage(
-                "<@$player> $toolId cannot be crafted as it does not exist"
+                "<@$player> tool $toolId cannot be given as it does not exist"
             )
             db.scheduledEventsScope.updateState(
                 guildId.toString(),
@@ -150,6 +151,58 @@ class SchedulingManager(
         }
     }
 
+    private suspend fun handleGiveLanguageTask(guildId: Snowflake, task: ScheduledEvent, kord: Kord, cacheManager: CacheManager) {
+        val languageId = task.args.getValue(ScheduledEventArg.PROFICIENCY_ID)
+        val target = task.args.getValue(ScheduledEventArg.TARGET)
+        val player = target.split(":").first()
+        val channel = kord.getChannelOfTypeOrDefault(guildId, Channels.BOT_CHANNEL, cacheManager)
+        val tool = cacheManager.getCollectionOfType<LanguageProficiency>(guildId).firstOrNull {
+            it.id == languageId
+        }
+        if (tool == null) {
+            channel.sendTextMessage(
+                "<@$player> language $languageId cannot be crafted as it does not exist"
+            )
+            db.scheduledEventsScope.updateState(
+                guildId.toString(),
+                task.id,
+                ScheduledEventState.FAILED
+            )
+        } else {
+            db.transaction(guildId.toString()) { session ->
+                val assignStep =  db.charactersScope.addLanguageToCharacter(
+                    session,
+                    guildId.toString(),
+                    target,
+                    ProficiencyStub(tool.id, tool.name)
+                )
+                val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
+                    session,
+                    guildId.toString(),
+                    target,
+                    Transaction(Date(), null, "BUY LANGUAGE", TransactionType.ADD, mapOf(tool.name to 1f))
+                )
+                assignStep && recordStep
+            }.let { result ->
+                if (result.committed) {
+                    channel.sendTextMessage("<@$player> successfully assigned ${tool.name}")
+                    db.scheduledEventsScope.updateState(
+                        guildId.toString(),
+                        task.id,
+                        ScheduledEventState.COMPLETED
+                    )
+                } else {
+                    channel.sendTextMessage("<@$player> there was an error assigning ${tool.name}")
+                    db.scheduledEventsScope.updateState(
+                        guildId.toString(),
+                        task.id,
+                        ScheduledEventState.FAILED
+                    )
+                }
+            }
+        }
+    }
+
     suspend fun launchTasks(cacheManager: CacheManager, kord: Kord) = coroutineScope {
         for ((guildId, task) in taskChannel) {
             launch(Dispatchers.Default) {
@@ -159,7 +212,7 @@ class SchedulingManager(
                     when(task.type) {
                         ScheduledEventType.GIVE_ITEM -> handleGiveItemTask(guildId, task, kord, cacheManager)
                         ScheduledEventType.GIVE_TOOL -> handleGiveToolTask(guildId, task, kord, cacheManager)
-                        ScheduledEventType.GIVE_LANGUAGE -> TODO()
+                        ScheduledEventType.GIVE_LANGUAGE -> handleGiveLanguageTask(guildId, task, kord, cacheManager)
                     }
                 } catch (e: Exception) {
                     db.scheduledEventsScope.updateState(

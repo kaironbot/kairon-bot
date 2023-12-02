@@ -26,6 +26,7 @@ class ExternalGateway(
      * the [DailyAttendanceEvent] event.
      */
     private fun Routing.registeredSessionHandler() = post("/session") {
+        println("Received Session")
         val registeredSession = call.receive<RegisteredSession>()
         cacheManager.sendToChannel<AssignItemAfterSessionEvent, RegisteredSession>(registeredSession)
         cacheManager.sendToChannel<DailyAttendanceEvent, UpdateGuildAttendanceMessage>(
@@ -39,6 +40,7 @@ class ExternalGateway(
      * It receives a [ExpUpdate] in the body and will ship it to the [AssignItemOnLevelUpEvent] event.
      */
     private fun Routing.levelUpHandler() = post("/levelUp") {
+        println("Received LevelUp")
         val update = call.receive<ExpUpdate>()
         cacheManager.sendToChannel<AssignItemOnLevelUpEvent, ExpUpdate>(update)
         call.respond("ok")

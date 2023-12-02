@@ -48,13 +48,14 @@ class ItemRow(
                         }
                 }
 
-        private fun Map<String, String>.toItem(alreadyParsed: List<ItemRow>, labelsByName: Map<String, Label>): Item =
-            Item(
+        private fun Map<String, String>.toItem(alreadyParsed: List<ItemRow>, labelsByName: Map<String, Label>): Item {
+            println(getValue("Name_Item").trim())
+            return Item(
                 name = getValue("Name_Item").trim(),
-                sell = getValue("Item_Sell_Price").formatToFloat().takeIf { it > 0 }?.let {
+                sell = getValue("Item Sell Price").formatToFloat().takeIf { it > 0 }?.let {
                     BuySellRequirement(cost = it)
                 }.takeIf { getValue("sellable?").formatToInt() == 1 },
-                buy = getValue("Item_Buy_Price").formatToFloat().takeIf { it > 0 }?.let {
+                buy = getValue("Item Buy Price").formatToFloat().takeIf { it > 0 }?.let {
                     BuySellRequirement(cost = it)
                 }.takeIf { getValue("Item Always purchasable?").formatToInt() == 1 },
                 usable = getValue("usable?").formatToInt() == 1,
@@ -69,12 +70,13 @@ class ItemRow(
                 ),
                 labels = extractLabels(labelsByName)
             )
+        }
 
         private fun Map<String, String>.toRecipeOrNull(labelsByName: Map<String, Label>) =
-            if(getValue("Name_Recipe").trim().isNotBlank()) {
+            if(getValue("Name_Resource").trim().isNotBlank()) {
                 Item(
-                    name = getValue("Name_Recipe").trim(),
-                    sell = getValue("Recipe_Sell_Price").formatToFloat().takeIf { it > 0 }?.let {
+                    name = getValue("Name_Resource").trim(),
+                    sell = getValue("Resource Sell Price").formatToFloat().takeIf { it > 0 }?.let {
                         BuySellRequirement(cost = it)
                     }.takeIf { getValue("sellable?").formatToInt() == 1 },
                     category = "Recipe",
@@ -96,15 +98,15 @@ class ItemRow(
                 }.toTypedArray()
             )
 
-        private fun Map<String, String>.extractRecipeCraftOrNull() = if(getValue("Name_Recipe").isNotBlank()) {
-            val quantity = getValue("Craft_Quantity").formatToInt()
+        private fun Map<String, String>.extractRecipeCraftOrNull() = if(getValue("Name_Resource").isNotBlank()) {
+            val quantity = getValue("Craft Quantity").formatToInt()
             CraftRequirement(
                 timeRequired = null,
                 minQuantity = quantity,
                 maxQuantity = quantity,
-                materials = mapOf(getValue("Name_Recipe") to 1f/quantity),
+                materials = mapOf(getValue("Name_Resource") to 1f/quantity),
                 label = "Craft",
-                cost = getValue("Craft_Mo_Cost").formatToFloat()
+                cost = getValue("Craft Mo Cost").formatToFloat()
             )
         } else null
 

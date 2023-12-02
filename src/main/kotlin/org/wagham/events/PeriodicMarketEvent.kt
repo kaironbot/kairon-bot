@@ -229,7 +229,7 @@ class PeriodicMarketEvent(
             kord.guilds.collect { guild ->
                 if (cacheManager.getConfig(guild.id).eventChannels[eventId]?.enabled == true) {
                     taskExecutorScope.launch {
-                        val schedulerConfig = "0 55 20 * * ${getTimezoneOffset()}o 2,3w"
+                        val schedulerConfig = "0 0 0 * * ${getTimezoneOffset()}o 2,3w"
                         logger.info { "Starting Periodic Market for guild ${guild.name} at $schedulerConfig" }
                         doInfinity(schedulerConfig) {
                             try {

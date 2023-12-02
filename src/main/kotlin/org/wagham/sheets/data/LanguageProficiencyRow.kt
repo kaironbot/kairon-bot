@@ -1,7 +1,6 @@
 package org.wagham.sheets.data
 
 import org.wagham.db.models.LanguageProficiency
-import org.wagham.db.models.ToolProficiency
 import org.wagham.db.models.embed.AbilityCost
 import org.wagham.sheets.GoogleSheetsUtils
 import org.wagham.sheets.getHeaderMapping
@@ -16,12 +15,12 @@ class LanguageProficiencyRow(
 
     companion object {
 
-        private val sheetId = System.getenv("DND_SHEET_ID")!!
-        private const val range = "Languages!A1:G100"
+        private val sheetId = System.getenv("SHEET_ID")!!
+        private const val RANGE = "Languages!A1:G100"
 
         fun parseRows(): List<LanguageProficiencyRow> =
             GoogleSheetsUtils
-                .downloadRawDataFromSheet(sheetId, range)
+                .downloadRawDataFromSheet(sheetId, RANGE)
                 .let { values ->
                     val header = values.getHeaderMapping()
                     values.getValues()
@@ -34,9 +33,12 @@ class LanguageProficiencyRow(
                                     name = it["NAME"]!!,
                                     cost = AbilityCost(
                                         it["MONEY"]!!.formatToFloat(),
-                                        mapOf(
-                                            it["ITEM"]!! to it["QTY"]!!.formatToInt()
-                                        )
+                                        listOfNotNull(
+                                            it["ITEM"]?.let { item ->
+                                                item to it["QTY"]!!.formatToInt()
+                                            }
+                                        ).toMap(),
+                                        it["TIME_REQUIRED"]?.toLongOrNull()
                                     )
                                 )
                             )
