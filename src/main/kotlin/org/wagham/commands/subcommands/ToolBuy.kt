@@ -132,45 +132,45 @@ class ToolBuy(
             }
         }
 
-    private suspend fun payAndDelayAssignment(guildId: String, tool: ToolProficiency, character: String, toolCount: Int, locale: String) =
-        db.transaction(guildId) { s ->
-            val cost = tool.cost ?: throw IllegalStateException("This tool cannot be bought")
+    private suspend fun payAndDelayAssignment(guildId: String, tool: ToolProficiency, character: String, toolCount: Int, locale: String): InteractionResponseModifyBuilder.() -> Unit {
+        val cost = tool.cost ?: throw IllegalStateException("This tool cannot be bought")
+        return db.transaction(guildId) { s ->
             val payStep = payToolCost(s, guildId, character, cost, toolCount)
-
-            val delay = Date(
-                System.currentTimeMillis()
-                    + (cost.timeRequired ?: 0)
-                    + delaysPerToolNumber[toolCount.coerceAtMost(delaysPerToolNumber.size - 1)].inWholeMilliseconds
-            )
-
-            val task = ScheduledEvent(
-                uuid(),
-                ScheduledEventType.GIVE_TOOL,
-                Date(),
-                delay,
-                ScheduledEventState.SCHEDULED,
-                mapOf(
-                    ScheduledEventArg.PROFICIENCY_ID to tool.id,
-                    ScheduledEventArg.TARGET to character
-                )
-            )
-
-            cacheManager.scheduleEvent(Snowflake(guildId), task)
-
             payStep
         }.let {
             when {
-                it.committed -> createGenericEmbedSuccess(
-                "${ToolBuyLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(
-                    System.currentTimeMillis()
-                            + (tool.cost?.timeRequired ?: 0)
-                            + delaysPerToolNumber[toolCount.coerceAtMost(delaysPerToolNumber.size - 1)].inWholeMilliseconds
-                ))}"
-            )
+                it.committed -> {
+                    val delay = Date(
+                        System.currentTimeMillis()
+                                + (cost.timeRequired ?: 0)
+                                + delaysPerToolNumber[toolCount.coerceAtMost(delaysPerToolNumber.size - 1)].inWholeMilliseconds)
+                    val task = ScheduledEvent(
+                        uuid(),
+                        ScheduledEventType.GIVE_TOOL,
+                        Date(),
+                        delay,
+                        ScheduledEventState.SCHEDULED,
+                        mapOf(
+                            ScheduledEventArg.PROFICIENCY_ID to tool.id,
+                            ScheduledEventArg.TARGET to character
+                        )
+                    )
+
+                    cacheManager.scheduleEvent(Snowflake(guildId), task)
+                    createGenericEmbedSuccess(
+                        "${ToolBuyLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(
+                            System.currentTimeMillis()
+                                    + (tool.cost?.timeRequired ?: 0)
+                                    + delaysPerToolNumber[toolCount.coerceAtMost(delaysPerToolNumber.size - 1)].inWholeMilliseconds
+                        ))}"
+                    )
+                }
                 it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
                 else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
             }
         }
+    }
+
 
     private fun Character.missingMaterials(tool: ToolProficiency) =
         tool.cost?.itemsCost?.mapValues {
@@ -186,12 +186,14 @@ class ToolBuy(
                 it.key == ScheduledEventArg.TARGET && it.value == character.id
             }
         }.mapNotNull { task ->
-            task.args[ScheduledEventArg.PROFICIENCY_ID]
-        }.map { ProficiencyStub(it, it) }.toSet()
+            task.args[ScheduledEventArg.PROFICIENCY_ID]?.let {
+                it to task.activation
+            }
+        }.toList().toMap()
         val totalToolsNumber = futureTools.size + character.proficiencies.size
         return when {
             character.proficiencies.any { it.id == tool.id } -> createGenericEmbedError(ToolBuyLocale.ALREADY_POSSESS.locale(locale))
-            futureTools.any { it.id == tool.id } -> createGenericEmbedError(ToolBuyLocale.ALREADY_POSSESS.locale(locale))
+            futureTools[tool.id] != null -> createGenericEmbedError("${ToolBuyLocale.LEARNING.locale(locale)} ${dateFormatter.format(futureTools[tool.id])}")
             tool.cost == null -> createGenericEmbedError(ToolBuyLocale.CANNOT_BUY.locale(locale))
             character.money < costPerToolNumber[totalToolsNumber.coerceAtMost(delaysPerToolNumber.size - 1)] -> createGenericEmbedError(CommonLocale.NOT_ENOUGH_MONEY.locale(locale))
             character.missingMaterials(tool).isNotEmpty() -> createGenericEmbedError(
