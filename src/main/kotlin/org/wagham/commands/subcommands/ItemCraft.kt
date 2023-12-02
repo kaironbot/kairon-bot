@@ -182,36 +182,37 @@ class ItemCraft(
             }
         }
 
-    private suspend fun craftItemAndDelayAssignmentToCharacter(guildId: String, item: Item, recipeIndex: Int, amount: Int, character: String, locale: String) =
-        db.transaction(guildId) { s ->
-            val recipe = item.craft[recipeIndex]
+    private suspend fun craftItemAndDelayAssignmentToCharacter(guildId: String, item: Item, recipeIndex: Int, amount: Int, character: String, locale: String): InteractionResponseModifyBuilder.() -> Unit {
+        val recipe = item.craft[recipeIndex]
+        return db.transaction(guildId) { s ->
             val result = payCostAndRecord(s, guildId, character, recipe, amount)
-
-            val task = ScheduledEvent(
-                uuid(),
-                ScheduledEventType.GIVE_ITEM,
-                Date(),
-                Date(System.currentTimeMillis() + recipe.timeRequired!!),
-                ScheduledEventState.SCHEDULED,
-                mapOf(
-                    ScheduledEventArg.ITEM to item.name,
-                    ScheduledEventArg.INT_QUANTITY to "$amount",
-                    ScheduledEventArg.TARGET to character
-                )
-            )
-
-            cacheManager.scheduleEvent(Snowflake(guildId), task)
-
             result
         }.let {
             when {
-                it.committed -> createGenericEmbedSuccess(
-                    "${ItemCraftLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(System.currentTimeMillis() + item.craft[recipeIndex].timeRequired!!))}"
-                )
+                it.committed -> {
+                    val task = ScheduledEvent(
+                        uuid(),
+                        ScheduledEventType.GIVE_ITEM,
+                        Date(),
+                        Date(System.currentTimeMillis() + recipe.timeRequired!!),
+                        ScheduledEventState.SCHEDULED,
+                        mapOf(
+                            ScheduledEventArg.ITEM to item.name,
+                            ScheduledEventArg.INT_QUANTITY to "$amount",
+                            ScheduledEventArg.TARGET to character
+                        )
+                    )
+
+                    cacheManager.scheduleEvent(Snowflake(guildId), task)
+                    createGenericEmbedSuccess(
+                        "${ItemCraftLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(System.currentTimeMillis() + item.craft[recipeIndex].timeRequired!!))}"
+                    )
+                }
                 it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
                 else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
             }
         }
+    }
 
     private fun generateRecipeDisambiguationMessage(
         item: Item,

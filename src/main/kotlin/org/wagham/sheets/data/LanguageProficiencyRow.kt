@@ -34,7 +34,7 @@ class LanguageProficiencyRow(
                                     cost = AbilityCost(
                                         it["MONEY"]!!.formatToFloat(),
                                         listOfNotNull(
-                                            it["ITEM"]?.let { item ->
+                                            it["ITEM"].takeIf { name -> !name.isNullOrBlank() }?.let { item ->
                                                 item to it["QTY"]!!.formatToInt()
                                             }
                                         ).toMap(),

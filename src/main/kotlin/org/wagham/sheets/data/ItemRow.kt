@@ -48,9 +48,8 @@ class ItemRow(
                         }
                 }
 
-        private fun Map<String, String>.toItem(alreadyParsed: List<ItemRow>, labelsByName: Map<String, Label>): Item {
-            println(getValue("Name_Item").trim())
-            return Item(
+        private fun Map<String, String>.toItem(alreadyParsed: List<ItemRow>, labelsByName: Map<String, Label>): Item =
+            Item(
                 name = getValue("Name_Item").trim(),
                 sell = getValue("Item Sell Price").formatToFloat().takeIf { it > 0 }?.let {
                     BuySellRequirement(cost = it)
@@ -70,7 +69,6 @@ class ItemRow(
                 ),
                 labels = extractLabels(labelsByName)
             )
-        }
 
         private fun Map<String, String>.toRecipeOrNull(labelsByName: Map<String, Label>) =
             if(getValue("Name_Resource").trim().isNotBlank()) {
@@ -87,7 +85,7 @@ class ItemRow(
 
         private fun Map<String, String>.extractLabels(labelsByName: Map<String, Label>): Set<LabelStub> =
             setOfNotNull(
-                "[^(]+(T[0-9]).*".toRegex().find(getValue("Category"))?.groupValues?.get(1)?.let { labelsByName.getValue(it).toLabelStub() },
+                ".*(T[0-9]).*".toRegex().find(getValue("Category"))?.groupValues?.get(1)?.let { labelsByName.getValue(it).toLabelStub() },
                 labelsByName.getValue("Consumable").toLabelStub().takeIf { getValue("usable?").formatToInt() == 1 },
                 getValue("Drop_Tool").takeIf { it != "Nessuno" }?.let { labelsByName.getValue(it.trim()).toLabelStub() },
                 labelsByName.getValue("Market").toLabelStub().takeIf { getValue("Weekly market?").formatToInt() == 1 },

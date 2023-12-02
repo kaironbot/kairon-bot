@@ -16,6 +16,7 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
@@ -23,6 +24,7 @@ import org.wagham.commands.impl.LanguageCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.LanguageBuyLocale
+import org.wagham.config.locale.subcommands.ToolBuyLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.ScheduledEventArg
 import org.wagham.db.enums.ScheduledEventState
@@ -111,38 +113,40 @@ class LanguageBuy(
         return moneyStep && itemsStep && transactionsStep
     }
 
-    private suspend fun payAndDelayAssignment(guildId: String, language: LanguageProficiency, character: String, locale: String) =
-        db.transaction(guildId) { s ->
-            val cost = language.cost ?: throw IllegalStateException("This tool cannot be bought")
+    private suspend fun payAndDelayAssignment(guildId: String, language: LanguageProficiency, character: String, locale: String): InteractionResponseModifyBuilder.() -> Unit {
+        val cost = language.cost ?: throw IllegalStateException("This tool cannot be bought")
+        return db.transaction(guildId) { s ->
             val payStep = payLanguageCost(s, guildId, character, cost)
-
-            val delay = Date(System.currentTimeMillis() + (cost.timeRequired ?: 0))
-
-            val task = ScheduledEvent(
-                uuid(),
-                ScheduledEventType.GIVE_LANGUAGE,
-                Date(),
-                delay,
-                ScheduledEventState.SCHEDULED,
-                mapOf(
-                    ScheduledEventArg.PROFICIENCY_ID to language.id,
-                    ScheduledEventArg.TARGET to character
-                )
-            )
-
-            cacheManager.scheduleEvent(Snowflake(guildId), task)
-
             payStep
         }.let {
             when {
-                it.committed -> createGenericEmbedSuccess(
-                    "${LanguageBuyLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(
-                        System.currentTimeMillis() + (language.cost?.timeRequired ?: 0))
-                    )}")
+                it.committed -> {
+                    val delay = Date(System.currentTimeMillis() + (cost.timeRequired ?: 0))
+
+                    val task = ScheduledEvent(
+                        uuid(),
+                        ScheduledEventType.GIVE_LANGUAGE,
+                        Date(),
+                        delay,
+                        ScheduledEventState.SCHEDULED,
+                        mapOf(
+                            ScheduledEventArg.PROFICIENCY_ID to language.id,
+                            ScheduledEventArg.TARGET to character
+                        )
+                    )
+
+                    cacheManager.scheduleEvent(Snowflake(guildId), task)
+                    createGenericEmbedSuccess(
+                        "${LanguageBuyLocale.READY_ON.locale(locale)}: ${dateFormatter.format(Date(
+                            System.currentTimeMillis() + (language.cost?.timeRequired ?: 0))
+                        )}")
+                }
                 it.exception is NoActiveCharacterException -> createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
                 else -> createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
             }
         }
+    }
+
 
     private suspend fun assignLanguageToCharacterImmediately(guildId: String, language: LanguageProficiency, character: String, locale: String) =
         db.transaction(guildId) { s ->
@@ -170,15 +174,16 @@ class LanguageBuy(
 
     private suspend fun checkRequirementsAndBuyLanguage(guildId: String, language: LanguageProficiency, character: Character, locale: String): InteractionResponseModifyBuilder.() -> Unit {
         val tasks = db.scheduledEventsScope.getAllScheduledEvents(guildId, ScheduledEventState.SCHEDULED)
-        val isLearning = tasks.filter { task ->
+        val learningDate = tasks.filter { task ->
             task.type == ScheduledEventType.GIVE_LANGUAGE && task.args.any {
                 it.key == ScheduledEventArg.TARGET && it.value == character.id
             }
-        }.filter { task ->
+        }.firstOrNull { task ->
             task.args[ScheduledEventArg.PROFICIENCY_ID] == language.id
-        }.toList().isNotEmpty()
+        }?.activation
         return when {
-            isLearning || character.languages.any { it.id == language.id } -> createGenericEmbedError(LanguageBuyLocale.ALREADY_POSSESS.locale(locale))
+            learningDate != null -> createGenericEmbedError("${LanguageBuyLocale.LEARNING.locale(locale)} ${dateFormatter.format(learningDate)}")
+            character.languages.any { it.id == language.id } -> createGenericEmbedError(LanguageBuyLocale.ALREADY_POSSESS.locale(locale))
             language.cost == null -> createGenericEmbedError(LanguageBuyLocale.CANNOT_BUY.locale(locale))
             language.cost?.moCost?.let {
                 character.money < it
