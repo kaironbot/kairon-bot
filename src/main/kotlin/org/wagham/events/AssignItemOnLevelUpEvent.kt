@@ -39,7 +39,7 @@ class AssignItemOnLevelUpEvent(
     private val logger = KotlinLogging.logger {}
 
     private suspend fun getRandomItem(guildId: String, tier: String, character: Character): Pair<Item, Int> {
-        val labels = db.labelsScope.getLabels(guildId, listOf("T$tier") + character.characterClass).map {
+        val labels = db.labelsScope.getLabelsByName(guildId, listOf("T$tier") + character.characterClass).map {
             it.toLabelStub()
         }.toList()
         return db.itemsScope.getItems(guildId, labels).toList().random().let {
