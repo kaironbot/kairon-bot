@@ -20,7 +20,7 @@ buildscript {
 }
 
 group = "org.wagham"
-version = "4.0.1"
+version = "4.1.0"
 java {
     sourceCompatibility = JavaVersion.VERSION_17
 }
