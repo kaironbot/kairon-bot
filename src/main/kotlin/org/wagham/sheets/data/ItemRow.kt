@@ -33,10 +33,9 @@ class ItemRow(
                         .subList(1, values.getValues().size)
                         .toListOfMap(header, 0)
                         .fold(emptyList()) { acc, it ->
-                            val operation = ImportOperation.valueOf(it.getValue("import_operation"))
+                            val operation = ImportOperation.valueOfNone(it.getValue("import_operation"))
                             acc + when(operation) {
-                                ImportOperation.DISCARDED -> emptyList()
-                                else -> listOfNotNull(
+                                ImportOperation.UPDATE -> listOfNotNull(
                                     ItemRow(operation = operation, item = it.toItem(acc, labelsByName)),
                                     it.toRecipeOrNull(labelsByName)?.let { recipe ->
                                         ItemRow(operation = operation, item = recipe)
@@ -44,6 +43,7 @@ class ItemRow(
                                         recipes.add(it.item.name)
                                     }
                                 )
+                                else -> emptyList()
                             }
                         }
                 }
@@ -68,7 +68,9 @@ class ItemRow(
                     *extractUpgradeCraftOrNull(alreadyParsed)
                 ),
                 labels = extractLabels(labelsByName)
-            )
+            ).also {
+                println(it.name)
+            }
 
         private fun Map<String, String>.toRecipeOrNull(labelsByName: Map<String, Label>) =
             if(getValue("Name_Resource").trim().isNotBlank()) {
@@ -117,7 +119,10 @@ class ItemRow(
                     timeRequired = null,
                     minQuantity = 1,
                     maxQuantity = 1,
-                    materials = mapOf(baseItem.item.name to 1f),
+                    materials = mapOf(
+                        baseItem.item.name to 1f,
+                        getValue("Name_Resource") to 1f
+                    ),
                     label = "Upgrade $itemName",
                     cost = baseItem.item.craft.firstOrNull { it.label == "Craft" }?.cost ?: baseItem.item.buy?.cost ?: 0.0f
                 )

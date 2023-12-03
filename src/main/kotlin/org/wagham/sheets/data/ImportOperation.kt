@@ -6,5 +6,14 @@ enum class ImportOperation {
     DISCARDED,
     WIP,
     MG,
-    NONE
+    NONE;
+
+    companion object {
+        fun valueOfNone(input: String) = runCatching {
+            ImportOperation.valueOf(input.uppercase())
+        }.onFailure {
+            NONE
+        }.getOrDefault(NONE)
+
+    }
 }

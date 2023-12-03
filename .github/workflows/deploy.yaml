@@ -62,7 +62,7 @@ jobs:
           script: |
             docker rm -f -v wagham-bot
             docker image prune -a -f
-            docker run -d --name wagham-bot --env-file /home/waghambot/waghambot.env testadirapa/wagham-bot:${{ env.NEW_VERSION }}
+            docker run -d --name wagham-bot --network host --env-file /home/waghambot/waghambot.env testadirapa/wagham-bot:${{ env.NEW_VERSION }}
 
       - name: Create Release
         uses: ncipollo/release-action@v1
