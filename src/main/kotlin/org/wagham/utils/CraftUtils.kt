@@ -37,6 +37,68 @@ fun Item.selectCraftOptions(character: Character, amount: Int): List<Int> =
         recipes.firstOrNull()?.first
     }
 
+data class InvalidQuantity(val qty: Int, val min: Int?, val max: Int?)
+
+data class MissingMaterialsReport(
+    val quantity: InvalidQuantity?,
+    val buildings: Set<String>?,
+    val tools: Set<String>?,
+    val missingMaterials: Map<String, Int>,
+    val money: Float?
+)
+
+fun Item.generateMissingMaterialsReport(character: Character, amount: Int): String =
+    craft.mapIndexed { index, recipe ->
+        val report = MissingMaterialsReport(
+            InvalidQuantity(amount, recipe.minQuantity, recipe.maxQuantity).takeIf { !recipe.quantityIsValid(amount) },
+            recipe.buildings.takeIf { !recipe.characterHasBuildingRequirement(character) },
+            recipe.tools.takeIf { !recipe.characterHasProficiencyRequirement(character) },
+            recipe.materials.filter { (k, v) ->
+                (v * amount) - character.inventory.getOrDefault(k, 0) >= 0
+            }.map { (k, v) ->
+                k to ((v * amount) - character.inventory.getOrDefault(k, 0)).toInt()
+            }.toMap(),
+            ((recipe.cost * amount) - character.money).takeIf { it > 0 }
+        )
+        (recipe.label ?: "Recipe $index") to report
+    }.toMap().let { report ->
+        buildString {
+            append("You are missing some requirements on all the recipes.\n")
+            report.forEach { (recipeId, materials) ->
+                append("**$recipeId**:\n")
+                if(materials.quantity != null) {
+                    append("\tQuantity ${materials.quantity.qty} is invalid:")
+                    materials.quantity.max?.also {
+                        append(" max is $it")
+                    }
+                    materials.quantity.min?.also {
+                        append(" min is $it")
+                    }
+                    append("\n")
+                }
+                materials.buildings?.also {
+                    append("\tMissing buildings: ")
+                    append(it.joinToString(", "))
+                    append("\n")
+                }
+                materials.tools?.also {
+                    append("\tMissing tools: ")
+                    append(it.joinToString(", "))
+                    append("\n")
+                }
+                if(materials.missingMaterials.isNotEmpty()) {
+                    append("\tMissing materials: ")
+                    append(materials.missingMaterials.entries.joinToString(", ") { "${it.key} x${it.value}" })
+                    append("\n")
+                }
+                materials.money?.also {
+                    append("\tMissing money: $it\n")
+                }
+                append("\n")
+            }
+        }
+    }
+
 fun CraftRequirement.summary() = buildString {
     append(this@summary.cost)
     append(" MO, ")
