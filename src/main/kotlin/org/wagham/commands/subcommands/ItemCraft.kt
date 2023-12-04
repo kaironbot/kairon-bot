@@ -260,7 +260,7 @@ class ItemCraft(
         val recipeIndexes = item.selectCraftOptions(character, amount)
         return when {
             item.craft.isEmpty() -> createGenericEmbedError(ItemCraftLocale.NOT_CRAFTABLE.locale(locale))
-            recipeIndexes.isEmpty() -> createGenericEmbedError(ItemCraftLocale.NO_RECIPE_AVAILABLE.locale(locale))
+            recipeIndexes.isEmpty() -> createGenericEmbedError(item.generateMissingMaterialsReport(character, amount))
             recipeIndexes.size == 1 -> craftItemAndAssignToCharacter(guildId, item, recipeIndexes.first(), amount, character.id, locale)
             else -> {
                 val interactionId = compactUuid().substring(0, 6)

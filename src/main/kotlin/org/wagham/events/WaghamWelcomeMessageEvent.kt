@@ -47,7 +47,7 @@ class WaghamWelcomeMessageEvent(
         kord.on<MemberLeaveEvent> {
             if(cacheManager.getConfig(this.getGuild().id).eventChannels[eventId]?.enabled == true) {
                 getGuild().getChannel(Snowflake("1099399338498719876")).asChannelOf<MessageChannel>().sendTextMessage(
-                    "<@${this.user.id} ha abbandonato il server"
+                    "<@${this.user.id}> ha abbandonato il server"
                 )
             }
         }
