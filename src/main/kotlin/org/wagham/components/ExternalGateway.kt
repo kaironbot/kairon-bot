@@ -26,7 +26,6 @@ class ExternalGateway(
      * the [DailyAttendanceEvent] event.
      */
     private fun Routing.registeredSessionHandler() = post("/session") {
-        println("Received Session")
         val registeredSession = call.receive<RegisteredSession>()
         cacheManager.sendToChannel<AssignItemAfterSessionEvent, RegisteredSession>(registeredSession)
         cacheManager.sendToChannel<DailyAttendanceEvent, UpdateGuildAttendanceMessage>(
