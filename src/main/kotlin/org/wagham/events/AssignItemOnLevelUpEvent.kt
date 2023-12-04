@@ -66,6 +66,7 @@ class AssignItemOnLevelUpEvent(
             update.guildId,
             update.updates.keys.toList()
         ).filter { character ->
+            println("Found character ${character.id}")
             val expDelta = update.updates.getValue(character.id)
             val currentLevel = expTable.expToLevel(character.ms().toFloat())
             val levelBeforeDelta = expTable.expToLevel(character.ms().toFloat() - expDelta)
