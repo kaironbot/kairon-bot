@@ -128,7 +128,7 @@ class UpdateDatabasesEvent(
             kord.guilds.collect { guild ->
                 if (cacheManager.getConfig(guild.id).eventChannels[eventId]?.enabled == true) {
                     taskExecutorScope.launch {
-                        val schedulerConfig = "0 57 12 * * ${getTimezoneOffset()}o"
+                        val schedulerConfig = "0 0 1 * * ${getTimezoneOffset()}o"
                         logger.info { "Starting Update Database for guild ${guild.name} at $schedulerConfig" }
                         doInfinity(schedulerConfig) {
                             updateBuildings(guild.id)
