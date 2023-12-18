@@ -43,6 +43,14 @@ class ItemRow(
                                         recipes.add(it.item.name)
                                     }
                                 )
+                                ImportOperation.NONE -> listOfNotNull(
+                                    ItemRow(operation = ImportOperation.UPDATE, item = it.toItem(acc, labelsByName)),
+                                    it.toRecipeOrNull(labelsByName)?.let { recipe ->
+                                        ItemRow(operation = operation, item = recipe)
+                                    }?.takeIf { r -> !recipes.contains(r.item.name) }?.also {
+                                        recipes.add(it.item.name)
+                                    }
+                                )
                                 else -> emptyList()
                             }
                         }
@@ -68,10 +76,7 @@ class ItemRow(
                     *extractUpgradeCraftOrNull(alreadyParsed)
                 ),
                 labels = extractLabels(labelsByName)
-            ).also {
-                println(it.name)
-            }
-
+            )
         private fun Map<String, String>.toRecipeOrNull(labelsByName: Map<String, Label>) =
             if(getValue("Name_Resource").trim().isNotBlank()) {
                 Item(
@@ -80,7 +85,7 @@ class ItemRow(
                         BuySellRequirement(cost = it)
                     }.takeIf { getValue("sellable?").formatToInt() == 1 },
                     category = "Recipe",
-                    giveRatio = 0.0f,
+                    giveRatio = 1.0f,
                     labels = extractLabels(labelsByName) + labelsByName.getValue("Recipe").toLabelStub()
                 )
             } else null

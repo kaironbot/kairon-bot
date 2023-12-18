@@ -222,7 +222,7 @@ class StatsMaster(
                 this.elements.joinToString(separator = "\n") {
                     "${it.title}\t" +
                             "${SimpleDateFormat("dd/MM/yyyy").format(it.date)}\t" +
-                            "${it.gameDate.day}-${it.gameDate.month}-${it.gameDate.year},${it.gameDate.season}\t" +
+                            "${it.gameDate?.day}-${it.gameDate?.month}-${it.gameDate?.year},${it.gameDate?.season}\t" +
                             it.master
                 }
 

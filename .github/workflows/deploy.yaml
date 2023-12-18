@@ -16,56 +16,34 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v3
-
-      - name: Setup JDK
-        uses: actions/setup-java@v2
         with:
-          java-version: '17'
-          distribution: 'adopt'
+          fetch-depth: 0
 
-      - name: Build
-        run: gradle build --warning-mode all --stacktrace -x test
+      - name: Get Previous tag
+        id: previoustag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+
+      - name: Get next versions
+        id: semvers
+        uses: "WyriHaximus/github-action-next-semvers@v1"
+        with:
+          version: ${{ steps.previoustag.outputs.tag }}
 
       - name: Creation new version (Major)
         if: ${{ contains(github.event.pull_request.labels.*.name, 'SemVer.major') }}
-        run: gradle incrementVersion --versionIncrementType=MAJOR --versionIncrementBranch=main -PgitUserName=TestaDiRapa -PgitUserEmail=v.c.pierro@gmail.com
+        run: echo "NEW_VERSION=${{ steps.semvers.outputs.major }}" >> $GITHUB_ENV
+
       - name: Creation new version (Minor)
         if: ${{ contains(github.event.pull_request.labels.*.name, 'SemVer.minor') }}
-        run: gradle incrementVersion --versionIncrementType=MINOR --versionIncrementBranch=main -PgitUserName=TestaDiRapa -PgitUserEmail=v.c.pierro@gmail.com
+        run: echo "NEW_VERSION=${{ steps.semvers.outputs.minor }}" >> $GITHUB_ENV
+
       - name: Creation new version (Patch)
         if: ${{ contains(github.event.pull_request.labels.*.name, 'SemVer.patch') }}
-        run: gradle incrementVersion --versionIncrementType=PATCH --versionIncrementBranch=main -PgitUserName=TestaDiRapa -PgitUserEmail=v.c.pierro@gmail.com
+        run: echo "NEW_VERSION=${{ steps.semvers.outputs.patch }}" >> $GITHUB_ENV
 
-      - name: Save version to env
-        run: echo "NEW_VERSION=$(gradle printLibVersion | grep -o '[0-9]\+.[0-9]\+.[0-9]\+')" >> $GITHUB_ENV
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          push: true
-          tags: testadirapa/wagham-bot:${{ env.NEW_VERSION }},testadirapa/wagham-bot:latest
-
-      - name: Run Api on Remote Server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            docker rm -f -v wagham-bot
-            docker image prune -a -f
-            docker run -d --name wagham-bot --network host --env-file /home/waghambot/waghambot.env testadirapa/wagham-bot:${{ env.NEW_VERSION }}
-
-      - name: Create Release
+      - name: Upload Release
         uses: ncipollo/release-action@v1
         with:
+          body: ${{ github.event.pull_request.body }}
           tag: ${{ env.NEW_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}

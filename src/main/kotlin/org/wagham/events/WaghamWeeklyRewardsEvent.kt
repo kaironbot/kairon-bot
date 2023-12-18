@@ -24,7 +24,7 @@ import org.wagham.db.models.embed.Transaction
 import org.wagham.utils.*
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.math.floor
+import kotlin.math.ceil
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.random.Random
@@ -42,7 +42,7 @@ class WaghamWeeklyRewardsEvent(
     private val logger = KotlinLogging.logger {}
 
     companion object {
-        private val tierRewards = mapOf("1" to 15, "2" to 30, "3" to 100, "4" to 500, "5" to 1000)
+        private val tierRewards = mapOf("1" to 20, "2" to 40, "3" to 100, "4" to 200, "5" to 400)
         private val guildRewards = mapOf("1" to 10f, "2" to 20f, "3" to 50f, "4" to 100f, "5" to 200f)
 
         private data class Reward(
@@ -66,11 +66,13 @@ class WaghamWeeklyRewardsEvent(
                 append("**Premi della settimana dal ${dateFormatter.format(weekStart)} al ${dateFormatter.format(weekEnd)}**\n\n")
                 append("**Premi master**\n")
                 master.entries.forEach {
-                    append("<@!${it.key}>: ${it.value}\n")
+                    val (playerId, characterName) = it.key.split(":")
+                    append("($characterName) <@!${playerId}>: ${it.value}\n")
                 }
                 append("\n**Stipendi Delegati**\n")
                 delegates.entries.forEach {
-                    append("<@!${it.key}>: ${it.value}\n")
+                    val (playerId, characterName) = it.key.split(":")
+                    append("($characterName) <@!${playerId}>: ${it.value}\n")
                 }
                 append("\n**Premi Edifici**\n")
                 playerRewards.entries.forEach{ (characterId, reward) ->
@@ -110,7 +112,7 @@ class WaghamWeeklyRewardsEvent(
             }.map {
                 val character = db.charactersScope.getCharacter(guildId.toString(), it.key)
                 val tier = expTable.expToTier(character.ms().toFloat())
-                character.id to (tierRewards[tier]!! * 2 * it.value)
+                character.id to (tierRewards.getValue(tier) * it.value)
             }.toMap()
     }
 
@@ -133,7 +135,7 @@ class WaghamWeeklyRewardsEvent(
                             characters.minByOrNull { it.created ?: Date() } ?: characters.first()
                         }?.let { character ->
                             val tier = expTable.expToTier(character.ms().toFloat())
-                            character.id to (tierRewards[tier]!! * 2)
+                            character.id to (tierRewards.getValue(tier))
                         }
                 } catch (e: NoActiveCharacterException) {
                     null
@@ -151,7 +153,9 @@ class WaghamWeeklyRewardsEvent(
 
     private fun getAllEligibleCharacters(guildId: Snowflake) =
         db.charactersScope.getAllCharacters(guildId.toString(), CharacterStatus.active)
-            .filter { character -> character.hasActivityInLast30Days() }
+            .filter { character ->
+                character.hasActivityInLast30Days()
+            }
 
     private fun Map<Pair<String, String>, List<Item>>.getRecipesForTierAndTools(tier: String, tools: List<String>, probability: Double): List<Item> =
         tools.flatMap {
@@ -181,9 +185,10 @@ class WaghamWeeklyRewardsEvent(
                     item.labels.any { it.name == "T2" } -> Pair("2", craft)
                     item.labels.any { it.name == "T3" } -> Pair("3", craft)
                     item.labels.any { it.name == "T4" } -> Pair("4", craft)
-                    item.labels.any { it.name == "T5" } -> Pair("5", craft)
                     else -> Pair("UNKNOWN", craft)
                 }
+            }.filterKeys {
+                it.first != "UNKNOWN"
             }
 
         // Gets the prerequisite data
@@ -200,7 +205,6 @@ class WaghamWeeklyRewardsEvent(
 
         // For each active player
         val updatedLog = getAllEligibleCharacters(guildId)
-            .filter { it.buildings.isNotEmpty() }
             .fold(rewardsLog) { log, character ->
                 // Calculates the proficiencies rewards
                 val tier = expTable.expToTier(character.ms().toFloat()).toInt()
@@ -209,7 +213,7 @@ class WaghamWeeklyRewardsEvent(
                 }.map { it.name }
                 val recipeRewards = tierRewards.keys.flatMap {
                     when {
-                        tier == it.toInt() -> recipesByTier.getRecipesForTierAndTools(it, tools, min(floor(tools.size / 2.0), 6.0))
+                        tier.coerceAtMost(4) == it.toInt() -> recipesByTier.getRecipesForTierAndTools(it, tools, min(ceil(tools.size / 2.0), 6.0))
                         tier > it.toInt() -> recipesByTier.getRecipesForTierAndTools(it, tools, (2.0.pow(it.toInt()-tier)))
                         else -> emptyList()
                     }

@@ -38,7 +38,7 @@ class AssignItemOnLevelUpEvent(
     private var channelDispatcher: Job? = null
     private val logger = KotlinLogging.logger {}
 
-    private suspend fun getRandomItem(guildId: String, tier: String, character: Character): Pair<Item, Int> {
+    private suspend fun getRandomItem(guildId: String, tier: Int, character: Character): Pair<Item, Int> {
         val labels = db.labelsScope.getLabelsByName(guildId, listOf("T$tier") + character.characterClass).map {
             it.toLabelStub()
         }.toList()
@@ -66,7 +66,6 @@ class AssignItemOnLevelUpEvent(
             update.guildId,
             update.updates.keys.toList()
         ).filter { character ->
-            println("Found character ${character.id}")
             val expDelta = update.updates.getValue(character.id)
             val currentLevel = expTable.expToLevel(character.ms().toFloat())
             val levelBeforeDelta = expTable.expToLevel(character.ms().toFloat() - expDelta)
@@ -74,7 +73,7 @@ class AssignItemOnLevelUpEvent(
                 && currentLevel != levelBeforeDelta
                 && (currentLevel.toInt() % 2 == 1)
         }.associateTo {
-            val tier = expTable.expToTier(it.ms().toFloat())
+            val tier = expTable.expToTier(it.ms().toFloat()).toInt().coerceAtMost(4)
             getRandomItem(update.guildId, tier, it)
         }
         if(charactersToItems.isNotEmpty()) {

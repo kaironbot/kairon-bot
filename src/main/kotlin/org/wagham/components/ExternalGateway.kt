@@ -39,10 +39,7 @@ class ExternalGateway(
      * It receives a [ExpUpdate] in the body and will ship it to the [AssignItemOnLevelUpEvent] event.
      */
     private fun Routing.levelUpHandler() = post("/levelUp") {
-        println("Received LevelUp")
         val update = call.receive<ExpUpdate>()
-        println("Guild id: ${update.guildId}")
-        println("Characters: ${update.updates.keys.joinToString(", ")}")
         cacheManager.sendToChannel<AssignItemOnLevelUpEvent, ExpUpdate>(update)
         call.respond("ok")
     }
