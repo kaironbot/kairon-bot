@@ -16,6 +16,7 @@ import dev.kord.rest.builder.message.create.UserMessageCreateBuilder
 import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -72,8 +73,10 @@ class PeriodicMarketEvent(
         db.itemsScope.getItems(guildId.toString(), listOfNotNull(
             type,
             LabelStub("8c7f4255-f694-4bc8-ae2b-fb95bbd5bc3f", "Recipe"),
+            LabelStub("a7f617e6-bb48-4beb-a9c4-389cc1e002e3", "Market"),
             LabelStub("edd53df7-dbb1-4593-b9ea-df5f90f489cf", "Consumable").takeIf { consumable }
-        )).toList().shuffled().take(qty).associateWith { item ->
+        )).toList().shuffled().take(qty).associateWith { recipe ->
+            val item = db.itemsScope.isMaterialOf(guildId.toString(), recipe).first()
             CraftRequirement(cost = item.craft.first { it.label == "Craft" }.cost / 10)
         }
 
@@ -229,7 +232,7 @@ class PeriodicMarketEvent(
             kord.guilds.collect { guild ->
                 if (cacheManager.getConfig(guild.id).eventChannels[eventId]?.enabled == true) {
                     taskExecutorScope.launch {
-                        val schedulerConfig = "0 0 0 * * ${getTimezoneOffset()}o 0,3w"
+                        val schedulerConfig = "0 45 13 * * ${getTimezoneOffset()}o"
                         logger.info { "Starting Periodic Market for guild ${guild.name} at $schedulerConfig" }
                         doInfinity(schedulerConfig) {
                             try {
