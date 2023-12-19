@@ -18,6 +18,7 @@ import org.wagham.db.enums.CharacterStatus
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.models.Character
 import org.wagham.db.models.Item
+import org.wagham.db.models.embed.LabelStub
 import org.wagham.db.models.embed.Transaction
 import org.wagham.entities.channels.ExpUpdate
 import org.wagham.utils.associateTo
@@ -41,7 +42,7 @@ class AssignItemOnLevelUpEvent(
     private suspend fun getRandomItem(guildId: String, tier: Int, character: Character): Pair<Item, Int> {
         val labels = db.labelsScope.getLabelsByName(guildId, listOf("T$tier") + character.characterClass).map {
             it.toLabelStub()
-        }.toList()
+        }.toList() + LabelStub("8c7f4255-f694-4bc8-ae2b-fb95bbd5bc3f", "Recipe")
         return db.itemsScope.getItems(guildId, labels).toList().random().let {
             it to 1
         }
