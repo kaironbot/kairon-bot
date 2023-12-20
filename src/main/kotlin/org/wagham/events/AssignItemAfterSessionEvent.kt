@@ -37,6 +37,8 @@ class AssignItemAfterSessionEvent(
     private val taskExecutorScope = CoroutineScope(Dispatchers.Default)
     private var channelDispatcher: Job? = null
     private val logger = KotlinLogging.logger {}
+    private val t4Label = LabelStub("290964a2-c86b-4a16-b8c4-cf07cf95dedc", "T4")
+    private val t5Label = LabelStub("a8159199-9b4b-4779-8e21-bd6d76ebb0dd", "T5")
 
     private suspend fun getRandomItem(guildId: String, labels: List<LabelStub>): Pair<Item, Int> =
         db.itemsScope.getItems(guildId, labels).toList().random().let {
@@ -56,7 +58,10 @@ class AssignItemAfterSessionEvent(
         if(session != null && session.labels.any { it.id == LORE_LABEL_ID } && session.labels.none { it.id == PBV_LABEL_ID}) {
             val itemLabels = db.labelsScope.getLabels(registeredSession.guildId, session.labels.map { it.id } + RECIPE_LABEL_ID, LabelType.ITEM).map {
                 it.toLabelStub()
-            }.toList()
+            }.toList().let { labels ->
+                if(labels.contains(t5Label)) labels.filter { it != t5Label } + t4Label
+                else labels
+            }
             if (itemLabels.isNotEmpty()) {
                 val characterToItem = db.charactersScope.getCharacters(
                     registeredSession.guildId,
