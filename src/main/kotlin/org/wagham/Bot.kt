@@ -58,6 +58,7 @@ class KaironBot(
             }
         }
         .map {
+            @Suppress("UNCHECKED_CAST")
             it.primaryConstructor!!.call(kord, database, cacheManager) as Command<RequestBuilder<*>>
         }
 

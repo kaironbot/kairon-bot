@@ -25,6 +25,7 @@ import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.models.Character
 import org.wagham.db.models.Item
+import org.wagham.db.models.embed.LabelStub
 import org.wagham.db.models.embed.Transaction
 import org.wagham.entities.InteractionParameters
 import org.wagham.utils.createGenericEmbedError
@@ -61,10 +62,10 @@ class AssignInitialRecipes(
 
     override suspend fun registerCommand() {}
 
-    private suspend fun getRandomItem(guildId: String, tier: String, character: Character): Item {
+    private suspend fun getRandomItem(guildId: String, tier: Int, character: Character): Item {
         val labels = db.labelsScope.getLabels(guildId, listOf("T$tier") + character.characterClass).map {
             it.toLabelStub()
-        }.toList()
+        }.toList() + LabelStub("8c7f4255-f694-4bc8-ae2b-fb95bbd5bc3f", "Recipe")
         return db.itemsScope.getItems(guildId, labels).toList().random()
     }
 
@@ -73,7 +74,7 @@ class AssignInitialRecipes(
         val level = expTable.expToLevel(character.ms().toFloat()).toInt()
         val recipes = (3 .. level).filter { it % 2 == 1 }.map {
             val levelExp = expTable.levelToExp("$it")
-            val tier = expTable.expToTier(levelExp.toFloat())
+            val tier = expTable.expToTier(levelExp.toFloat()).toInt().coerceAtMost(4)
             getRandomItem(guildId.toString(), tier, character)
         }
         return db.transaction(guildId.toString()) {
@@ -81,7 +82,7 @@ class AssignInitialRecipes(
                 db.charactersScope.addItemToInventory(it, guildId.toString(), character.id, recipe.name, 1)
             } && db.characterTransactionsScope.addTransactionForCharacter(
                 it, guildId.toString(), character.id, Transaction(
-            Date(), null, "INITIAL_RECIPES", TransactionType.ADD, recipes.map { it.name }.associateWith { 1f }
+            Date(), null, "INITIAL_RECIPES", TransactionType.ADD, recipes.map { r -> r.name }.associateWith { 1f }
             ))
         }.let {
             if(it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
