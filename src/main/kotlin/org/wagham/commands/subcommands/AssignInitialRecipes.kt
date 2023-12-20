@@ -71,7 +71,7 @@ class AssignInitialRecipes(
     private suspend fun InteractionParameters.assignRecipesToCharacter(character: Character): InteractionResponseModifyBuilder.() -> Unit {
         val expTable = cacheManager.getExpTable(guildId)
         val level = expTable.expToLevel(character.ms().toFloat()).toInt()
-        val recipes = (level .. 3).filter { it % 2 == 1 }.map {
+        val recipes = (3 .. level).filter { it % 2 == 1 }.map {
             val levelExp = expTable.levelToExp("$it")
             val tier = expTable.expToTier(levelExp.toFloat())
             getRandomItem(guildId.toString(), tier, character)

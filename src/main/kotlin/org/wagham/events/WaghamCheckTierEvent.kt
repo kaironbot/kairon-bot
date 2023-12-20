@@ -75,7 +75,7 @@ class WaghamCheckTierEvent(
             val player = kord.defaultSupplier.getMemberOrNull(guildId, Snowflake(character.player))
             if (player == null) {
                 acc.copy(second = acc.second + character)
-            } else if (player.roles.toList().all { !Regex("Tier $tier").matches(it.name) }) {
+            } else if (player.roles.toList().none { !Regex("Tier $tier.*").matches(it.name) }) {
                 acc.copy(first = acc.first + (player to character))
             } else acc
         }.let { updates ->
