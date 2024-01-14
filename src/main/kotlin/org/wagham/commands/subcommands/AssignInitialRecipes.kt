@@ -63,7 +63,7 @@ class AssignInitialRecipes(
     override suspend fun registerCommand() {}
 
     private suspend fun getRandomItem(guildId: String, tier: Int, character: Character): Item {
-        val labels = db.labelsScope.getLabels(guildId, listOf("T$tier") + character.characterClass).map {
+        val labels = db.labelsScope.getLabelsByName(guildId, listOf("T$tier") + character.characterClass).map {
             it.toLabelStub()
         }.toList() + LabelStub("8c7f4255-f694-4bc8-ae2b-fb95bbd5bc3f", "Recipe")
         return db.itemsScope.getItems(guildId, labels).toList().random()
