@@ -43,14 +43,6 @@ class ItemRow(
                                         recipes.add(it.item.name)
                                     }
                                 )
-                                ImportOperation.NONE -> listOfNotNull(
-                                    ItemRow(operation = ImportOperation.UPDATE, item = it.toItem(acc, labelsByName)),
-                                    it.toRecipeOrNull(labelsByName)?.let { recipe ->
-                                        ItemRow(operation = operation, item = recipe)
-                                    }?.takeIf { r -> !recipes.contains(r.item.name) }?.also {
-                                        recipes.add(it.item.name)
-                                    }
-                                )
                                 else -> emptyList()
                             }
                         }
