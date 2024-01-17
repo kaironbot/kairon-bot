@@ -6,6 +6,7 @@ enum class ImportOperation {
     DISCARDED,
     WIP,
     MG,
+    ERROR,
     NONE;
 
     companion object {
