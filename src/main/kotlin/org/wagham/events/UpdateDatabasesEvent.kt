@@ -87,6 +87,15 @@ class UpdateDatabasesEvent(
                     else getLogChannel(guildId).sendTextMessage("There was an error deleting items: ${transactionResult.exception?.stackTraceToString()}")
                 }
             }
+
+            val errors = items.filter { it.operation == ImportOperation.ERROR }
+            if(errors.isNotEmpty()) {
+                val channel = getLogChannel(guildId)
+                channel.sendTextMessage("There was an error refreshing the following items:")
+                errors.forEach {
+                    channel.sendTextMessage("${it.item.name}\n${it.errorMessage}")
+                }
+            }
         } catch (e: Exception) {
             getLogChannel(guildId).sendTextMessage("There was an error refreshing items:\n${e.stackTraceToString()}")
         }

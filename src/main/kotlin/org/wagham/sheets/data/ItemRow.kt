@@ -13,7 +13,8 @@ import org.wagham.utils.toListOfMap
 
 class ItemRow(
     val operation: ImportOperation = ImportOperation.NONE,
-    val item: Item
+    val item: Item,
+    val errorMessage: String? = null
 ) {
     companion object {
 
@@ -35,14 +36,26 @@ class ItemRow(
                         .fold(emptyList()) { acc, it ->
                             val operation = ImportOperation.valueOfNone(it.getValue("import_operation"))
                             acc + when(operation) {
-                                ImportOperation.UPDATE -> listOfNotNull(
-                                    ItemRow(operation = operation, item = it.toItem(acc, labelsByName)),
-                                    it.toRecipeOrNull(labelsByName)?.let { recipe ->
-                                        ItemRow(operation = operation, item = recipe)
-                                    }?.takeIf { r -> !recipes.contains(r.item.name) }?.also {
-                                        recipes.add(it.item.name)
-                                    }
-                                )
+                                ImportOperation.UPDATE -> try {
+                                    listOfNotNull(
+                                        ItemRow(operation = operation, item = it.toItem(acc, labelsByName)),
+                                        it.toRecipeOrNull(labelsByName)?.let { recipe ->
+                                            ItemRow(operation = operation, item = recipe)
+                                        }?.takeIf { r -> !recipes.contains(r.item.name) }?.also {
+                                            recipes.add(it.item.name)
+                                        }
+                                    )
+                                } catch (e: Exception) {
+                                    listOf(ItemRow(
+                                        operation = ImportOperation.ERROR,
+                                        item = Item(name = it["Name_Item"] ?: it.values.joinToString(", ")),
+                                        errorMessage = buildString {
+                                            e.message?.also { append(it) } ?: append("No message")
+                                            append(" @ ")
+                                            e.stackTrace.firstOrNull()?.also { append(it.toString()) } ?: append("UNKNOWN")
+                                        }
+                                    ))
+                                }
                                 else -> emptyList()
                             }
                         }
@@ -121,7 +134,8 @@ class ItemRow(
                         getValue("Name_Resource") to 1f
                     ),
                     label = "Upgrade $itemName",
-                    cost = baseItem.item.craft.firstOrNull { it.label == "Craft" }?.cost ?: baseItem.item.buy?.cost ?: 0.0f
+                    cost = getValue("Craft Mo Cost").formatToFloat() -
+                        (baseItem.item.craft.firstOrNull { it.label == "Craft" }?.cost ?: baseItem.item.buy?.cost ?: 0.0f)
                 )
             }.toTypedArray()
         } else emptyArray()
