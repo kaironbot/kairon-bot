@@ -35,8 +35,8 @@ class ItemRow(
                         .toListOfMap(header, 0)
                         .fold(emptyList()) { acc, it ->
                             val operation = ImportOperation.valueOfNone(it.getValue("import_operation"))
-                            acc + when(operation) {
-                                ImportOperation.UPDATE -> try {
+                            acc + try {
+                                if(operation != ImportOperation.DISCARDED) {
                                     listOfNotNull(
                                         ItemRow(operation = operation, item = it.toItem(acc, labelsByName)),
                                         it.toRecipeOrNull(labelsByName)?.let { recipe ->
@@ -45,18 +45,17 @@ class ItemRow(
                                             recipes.add(it.item.name)
                                         }
                                     )
-                                } catch (e: Exception) {
-                                    listOf(ItemRow(
-                                        operation = ImportOperation.ERROR,
-                                        item = Item(name = it["Name_Item"] ?: it.values.joinToString(", ")),
-                                        errorMessage = buildString {
-                                            e.message?.also { append(it) } ?: append("No message")
-                                            append(" @ ")
-                                            e.stackTrace.firstOrNull()?.also { append(it.toString()) } ?: append("UNKNOWN")
-                                        }
-                                    ))
-                                }
-                                else -> emptyList()
+                                } else emptyList()
+                            } catch (e: Exception) {
+                                listOf(ItemRow(
+                                    operation = ImportOperation.ERROR,
+                                    item = Item(name = it["Name_Item"] ?: it.values.joinToString(", ")),
+                                    errorMessage = buildString {
+                                        e.message?.also { append(it) } ?: append("No message")
+                                        append(" @ ")
+                                        e.stackTrace.firstOrNull()?.also { append(it.toString()) } ?: append("UNKNOWN")
+                                    }
+                                ))
                             }
                         }
                 }
