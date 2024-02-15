@@ -165,18 +165,18 @@ class AssignItem(
                 targetsOrSelectionContext.response != null -> targetsOrSelectionContext.response
                 else -> createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
             }
-        } ?: items.maxByOrNull { item.levenshteinDistance(it.name) }?.let {
+        } ?: items.maxByOrNull { item.levenshteinDistance(it.name) }?.let { probableItem ->
             val interactionId = compactUuid()
             interactionCache.put(
                 interactionId,
                 AssignItemInteractionParameters(
                     responsible.id,
                     targets,
-                    item,
+                    probableItem.name,
                     amount
                 )
             )
-            alternativeOptionMessage(locale, item, it.name, buildElementId(interactionId))
+            alternativeOptionMessage(locale, item, probableItem.name, buildElementId(interactionId))
         } ?: createGenericEmbedError(CommonLocale.GENERIC_ERROR.locale(locale))
 
     }
