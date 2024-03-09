@@ -131,16 +131,21 @@ class PeriodicMarketEvent(
                 else -> {
                     val item = market.idToItems.getValue(itemId)
                     val cost = market.items.getValue(item).cost
-                    db.transaction(params.guildId.toString()) { s ->
-                        val result = db.charactersScope.subtractMoney(s, params.guildId.toString(), activeCharacter.id, cost) &&
-                            db.charactersScope.addItemToInventory(s, params.guildId.toString(), activeCharacter.id, item, 1) &&
-                            db.characterTransactionsScope.addTransactionForCharacter(
-                                s, params.guildId.toString(), activeCharacter.id, Transaction(Date(), null, "BUY", TransactionType.REMOVE, mapOf(transactionMoney to cost))
-                            ) &&
-                            db.characterTransactionsScope.addTransactionForCharacter(
-                                s, params.guildId.toString(), activeCharacter.id, Transaction(Date(), null, "BUY", TransactionType.ADD, mapOf(item to 1.0f))
-                            )
-                        mapOf("result" to result)
+                    db.transaction(params.guildId.toString()) { session ->
+                        db.charactersScope.subtractMoney(session, params.guildId.toString(), activeCharacter.id, cost)
+                        db.charactersScope.addItemToInventory(session, params.guildId.toString(), activeCharacter.id, item, 1)
+                        db.characterTransactionsScope.addTransactionForCharacter(
+                            session,
+                            params.guildId.toString(),
+                            activeCharacter.id,
+                            Transaction(Date(), null, "BUY", TransactionType.REMOVE, mapOf(transactionMoney to cost))
+                        )
+                        db.characterTransactionsScope.addTransactionForCharacter(
+                            session,
+                            params.guildId.toString(),
+                            activeCharacter.id,
+                            Transaction(Date(), null, "BUY", TransactionType.ADD, mapOf(item to 1.0f))
+                        )
                     }.let {
                         if(it.committed) {
                             val newMarket = updateMarket(params.guildId, activeCharacter.id, itemId)

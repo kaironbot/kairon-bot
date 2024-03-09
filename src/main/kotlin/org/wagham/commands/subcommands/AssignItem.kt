@@ -131,15 +131,16 @@ class AssignItem(
     }
 
     private suspend fun assignItemToCharacters(item: String, amount: Int, targets: Collection<Character>, params: InteractionParameters) =
-        db.transaction(params.guildId.toString()) { s ->
-            val result = targets.fold(true) { acc, targetCharacter ->
-                acc && db.charactersScope.addItemToInventory(s, params.guildId.toString(), targetCharacter.id, item, amount) &&
-                    db.characterTransactionsScope.addTransactionForCharacter(
-                        s, params.guildId.toString(), targetCharacter.id, Transaction(
-                            Date(), null, "ASSIGN", TransactionType.ADD, mapOf(item to amount.toFloat())
-                        ))
+        db.transaction(params.guildId.toString()) { session ->
+            targets.forEach{ targetCharacter ->
+                db.charactersScope.addItemToInventory(session, params.guildId.toString(), targetCharacter.id, item, amount)
+                db.characterTransactionsScope.addTransactionForCharacter(
+                    session,
+                    params.guildId.toString(),
+                    targetCharacter.id,
+                    Transaction(Date(), null, "ASSIGN", TransactionType.ADD, mapOf(item to amount.toFloat()))
+                )
             }
-            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))

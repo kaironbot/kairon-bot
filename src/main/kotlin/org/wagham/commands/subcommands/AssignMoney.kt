@@ -101,16 +101,18 @@ class AssignMoney(
     }
 
     private suspend fun assignMoney(amount: Float, targets: Collection<Character>, params: InteractionParameters) =
-        db.transaction(params.guildId.toString()) { s ->
-            val steps = targets.fold(true) { acc, targetCharacter ->
-                acc && db.charactersScope.addMoney(s, params.guildId.toString(), targetCharacter.id, amount) &&
-                        db.characterTransactionsScope.addTransactionForCharacter(
-                            s, params.guildId.toString(), targetCharacter.id, Transaction(
-                                Date(), null, "ASSIGN", TransactionType.ADD, mapOf(transactionMoney to amount)
-                            )
-                        )
+        db.transaction(params.guildId.toString()) { session ->
+            targets.forEach{ targetCharacter ->
+                db.charactersScope.addMoney(session, params.guildId.toString(), targetCharacter.id, amount)
+                db.characterTransactionsScope.addTransactionForCharacter(
+                    session,
+                    params.guildId.toString(),
+                    targetCharacter.id,
+                    Transaction(
+                        Date(), null, "ASSIGN", TransactionType.ADD, mapOf(transactionMoney to amount)
+                    )
+                )
             }
-            mapOf("steps" to steps)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))

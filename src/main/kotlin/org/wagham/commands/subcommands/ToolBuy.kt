@@ -2,7 +2,6 @@ package org.wagham.commands.subcommands
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
-import com.mongodb.reactivestreams.client.ClientSession
 import dev.kord.common.Locale
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
@@ -31,6 +30,7 @@ import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Character
 import org.wagham.db.models.ScheduledEvent
 import org.wagham.db.models.ToolProficiency
+import org.wagham.db.models.client.KabotSession
 import org.wagham.db.models.embed.AbilityCost
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.db.models.embed.Transaction
@@ -97,34 +97,38 @@ class ToolBuy(
     }
 
     private suspend fun payToolCost(
-        s: ClientSession,
+        session: KabotSession,
         guildId: String,
         characterId: String,
         cost: AbilityCost,
         totalToolsNumber: Int
-    ): Boolean {
+    ) {
         val moCost = costPerToolNumber[totalToolsNumber.coerceAtMost(delaysPerToolNumber.size - 1)]
-        val moneyStep = db.charactersScope.subtractMoney(s, guildId, characterId, moCost)
-        val itemsStep = cost.itemsCost.all { (material, qty) ->
-            db.charactersScope.removeItemFromInventory(s, guildId, characterId, material, qty)
+        db.charactersScope.subtractMoney(session, guildId, characterId, moCost)
+        cost.itemsCost.forEach { (material, qty) ->
+            db.charactersScope.removeItemFromInventory(session, guildId, characterId, material, qty)
         }
         val itemsRecord = cost.itemsCost.mapValues { it.value.toFloat() } + (transactionMoney to moCost)
-        val transactionsStep = db.characterTransactionsScope.addTransactionForCharacter(
-            s, guildId, characterId, Transaction(
-                Date(), null, "BUY TOOL", TransactionType.REMOVE, itemsRecord))
-        return moneyStep && itemsStep && transactionsStep
+        db.characterTransactionsScope.addTransactionForCharacter(
+            session,
+            guildId,
+            characterId,
+            Transaction(Date(), null, "BUY TOOL", TransactionType.REMOVE, itemsRecord)
+        )
     }
 
     private suspend fun assignToolToCharacterImmediately(guildId: String, tool: ToolProficiency, character: String, toolCount: Int, locale: String) =
-        db.transaction(guildId) { s ->
+        db.transaction(guildId) { session ->
             val cost = tool.cost ?: throw IllegalStateException("This tool cannot be bought")
-            val payStep = payToolCost(s, guildId, character, cost, toolCount)
-            val proficiencyStep = db.charactersScope.addProficiencyToCharacter(s, guildId, character, ProficiencyStub(tool.id, tool.name))
+            payToolCost(session, guildId, character, cost, toolCount)
+            db.charactersScope.addProficiencyToCharacter(session, guildId, character, ProficiencyStub(tool.id, tool.name))
 
-            val result = payStep && proficiencyStep && db.characterTransactionsScope.addTransactionForCharacter(
-                s, guildId, character, Transaction(Date(), null, "BUY TOOL", TransactionType.ADD, mapOf(tool.name to 1f))
+            db.characterTransactionsScope.addTransactionForCharacter(
+                session,
+                guildId,
+                character,
+                Transaction(Date(), null, "BUY TOOL", TransactionType.ADD, mapOf(tool.name to 1f))
             )
-            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

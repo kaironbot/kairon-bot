@@ -49,11 +49,11 @@ class BuildingBuy(
 ) : SubCommand<InteractionResponseModifyBuilder> {
 
     companion object {
-        private const val buildingType = "building_type"
-        private const val confirm = "confirm_buy"
-        private const val modalId = "modal_buy"
-        private const val modalName = "modal_name"
-        private const val modalDescription = "modal_description"
+        private const val BUILDING_TYPE = "building_type"
+        private const val CONFIRM = "confirm_buy"
+        private const val MODAL_ID = "modal_buy"
+        private const val MODAL_NAME = "modal_name"
+        private const val MODAL_DESCRIPTION = "modal_description"
         private data class InteractionData(
             val userId: Snowflake,
             val character: Character,
@@ -94,7 +94,7 @@ class BuildingBuy(
 
     private suspend fun handleSelection() =
         kord.on<SelectMenuInteractionCreateEvent> {
-            if(verifyId(interaction.componentId, buildingType)) {
+            if(verifyId(interaction.componentId, BUILDING_TYPE)) {
                 val params = interaction.extractCommonParameters()
                 val (_, id) = extractComponentsFromComponentId(interaction.componentId)
                 val data = interactionCache.getIfPresent(id)
@@ -110,7 +110,7 @@ class BuildingBuy(
                             embed(BuildingCommand.describeBuildingMessage(building, params.locale, config, data.character))
                             buildings.chunked(24) { buildingsChunk ->
                                 actionRow {
-                                    stringSelect(buildElementId(buildingType, id)) {
+                                    stringSelect(buildElementId(BUILDING_TYPE, id)) {
                                         buildingsChunk.forEach {
                                             option(it.name, it.name)
                                         }
@@ -118,7 +118,7 @@ class BuildingBuy(
                                 }
                             }
                             actionRow {
-                                interactionButton(ButtonStyle.Primary, buildElementId(confirm, id)) {
+                                interactionButton(ButtonStyle.Primary, buildElementId(CONFIRM, id)) {
                                     label = BuildingBuyLocale.BUILD.locale(params.locale)
                                     disabled = !data.character.canBuild(building, config)
                                 }
@@ -132,7 +132,7 @@ class BuildingBuy(
 
     private suspend fun handleBuy() =
         kord.on<ButtonInteractionCreateEvent> {
-            if(verifyId(interaction.componentId, confirm)) {
+            if(verifyId(interaction.componentId, CONFIRM)) {
                 val params = interaction.extractCommonParameters()
                 val (_, id) = extractComponentsFromComponentId(interaction.componentId)
                 val data = interactionCache.getIfPresent(id)
@@ -142,12 +142,12 @@ class BuildingBuy(
                     data.building != null -> {
                         interaction.modal(
                             title = "${BuildingBuyLocale.TITLE.locale(params.locale)} ${data.building.name}",
-                            customId = buildElementId(modalId, id)
+                            customId = buildElementId(MODAL_ID, id)
                         ) {
                             actionRow {
                                 textInput(
                                     TextInputStyle.Short,
-                                    buildElementId(modalName),
+                                    buildElementId(MODAL_NAME),
                                     BuildingBuyLocale.BUILDING_NAME.locale(params.locale)
                                 ) {
                                     allowedLength = 5 .. 60
@@ -157,7 +157,7 @@ class BuildingBuy(
                             actionRow {
                                 textInput(
                                     TextInputStyle.Paragraph,
-                                    buildElementId(modalDescription),
+                                    buildElementId(MODAL_DESCRIPTION),
                                     BuildingBuyLocale.BUILDING_DESCRIPTION.locale(params.locale)
                                 ) {
                                     allowedLength = 10 .. data.building.maxDescriptionSize
@@ -174,7 +174,7 @@ class BuildingBuy(
 
     private suspend fun handleModal() =
         kord.on<ModalSubmitInteractionCreateEvent> {
-            if(verifyId(interaction.modalId, modalId)) {
+            if(verifyId(interaction.modalId, MODAL_ID)) {
                 val params = interaction.extractCommonParameters()
                 val (_, id) = extractComponentsFromComponentId(interaction.modalId)
                 val data = interactionCache.getIfPresent(id)
@@ -183,14 +183,14 @@ class BuildingBuy(
                     data == null -> interaction.updateWithExpirationError(params.locale)
                     data.userId != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
                     data.building != null -> {
-                        val buildingName = interaction.extractInput(modalName)
-                        val buildingDescription = interaction.extractInput(modalDescription)
+                        val buildingName = interaction.extractInput(MODAL_NAME)
+                        val buildingDescription = interaction.extractInput(MODAL_DESCRIPTION)
                         when {
                             !data.character.canBuild(data.building, config) -> createGenericEmbedError("Not enough resources")
                             else -> {
                                 db.transaction(params.guildId.toString()) { session ->
-                                    val moneyStep = db.charactersScope.subtractMoney(session, params.guildId.toString(), data.character.id, data.building.moCost.toFloat())
-                                    val materialStep = data.building.materials.entries.all { (material, qty) ->
+                                    db.charactersScope.subtractMoney(session, params.guildId.toString(), data.character.id, data.building.moCost.toFloat())
+                                    data.building.materials.entries.forEach { (material, qty) ->
                                         db.charactersScope.removeItemFromInventory(
                                             session,
                                             params.guildId.toString(),
@@ -205,7 +205,7 @@ class BuildingBuy(
                                         zone = data.building.areas.joinToString(" / "),
                                         status = "active"
                                     )
-                                    val buildingStep = db.charactersScope.addBuilding(
+                                    db.charactersScope.addBuilding(
                                         session,
                                         params.guildId.toString(),
                                         data.character.id,
@@ -216,31 +216,21 @@ class BuildingBuy(
                                     val ingredients = data.building.materials
                                         .mapValues { it.value.proficiencyDiscount(data.building, data.character).toFloat() } +
                                             (transactionMoney to data.building.moCost.toFloat())
-
-                                    val transactionsStep =
-                                        db.characterTransactionsScope.addTransactionForCharacter(
-                                            session, params.guildId.toString(), data.character.id, Transaction(
-                                                Date(),
-                                                null,
-                                                "BUY_BUILDING",
-                                                TransactionType.REMOVE,
-                                                ingredients
-                                            )
-                                        ) && db.characterTransactionsScope.addTransactionForCharacter(
-                                            session, params.guildId.toString(), data.character.id, Transaction(
-                                                Date(),
-                                                null,
-                                                "BUY_BUILDING",
-                                                TransactionType.ADD,
-                                                mapOf(data.building.name to 1f)
-                                            )
+                                    db.characterTransactionsScope.addTransactionForCharacter(
+                                        session,
+                                        params.guildId.toString(),
+                                        data.character.id,
+                                        Transaction(
+                                            Date(), null, "BUY_BUILDING", TransactionType.REMOVE, ingredients
                                         )
-
-                                    mapOf(
-                                        "money" to moneyStep,
-                                        "material" to materialStep,
-                                        "build" to buildingStep,
-                                        "transaction" to transactionsStep
+                                    )
+                                    db.characterTransactionsScope.addTransactionForCharacter(
+                                        session,
+                                        params.guildId.toString(),
+                                        data.character.id,
+                                        Transaction(
+                                            Date(), null, "BUY_BUILDING", TransactionType.ADD, mapOf(data.building.name to 1f)
+                                        )
                                     )
                                 }.let {
                                     if(it.committed) {
@@ -287,7 +277,7 @@ class BuildingBuy(
                 }
                 buildings.chunked(24) { buildingsChunk ->
                     actionRow {
-                        stringSelect(buildElementId(buildingType, interactionId)) {
+                        stringSelect(buildElementId(BUILDING_TYPE, interactionId)) {
                             buildingsChunk.forEach {
                                 option(it.name, it.name)
                             }

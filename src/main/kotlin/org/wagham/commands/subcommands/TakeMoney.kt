@@ -107,16 +107,16 @@ class TakeMoney(
     }
 
     private suspend fun executeTransaction(targets: Collection<Character>, amount: Float, params: InteractionParameters) = with(params) {
-        db.transaction(guildId.toString()) { s ->
-            val result = targets.fold(true) { acc, targetCharacter ->
-                acc && db.charactersScope.subtractMoney(s, guildId.toString(), targetCharacter.id, amount)&&
-                        db.characterTransactionsScope.addTransactionForCharacter(
-                            s, guildId.toString(), targetCharacter.id, Transaction(
-                                Date(), null, "TAKE", TransactionType.REMOVE, mapOf(transactionMoney to amount)
-                            )
-                        )
+        db.transaction(guildId.toString()) { session ->
+            targets.forEach { targetCharacter ->
+                db.charactersScope.subtractMoney(session, guildId.toString(), targetCharacter.id, amount)
+                db.characterTransactionsScope.addTransactionForCharacter(
+                    session,
+                    guildId.toString(),
+                    targetCharacter.id,
+                    Transaction(Date(), null, "TAKE", TransactionType.REMOVE, mapOf(transactionMoney to amount))
+                )
             }
-            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

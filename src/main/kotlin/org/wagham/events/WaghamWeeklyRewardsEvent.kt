@@ -231,44 +231,31 @@ class WaghamWeeklyRewardsEvent(
             }
 
         val transactionResult = db.transaction(guildId.toString()) { session ->
-            val result = getAllEligibleCharacters(guildId).fold(true) { status, character ->
+            getAllEligibleCharacters(guildId).collect { character ->
                     val moneyToGive = (updatedLog.master[character.id]?.toFloat() ?: 0f) +
                             (updatedLog.delegates[character.id]?.toFloat() ?: 0f) +
                             (updatedLog.playerRewards[character.id]?.money ?: 0f)
-                    val moneyResult = if(moneyToGive > 0f) {
-                        db.charactersScope.addMoney(session, guildId.toString(), character.id, moneyToGive).also {
-                            if(!it) logger.warn { "Money failure: ${character.id}" }
-                        }
-                    } else true
-
+                    if(moneyToGive > 0f) {
+                        db.charactersScope.addMoney(session, guildId.toString(), character.id, moneyToGive)
+                    }
 
                     val itemsToGive = updatedLog.playerRewards[character.id]?.items ?: emptyMap()
-                    val itemsResult = itemsToGive.entries.fold(true) { acc, (item, qty) ->
-                        acc && db.charactersScope.addItemToInventory(
-                            session,
-                            guildId.toString(),
-                            character.id,
-                            item,
-                            qty
-                        ).also { res ->
-                            if(!res) logger.warn { "Item failure ($item): ${character.id}" }
-                        }
+                    itemsToGive.entries.forEach { (item, qty) ->
+                        db.charactersScope.addItemToInventory(session, guildId.toString(), character.id, item, qty)
                     }
 
                     val itemsForTransaction = itemsToGive.mapValues { it.value.toFloat() } +
-                            (mapOf(transactionMoney to moneyToGive).takeIf { moneyToGive > 0f } ?: emptyMap())
+                        (mapOf(transactionMoney to moneyToGive).takeIf { moneyToGive > 0f } ?: emptyMap())
 
-                    val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
-                        session, guildId.toString(), character.id, Transaction(
+                    db.characterTransactionsScope.addTransactionForCharacter(
+                        session,
+                        guildId.toString(),
+                        character.id,
+                        Transaction(
                             Date(), null, "REWARDS", TransactionType.ADD, itemsForTransaction
                         )
-                    ).also {
-                        if(!it) logger.warn { "Record failure: ${character.id}" }
-                    }
-
-                    status && moneyResult && itemsResult && recordStep
+                    )
                 }
-            mapOf("result" to result)
         }
         getChannelOfType(guildId, Channels.LOG_CHANNEL).sendTextMessage(buildString {
             if (transactionResult.committed) append("Successfully assigned everything")

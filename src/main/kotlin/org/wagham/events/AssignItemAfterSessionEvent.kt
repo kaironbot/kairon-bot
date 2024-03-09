@@ -71,21 +71,24 @@ class AssignItemAfterSessionEvent(
                 }.associateTo {
                     getRandomItem(registeredSession.guildId, itemLabels)
                 }
-                val transactionResult = db.transaction(registeredSession.guildId) { s ->
-                    val results = characterToItem.entries.all { (participant, prize) ->
+                val transactionResult = db.transaction(registeredSession.guildId) { kabotSession ->
+                    characterToItem.entries.forEach { (participant, prize) ->
                         db.charactersScope.addItemToInventory(
-                            s,
+                            kabotSession,
                             registeredSession.guildId,
                             participant.id,
                             prize.first.name,
                             prize.second
-                        ) && db.characterTransactionsScope.addTransactionForCharacter(
-                            s, registeredSession.guildId, participant.id, Transaction(
+                        )
+                        db.characterTransactionsScope.addTransactionForCharacter(
+                            kabotSession,
+                            registeredSession.guildId,
+                            participant.id,
+                            Transaction(
                                 Date(), null, "SESSION_REWARD", TransactionType.ADD, mapOf(prize.first.name to prize.second.toFloat())
                             )
                         )
                     }
-                    mapOf("results" to results)
                 }
 
                 if(transactionResult.committed) {

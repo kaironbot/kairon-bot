@@ -3,6 +3,7 @@ package org.wagham.components
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.entity.Guild
+import dev.kord.core.entity.channel.MessageChannel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
@@ -16,8 +17,10 @@ import org.wagham.db.enums.ScheduledEventType
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.models.Item
 import org.wagham.db.models.LanguageProficiency
+import org.wagham.db.models.Proficiency
 import org.wagham.db.models.ScheduledEvent
 import org.wagham.db.models.ToolProficiency
+import org.wagham.db.models.client.TransactionResult
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.db.models.embed.Transaction
 import org.wagham.utils.getChannelOfTypeOrDefault
@@ -59,27 +62,13 @@ class SchedulingManager(
             )
         } else {
             db.transaction(guildId.toString()) { session ->
-                val assignStep = db.charactersScope.addItemToInventory(
+                db.charactersScope.addItemToInventory(session, guildId.toString(), target, item.name, quantity)
+                db.characterTransactionsScope.addTransactionForCharacter(
                     session,
                     guildId.toString(),
                     target,
-                    item.name,
-                    quantity
+                    Transaction(Date(), null, "CRAFT", TransactionType.ADD, mapOf(item.name to quantity.toFloat()))
                 )
-                val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
-                    session,
-                    guildId.toString(),
-                    target,
-                    Transaction(
-                        Date(),
-                        null,
-                        "CRAFT",
-                        TransactionType.ADD,
-                        mapOf(item.name to quantity.toFloat())
-                    )
-                )
-                val result = assignStep && recordStep
-                mapOf("result" to result)
             }.let { result ->
                 if (result.committed) {
                     channel.sendTextMessage("<@$player> successfully assigned ${item.name} x$quantity")
@@ -97,6 +86,30 @@ class SchedulingManager(
                     )
                 }
             }
+        }
+    }
+
+    private suspend fun TransactionResult.finalize(
+        channel: MessageChannel,
+        player: String,
+        tool: Proficiency,
+        guildId: Snowflake,
+        task: ScheduledEvent
+    ) {
+        if (committed) {
+            channel.sendTextMessage("<@$player> successfully assigned ${tool.name}")
+            db.scheduledEventsScope.updateState(
+                guildId.toString(),
+                task.id,
+                ScheduledEventState.COMPLETED
+            )
+        } else {
+            channel.sendTextMessage("<@$player> there was an error assigning ${tool.name}")
+            db.scheduledEventsScope.updateState(
+                guildId.toString(),
+                task.id,
+                ScheduledEventState.FAILED
+            )
         }
     }
 
@@ -119,37 +132,14 @@ class SchedulingManager(
             )
         } else {
             db.transaction(guildId.toString()) { session ->
-                val assignStep =  db.charactersScope.addProficiencyToCharacter(
-                    session,
-                    guildId.toString(),
-                    target,
-                    ProficiencyStub(tool.id, tool.name)
-                )
-                val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
+                db.charactersScope.addProficiencyToCharacter(session, guildId.toString(), target, ProficiencyStub(tool.id, tool.name))
+                db.characterTransactionsScope.addTransactionForCharacter(
                     session,
                     guildId.toString(),
                     target,
                     Transaction(Date(), null, "BUY TOOL", TransactionType.ADD, mapOf(tool.name to 1f))
                 )
-                val result = assignStep && recordStep
-                mapOf("result" to result)
-            }.let { result ->
-                if (result.committed) {
-                    channel.sendTextMessage("<@$player> successfully assigned ${tool.name}")
-                    db.scheduledEventsScope.updateState(
-                        guildId.toString(),
-                        task.id,
-                        ScheduledEventState.COMPLETED
-                    )
-                } else {
-                    channel.sendTextMessage("<@$player> there was an error assigning ${tool.name}")
-                    db.scheduledEventsScope.updateState(
-                        guildId.toString(),
-                        task.id,
-                        ScheduledEventState.FAILED
-                    )
-                }
-            }
+            }.finalize(channel, player, tool, guildId, task)
         }
     }
 
@@ -172,37 +162,14 @@ class SchedulingManager(
             )
         } else {
             db.transaction(guildId.toString()) { session ->
-                val assignStep =  db.charactersScope.addLanguageToCharacter(
-                    session,
-                    guildId.toString(),
-                    target,
-                    ProficiencyStub(tool.id, tool.name)
-                )
-                val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
+                db.charactersScope.addLanguageToCharacter(session, guildId.toString(), target, ProficiencyStub(tool.id, tool.name))
+                db.characterTransactionsScope.addTransactionForCharacter(
                     session,
                     guildId.toString(),
                     target,
                     Transaction(Date(), null, "BUY LANGUAGE", TransactionType.ADD, mapOf(tool.name to 1f))
                 )
-                val result = assignStep && recordStep
-                mapOf("result" to result)
-            }.let { result ->
-                if (result.committed) {
-                    channel.sendTextMessage("<@$player> successfully assigned ${tool.name}")
-                    db.scheduledEventsScope.updateState(
-                        guildId.toString(),
-                        task.id,
-                        ScheduledEventState.COMPLETED
-                    )
-                } else {
-                    channel.sendTextMessage("<@$player> there was an error assigning ${tool.name}")
-                    db.scheduledEventsScope.updateState(
-                        guildId.toString(),
-                        task.id,
-                        ScheduledEventState.FAILED
-                    )
-                }
-            }
+            }.finalize(channel, player, tool, guildId, task)
         }
     }
 

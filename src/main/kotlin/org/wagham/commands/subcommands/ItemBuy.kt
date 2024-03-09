@@ -84,16 +84,21 @@ class ItemBuy(
     }
 
     private suspend fun assignItemToCharacter(guildId: String, item: Item, amount: Int, character: String, locale: String) =
-        db.transaction(guildId) { s ->
-            val results = db.charactersScope.subtractMoney(s, guildId, character, item.buy!!.cost*amount) &&
-                db.charactersScope.addItemToInventory(s, guildId, character, item.name, amount) &&
-                db.characterTransactionsScope.addTransactionForCharacter(
-                    s, guildId, character, Transaction(Date(), null, "BUY", TransactionType.REMOVE, mapOf(transactionMoney to item.buy!!.cost*amount))
-                ) &&
-                db.characterTransactionsScope.addTransactionForCharacter(
-                    s, guildId, character, Transaction(Date(), null, "BUY", TransactionType.ADD, mapOf(item.name to amount.toFloat()))
-                )
-            mapOf("results" to results)
+        db.transaction(guildId) { session ->
+            db.charactersScope.subtractMoney(session, guildId, character, item.buy!!.cost*amount)
+            db.charactersScope.addItemToInventory(session, guildId, character, item.name, amount)
+            db.characterTransactionsScope.addTransactionForCharacter(
+                session,
+                guildId,
+                character,
+                Transaction(Date(), null, "BUY", TransactionType.REMOVE, mapOf(transactionMoney to item.buy!!.cost*amount))
+            )
+            db.characterTransactionsScope.addTransactionForCharacter(
+                session,
+                guildId,
+                character,
+                Transaction(Date(), null, "BUY", TransactionType.ADD, mapOf(item.name to amount.toFloat()))
+            )
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

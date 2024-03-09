@@ -115,18 +115,16 @@ class AssignLanguage(
     }
 
     private suspend fun assignLanguageToCharacter(language: LanguageProficiency, target: String, params: InteractionParameters) =
-        db.transaction(params.guildId.toString()) { s ->
-            val steps = db.charactersScope.addLanguageToCharacter(
-                s,
+        db.transaction(params.guildId.toString()) { session ->
+            db.charactersScope.addLanguageToCharacter(session, params.guildId.toString(), target, ProficiencyStub(language.id, language.name))
+            db.characterTransactionsScope.addTransactionForCharacter(
+                session,
                 params.guildId.toString(),
                 target,
-                ProficiencyStub(language.id, language.name)
-            ) && db.characterTransactionsScope.addTransactionForCharacter(
-                s, params.guildId.toString(), target, Transaction(
+                Transaction(
                     Date(), null, "ASSIGN", TransactionType.ADD, mapOf(language.name to 1f)
                 )
             )
-            mapOf("steps" to steps)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))

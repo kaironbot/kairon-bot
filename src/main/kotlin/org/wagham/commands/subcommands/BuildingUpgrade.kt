@@ -161,27 +161,24 @@ class BuildingUpgrade(
                         else {
                             val existingBuilding = data.character.buildings.values.flatten().first { it.name == data.existingBuilding }
                             db.transaction(params.guildId.toString()) { session ->
-                                val moneyStep = db.charactersScope.subtractMoney(
-                                    session,
-                                    params.guildId.toString(),
-                                    data.character.id,
-                                    (data.upgradeTo.moCost - data.building.moCost).toFloat())
-                                val materialStep = data.building.upgradeCostItems(data.upgradeTo).entries.all { (material, qty) ->
+                                db.charactersScope.subtractMoney(session, params.guildId.toString(), data.character.id, (data.upgradeTo.moCost - data.building.moCost).toFloat())
+                                data.building.upgradeCostItems(data.upgradeTo).entries.forEach { (material, qty) ->
                                     db.charactersScope.removeItemFromInventory(
                                         session,
                                         params.guildId.toString(),
                                         data.character.id,
                                         material,
-                                        qty.proficiencyDiscount(data.upgradeTo, data.character))
+                                        qty.proficiencyDiscount(data.upgradeTo, data.character)
+                                    )
                                 }
-                                val removalStep = db.charactersScope.removeBuilding(
+                                db.charactersScope.removeBuilding(
                                     session,
                                     params.guildId.toString(),
                                     data.character.id,
                                     data.existingBuilding,
                                     data.building
                                 )
-                                val buildingStep = db.charactersScope.addBuilding(
+                                db.charactersScope.addBuilding(
                                     session,
                                     params.guildId.toString(),
                                     data.character.id,
@@ -196,31 +193,21 @@ class BuildingUpgrade(
                                             data.building.name to 1f
                                         )
 
-                                val transactionsStep =
-                                    db.characterTransactionsScope.addTransactionForCharacter(
-                                        session, params.guildId.toString(), data.character.id, Transaction(
-                                            Date(),
-                                            null,
-                                            "UPGRADE_BUILDING",
-                                            TransactionType.REMOVE,
-                                            ingredients
-                                        )
-                                    ) && db.characterTransactionsScope.addTransactionForCharacter(
-                                        session, params.guildId.toString(), data.character.id, Transaction(
-                                            Date(),
-                                            null,
-                                            "UPGRADE_BUILDING",
-                                            TransactionType.ADD,
-                                            mapOf(data.upgradeTo.name to 1f)
-                                        )
+                                db.characterTransactionsScope.addTransactionForCharacter(
+                                    session,
+                                    params.guildId.toString(),
+                                    data.character.id,
+                                    Transaction(
+                                        Date(), null, "UPGRADE_BUILDING", TransactionType.REMOVE, ingredients
                                     )
-
-                                mapOf(
-                                    "money" to moneyStep,
-                                    "materials" to materialStep,
-                                    "removal" to removalStep,
-                                    "building" to buildingStep,
-                                    "transactions" to transactionsStep
+                                )
+                                db.characterTransactionsScope.addTransactionForCharacter(
+                                    session,
+                                    params.guildId.toString(),
+                                    data.character.id,
+                                    Transaction(
+                                        Date(), null, "UPGRADE_BUILDING", TransactionType.ADD, mapOf(data.upgradeTo.name to 1f)
+                                    )
                                 )
                             }.let {
                                 if(it.committed) {

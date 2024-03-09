@@ -58,12 +58,14 @@ class ItemUse(
     override suspend fun registerCommand() { }
 
     private suspend fun removeItemFromCharacter(guildId: String, item: Item, amount: Int, character: String, locale: String) =
-        db.transaction(guildId) { s ->
-            val result = db.charactersScope.removeItemFromInventory(s, guildId, character, item.name, amount) &&
+        db.transaction(guildId) { session ->
+            db.charactersScope.removeItemFromInventory(session, guildId, character, item.name, amount)
             db.characterTransactionsScope.addTransactionForCharacter(
-                s, guildId, character, Transaction(Date(), null, "USE", TransactionType.REMOVE, mapOf(item.name to amount.toFloat()))
+                session,
+                guildId,
+                character,
+                Transaction(Date(), null, "USE", TransactionType.REMOVE, mapOf(item.name to amount.toFloat()))
             )
-            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
