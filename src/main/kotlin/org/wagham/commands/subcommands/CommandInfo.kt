@@ -8,7 +8,7 @@ import dev.kord.rest.builder.interaction.RootInputChatBuilder
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.embed
 import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
@@ -17,7 +17,6 @@ import org.wagham.components.CacheManager
 import org.wagham.config.Colors
 import org.wagham.config.locale.subcommands.CommandInfoLocale
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.defaultLocale
 import org.wagham.utils.withEventParameters
 import java.lang.IllegalStateException

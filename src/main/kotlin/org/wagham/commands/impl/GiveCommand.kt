@@ -111,10 +111,12 @@ class GiveCommand(
         val receivedTransaction = Transaction(
             Date(), character.id, "GIVE", TransactionType.ADD, mapOf(item.name to (amount*item.giveRatio))
         )
-        db.charactersScope.removeItemFromInventory(s, guildId, character.id, item.name, amount) &&
-                db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, item.name, (amount*item.giveRatio).toInt()) &&
-                db.characterTransactionsScope.addTransactionForCharacter(s, guildId, character.id, givenTransaction) &&
-                db.characterTransactionsScope.addTransactionForCharacter(s, guildId, targetCharacter.id, receivedTransaction)
+        mapOf(
+            "remove" to db.charactersScope.removeItemFromInventory(s, guildId, character.id, item.name, amount),
+            "add" to db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, item.name, (amount*item.giveRatio).toInt()),
+            "removeTransaction" to db.characterTransactionsScope.addTransactionForCharacter(s, guildId, character.id, givenTransaction),
+            "addTransaction" to db.characterTransactionsScope.addTransactionForCharacter(s, guildId, targetCharacter.id, receivedTransaction)
+        )
     }.let {
         if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
         else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")

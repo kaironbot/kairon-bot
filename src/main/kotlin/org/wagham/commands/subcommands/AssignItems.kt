@@ -84,9 +84,10 @@ class AssignItems(
                 )
             } else {
                 db.transaction(params.guildId.toString()) { s ->
-                    itemsToAssign.entries.fold(true) { acc, it ->
+                    val assign = itemsToAssign.entries.fold(true) { acc, it ->
                         acc && db.charactersScope.addItemToInventory(s, params.guildId.toString(), targetCharacter.id, it.key, it.value)
                     }
+                    mapOf("assign" to assign)
                 }.let {
                     if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
                     else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")

@@ -8,7 +8,7 @@ import dev.kord.core.entity.interaction.ComponentInteraction
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.embed
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
@@ -88,7 +88,7 @@ class MoneyCommand(
             color = Colors.DEFAULT.value
             author {
                 name = character.name
-                icon = user.avatar?.url
+                icon = user.avatar?.cdnUrl?.toUrl()
             }
             description = "${character.money} MO"
         }

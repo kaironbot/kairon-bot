@@ -121,9 +121,10 @@ class ToolBuy(
             val payStep = payToolCost(s, guildId, character, cost, toolCount)
             val proficiencyStep = db.charactersScope.addProficiencyToCharacter(s, guildId, character, ProficiencyStub(tool.id, tool.name))
 
-            payStep && proficiencyStep && db.characterTransactionsScope.addTransactionForCharacter(
+            val result = payStep && proficiencyStep && db.characterTransactionsScope.addTransactionForCharacter(
                 s, guildId, character, Transaction(Date(), null, "BUY TOOL", TransactionType.ADD, mapOf(tool.name to 1f))
             )
+            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
@@ -136,7 +137,7 @@ class ToolBuy(
         val cost = tool.cost ?: throw IllegalStateException("This tool cannot be bought")
         return db.transaction(guildId) { s ->
             val payStep = payToolCost(s, guildId, character, cost, toolCount)
-            payStep
+            mapOf("pay" to payStep)
         }.let {
             when {
                 it.committed -> {

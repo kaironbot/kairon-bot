@@ -20,8 +20,8 @@ import dev.kord.rest.builder.component.option
 import dev.kord.rest.builder.interaction.RootInputChatBuilder
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.actionRow
+import dev.kord.rest.builder.message.embed
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.BuildingCommand
@@ -236,7 +236,12 @@ class BuildingBuy(
                                             )
                                         )
 
-                                    moneyStep && materialStep && buildingStep && transactionsStep
+                                    mapOf(
+                                        "money" to moneyStep,
+                                        "material" to materialStep,
+                                        "build" to buildingStep,
+                                        "transaction" to transactionsStep
+                                    )
                                 }.let {
                                     if(it.committed) {
                                         createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))

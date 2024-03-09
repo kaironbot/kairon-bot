@@ -19,8 +19,8 @@ import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.actionRow
+import dev.kord.rest.builder.message.embed
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ItemCommand
@@ -173,7 +173,10 @@ class ItemCraft(
                 s, guildId, character, Transaction(Date(), null, "CRAFT", TransactionType.ADD, mapOf(item.name to amount.toFloat()))
             )
 
-            assignStep && recordStep
+            mapOf(
+                "assign" to assignStep,
+                "record" to recordStep
+            )
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
@@ -186,7 +189,7 @@ class ItemCraft(
         val recipe = item.craft[recipeIndex]
         return db.transaction(guildId) { s ->
             val result = payCostAndRecord(s, guildId, character, recipe, amount)
-            result
+            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> {

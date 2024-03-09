@@ -79,7 +79,7 @@ class AssignItemOnLevelUpEvent(
         }
         if(charactersToItems.isNotEmpty()) {
             val transactionResult = db.transaction(update.guildId) {
-                charactersToItems.entries.all { (character, item) ->
+                val results = charactersToItems.entries.all { (character, item) ->
                     db.charactersScope.addItemToInventory(
                         it,
                         update.guildId,
@@ -92,6 +92,7 @@ class AssignItemOnLevelUpEvent(
                         )
                     )
                 }
+                mapOf("results" to results)
             }
             if (transactionResult.committed) {
                 getChannelOfType(Snowflake(update.guildId), Channels.MESSAGE_CHANNEL).sendTextMessage(

@@ -17,14 +17,12 @@ import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.toList
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.LanguageCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.LanguageBuyLocale
-import org.wagham.config.locale.subcommands.ToolBuyLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.ScheduledEventArg
 import org.wagham.db.enums.ScheduledEventState
@@ -117,7 +115,7 @@ class LanguageBuy(
         val cost = language.cost ?: throw IllegalStateException("This tool cannot be bought")
         return db.transaction(guildId) { s ->
             val payStep = payLanguageCost(s, guildId, character, cost)
-            payStep
+            mapOf("pay" to payStep)
         }.let {
             when {
                 it.committed -> {
@@ -154,9 +152,10 @@ class LanguageBuy(
             val payStep = payLanguageCost(s, guildId, character, cost)
             val proficiencyStep = db.charactersScope.addLanguageToCharacter(s, guildId, character, ProficiencyStub(language.id, language.name))
 
-            payStep && proficiencyStep && db.characterTransactionsScope.addTransactionForCharacter(
+            val result = payStep && proficiencyStep && db.characterTransactionsScope.addTransactionForCharacter(
                 s, guildId, character, Transaction(Date(), null, "BUY LANGUAGE", TransactionType.ADD, mapOf(language.name to 1f))
             )
+            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

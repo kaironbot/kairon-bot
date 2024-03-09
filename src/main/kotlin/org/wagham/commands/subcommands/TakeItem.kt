@@ -99,11 +99,12 @@ class TakeItem(
         if ((targetCharacter.inventory[item] ?: 0) >= amount) {
             db.transaction(guildId.toString()) { s ->
                 db.charactersScope.removeItemFromInventory(s, guildId.toString(), targetCharacter.id, item, amount)
-                db.characterTransactionsScope.addTransactionForCharacter(
+                val result = db.characterTransactionsScope.addTransactionForCharacter(
                     s, guildId.toString(), targetCharacter.id, Transaction(
                         Date(), null, "TAKE", TransactionType.REMOVE, mapOf(item to amount.toFloat())
                     )
                 )
+                mapOf("result" to result)
             }.let {
                 if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
                 else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")

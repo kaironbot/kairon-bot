@@ -78,7 +78,8 @@ class SchedulingManager(
                         mapOf(item.name to quantity.toFloat())
                     )
                 )
-                assignStep && recordStep
+                val result = assignStep && recordStep
+                mapOf("result" to result)
             }.let { result ->
                 if (result.committed) {
                     channel.sendTextMessage("<@$player> successfully assigned ${item.name} x$quantity")
@@ -130,7 +131,8 @@ class SchedulingManager(
                     target,
                     Transaction(Date(), null, "BUY TOOL", TransactionType.ADD, mapOf(tool.name to 1f))
                 )
-                assignStep && recordStep
+                val result = assignStep && recordStep
+                mapOf("result" to result)
             }.let { result ->
                 if (result.committed) {
                     channel.sendTextMessage("<@$player> successfully assigned ${tool.name}")
@@ -182,7 +184,8 @@ class SchedulingManager(
                     target,
                     Transaction(Date(), null, "BUY LANGUAGE", TransactionType.ADD, mapOf(tool.name to 1f))
                 )
-                assignStep && recordStep
+                val result = assignStep && recordStep
+                mapOf("result" to result)
             }.let { result ->
                 if (result.committed) {
                     channel.sendTextMessage("<@$player> successfully assigned ${tool.name}")

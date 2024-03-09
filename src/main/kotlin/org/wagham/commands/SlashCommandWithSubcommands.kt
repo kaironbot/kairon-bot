@@ -9,7 +9,7 @@ import dev.kord.rest.builder.RequestBuilder
 import dev.kord.rest.builder.interaction.GlobalChatInputCreateBuilder
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.embed
 import mu.KotlinLogging
 import org.reflections.Reflections
 import org.wagham.annotations.BotSubcommand
@@ -78,6 +78,7 @@ abstract class SlashCommandWithSubcommands(
         return subcommandsMap[subCommand.name]?.execute(event) ?: defaultBehaviour(event)
     }
 
+    @Suppress("UNCHECKED_CAST")
     protected open suspend fun defaultBehaviour(event: GuildChatInputCommandInteractionCreateEvent): RequestBuilder<Any>.() -> Unit {
         val commandId = event.interaction.invokedCommandId.value
         val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"

@@ -123,7 +123,7 @@ class PayCommand(
 
     private suspend fun executeTransaction(params: InteractionParameters, sourceCharacter: Character, targetCharacters: Collection<Character>, amount: Float) = db.transaction(params.guildId.toString()) { s ->
         val subtraction = db.charactersScope.subtractMoney(s, params.guildId.toString(), sourceCharacter.id, amount*targetCharacters.size)
-        targetCharacters.fold(subtraction) { acc, targetCharacter ->
+        val results = targetCharacters.fold(subtraction) { acc, targetCharacter ->
             val givenTransaction = Transaction(
                 Date(), targetCharacter.id, "PAY", TransactionType.REMOVE, mapOf(transactionMoney to amount)
             )
@@ -135,6 +135,7 @@ class PayCommand(
                     db.characterTransactionsScope.addTransactionForCharacter(s, params.guildId.toString(), sourceCharacter.id, givenTransaction) &&
                     db.characterTransactionsScope.addTransactionForCharacter(s, params.guildId.toString(), targetCharacter.id, receivedTransaction)
         }
+        mapOf("results" to results)
     }.let {
         if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
         else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")

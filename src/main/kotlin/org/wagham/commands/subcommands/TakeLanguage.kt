@@ -102,7 +102,7 @@ class TakeLanguage(
 
     private suspend fun executeTransaction(character: Character, language: LanguageProficiency, params: InteractionParameters) = with(params) {
         db.transaction(guildId.toString()) { s ->
-            db.charactersScope.removeLanguageFromCharacter(
+            val result = db.charactersScope.removeLanguageFromCharacter(
                 s,
                 guildId.toString(),
                 character.id,
@@ -113,6 +113,7 @@ class TakeLanguage(
                             Date(), null, "TAKE", TransactionType.REMOVE, mapOf(language.name to 1f)
                         )
                     )
+            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

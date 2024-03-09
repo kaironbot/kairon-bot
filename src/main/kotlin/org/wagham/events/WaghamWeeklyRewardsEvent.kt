@@ -231,7 +231,7 @@ class WaghamWeeklyRewardsEvent(
             }
 
         val transactionResult = db.transaction(guildId.toString()) { session ->
-            getAllEligibleCharacters(guildId).fold(true) { status, character ->
+            val result = getAllEligibleCharacters(guildId).fold(true) { status, character ->
                     val moneyToGive = (updatedLog.master[character.id]?.toFloat() ?: 0f) +
                             (updatedLog.delegates[character.id]?.toFloat() ?: 0f) +
                             (updatedLog.playerRewards[character.id]?.money ?: 0f)
@@ -268,6 +268,7 @@ class WaghamWeeklyRewardsEvent(
 
                     status && moneyResult && itemsResult && recordStep
                 }
+            mapOf("result" to result)
         }
         getChannelOfType(guildId, Channels.LOG_CHANNEL).sendTextMessage(buildString {
             if (transactionResult.committed) append("Successfully assigned everything")

@@ -119,7 +119,7 @@ class AssignTool(
 
     private suspend fun assignToolProficiency(tool: ToolProficiency, target: String, params: InteractionParameters) =
         db.transaction(params.guildId.toString()) { s ->
-            db.charactersScope.addProficiencyToCharacter(
+            val result = db.charactersScope.addProficiencyToCharacter(
                 s,
                 params.guildId.toString(),
                 target,
@@ -129,6 +129,7 @@ class AssignTool(
                     Date(), null, "ASSIGN", TransactionType.ADD, mapOf(tool.name to 1f)
                 )
             )
+            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))

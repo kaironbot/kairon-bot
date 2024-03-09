@@ -108,7 +108,7 @@ class TakeMoney(
 
     private suspend fun executeTransaction(targets: Collection<Character>, amount: Float, params: InteractionParameters) = with(params) {
         db.transaction(guildId.toString()) { s ->
-            targets.fold(true) { acc, targetCharacter ->
+            val result = targets.fold(true) { acc, targetCharacter ->
                 acc && db.charactersScope.subtractMoney(s, guildId.toString(), targetCharacter.id, amount)&&
                         db.characterTransactionsScope.addTransactionForCharacter(
                             s, guildId.toString(), targetCharacter.id, Transaction(
@@ -116,6 +116,7 @@ class TakeMoney(
                             )
                         )
             }
+            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

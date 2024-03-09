@@ -79,9 +79,10 @@ class UpdateDatabasesEvent(
             if(itemsToDelete.isNotEmpty()) {
                 db.itemsScope.deleteItems(guildId.toString(), itemsToDelete).let {
                     val transactionResult = db.transaction(guildId.toString()) { session ->
-                        itemsToDelete.fold(it) { res, item ->
+                        val result = itemsToDelete.fold(it) { res, item ->
                             res && db.charactersScope.removeItemFromAllInventories(session, guildId.toString(), item)
                         }
+                        mapOf("result" to result)
                     }
                     if (transactionResult.committed) getLogChannel(guildId).sendTextMessage("${itemsToDelete.size} items deleted")
                     else getLogChannel(guildId).sendTextMessage("There was an error deleting items: ${transactionResult.exception?.stackTraceToString()}")

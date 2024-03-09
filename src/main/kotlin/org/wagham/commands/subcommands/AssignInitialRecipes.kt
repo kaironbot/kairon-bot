@@ -78,12 +78,13 @@ class AssignInitialRecipes(
             getRandomItem(guildId.toString(), tier, character)
         }
         return db.transaction(guildId.toString()) {
-            recipes.all { recipe ->
+            val results = recipes.all { recipe ->
                 db.charactersScope.addItemToInventory(it, guildId.toString(), character.id, recipe.name, 1)
             } && db.characterTransactionsScope.addTransactionForCharacter(
                 it, guildId.toString(), character.id, Transaction(
             Date(), null, "INITIAL_RECIPES", TransactionType.ADD, recipes.map { r -> r.name }.associateWith { 1f }
             ))
+            mapOf("recipes" to results)
         }.let {
             if(it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
             else createGenericEmbedError(locale)

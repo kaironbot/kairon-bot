@@ -72,7 +72,7 @@ class AssignItemAfterSessionEvent(
                     getRandomItem(registeredSession.guildId, itemLabels)
                 }
                 val transactionResult = db.transaction(registeredSession.guildId) { s ->
-                    characterToItem.entries.all { (participant, prize) ->
+                    val results = characterToItem.entries.all { (participant, prize) ->
                         db.charactersScope.addItemToInventory(
                             s,
                             registeredSession.guildId,
@@ -85,6 +85,7 @@ class AssignItemAfterSessionEvent(
                             )
                         )
                     }
+                    mapOf("results" to results)
                 }
 
                 if(transactionResult.committed) {

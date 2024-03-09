@@ -13,8 +13,8 @@ import dev.kord.core.event.interaction.SelectMenuInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.rest.builder.component.option
 import dev.kord.rest.builder.message.create.UserMessageCreateBuilder
-import dev.kord.rest.builder.message.create.actionRow
-import dev.kord.rest.builder.message.create.embed
+import dev.kord.rest.builder.message.actionRow
+import dev.kord.rest.builder.message.embed
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
@@ -132,7 +132,7 @@ class PeriodicMarketEvent(
                     val item = market.idToItems.getValue(itemId)
                     val cost = market.items.getValue(item).cost
                     db.transaction(params.guildId.toString()) { s ->
-                        db.charactersScope.subtractMoney(s, params.guildId.toString(), activeCharacter.id, cost) &&
+                        val result = db.charactersScope.subtractMoney(s, params.guildId.toString(), activeCharacter.id, cost) &&
                             db.charactersScope.addItemToInventory(s, params.guildId.toString(), activeCharacter.id, item, 1) &&
                             db.characterTransactionsScope.addTransactionForCharacter(
                                 s, params.guildId.toString(), activeCharacter.id, Transaction(Date(), null, "BUY", TransactionType.REMOVE, mapOf(transactionMoney to cost))
@@ -140,6 +140,7 @@ class PeriodicMarketEvent(
                             db.characterTransactionsScope.addTransactionForCharacter(
                                 s, params.guildId.toString(), activeCharacter.id, Transaction(Date(), null, "BUY", TransactionType.ADD, mapOf(item to 1.0f))
                             )
+                        mapOf("result" to result)
                     }.let {
                         if(it.committed) {
                             val newMarket = updateMarket(params.guildId, activeCharacter.id, itemId)
