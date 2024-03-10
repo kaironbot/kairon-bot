@@ -261,7 +261,7 @@ class WaghamWeeklyRewardsEvent(
             kord.guilds.collect { guild ->
                 if (cacheManager.getConfig(guild.id).eventChannels[eventId]?.enabled == true) {
                     taskExecutorScope.launch {
-                        val schedulerConfig = "0 0 18 * * ${getTimezoneOffset()}o 2w"
+                        val schedulerConfig = "0 0 18 * * ${getTimezoneOffset()}o 0w"
                         logger.info { "Starting Weekly Rewards for guild ${guild.name} at $schedulerConfig" }
                         doInfinity(schedulerConfig) {
                             giveRewards(guild.id)
