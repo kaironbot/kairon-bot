@@ -56,7 +56,6 @@ class WaghamWeeklyRewardsEvent(
             val weekStart: Date,
             val weekEnd: Date,
             val tBadge: Int,
-            val master: Map<String, Int>,
             val delegates: Map<String, Int> = emptyMap(),
             val playerRewards: Map<String, Reward> = emptyMap()
         ) {
@@ -64,17 +63,12 @@ class WaghamWeeklyRewardsEvent(
             fun rewardsMessage() = buildString {
                 val dateFormatter = SimpleDateFormat("dd/MM")
                 append("**Premi della settimana dal ${dateFormatter.format(weekStart)} al ${dateFormatter.format(weekEnd)}**\n\n")
-                append("**Premi master**\n")
-                master.entries.forEach {
-                    val (playerId, characterName) = it.key.split(":")
-                    append("($characterName) <@!${playerId}>: ${it.value}\n")
-                }
                 append("\n**Stipendi Delegati**\n")
                 delegates.entries.forEach {
                     val (playerId, characterName) = it.key.split(":")
                     append("($characterName) <@!${playerId}>: ${it.value}\n")
                 }
-                append("\n**Premi Edifici**\n")
+                append("\n**Premi Competenze**\n")
                 playerRewards.entries.forEach{ (characterId, reward) ->
                     val (playerId, characterName) = characterId.split(":")
                     append("$characterName - (<@!$playerId>)\n")
@@ -197,7 +191,6 @@ class WaghamWeeklyRewardsEvent(
             weekStart,
             weekEnd,
             70,
-            getMasterRewards(guildId, weekStart, weekEnd),
             getDelegateRewards(guildId)
         )
         val expTable = cacheManager.getExpTable(guildId)
@@ -232,9 +225,7 @@ class WaghamWeeklyRewardsEvent(
 
         val transactionResult = db.transaction(guildId.toString()) { session ->
             getAllEligibleCharacters(guildId).collect { character ->
-                    val moneyToGive = (updatedLog.master[character.id]?.toFloat() ?: 0f) +
-                            (updatedLog.delegates[character.id]?.toFloat() ?: 0f) +
-                            (updatedLog.playerRewards[character.id]?.money ?: 0f)
+                    val moneyToGive = (updatedLog.delegates[character.id]?.toFloat() ?: 0f) + (updatedLog.playerRewards[character.id]?.money ?: 0f)
                     if(moneyToGive > 0f) {
                         db.charactersScope.addMoney(session, guildId.toString(), character.id, moneyToGive)
                     }
