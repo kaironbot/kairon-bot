@@ -97,19 +97,6 @@ class WaghamWeeklyRewardsEvent(
         return Pair(firstDay, lastDay)
     }
 
-    private suspend fun getMasterRewards(guildId: Snowflake, startDate: Date, endDate: Date): Map<String,Int> {
-        val expTable = cacheManager.getExpTable(guildId)
-        return db.sessionScope
-            .getAllSessions(guildId.toString(), startDate = startDate, endDate = endDate)
-            .fold(emptyMap<String, Int>()) { acc, it ->
-                acc + (it.master to (acc[it.master] ?: 0) + 1)
-            }.map {
-                val character = db.charactersScope.getCharacter(guildId.toString(), it.key)
-                val tier = expTable.expToTier(character.ms().toFloat())
-                character.id to (tierRewards.getValue(tier) * it.value)
-            }.toMap()
-    }
-
     private suspend fun getDelegateRewards(guildId: Snowflake): Map<String, Int> {
         val expTable = cacheManager.getExpTable(guildId)
         return kord
