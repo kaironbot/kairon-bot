@@ -79,15 +79,19 @@ class AssignItemOnLevelUpEvent(
         }
         if(charactersToItems.isNotEmpty()) {
             val transactionResult = db.transaction(update.guildId) {
-                charactersToItems.entries.all { (character, item) ->
+                charactersToItems.entries.forEach { (character, item) ->
                     db.charactersScope.addItemToInventory(
                         it,
                         update.guildId,
                         character.id,
                         item.first.name,
                         item.second
-                    ) && db.characterTransactionsScope.addTransactionForCharacter(
-                        it, update.guildId, character.id, Transaction(
+                    )
+                    db.characterTransactionsScope.addTransactionForCharacter(
+                        it,
+                        update.guildId,
+                        character.id,
+                        Transaction(
                             Date(), null, "LEVEL_UP", TransactionType.ADD, mapOf(item.first.name to item.second.toFloat())
                         )
                     )

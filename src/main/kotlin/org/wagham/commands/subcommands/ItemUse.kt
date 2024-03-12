@@ -58,10 +58,13 @@ class ItemUse(
     override suspend fun registerCommand() { }
 
     private suspend fun removeItemFromCharacter(guildId: String, item: Item, amount: Int, character: String, locale: String) =
-        db.transaction(guildId) { s ->
-            db.charactersScope.removeItemFromInventory(s, guildId, character, item.name, amount) &&
+        db.transaction(guildId) { session ->
+            db.charactersScope.removeItemFromInventory(session, guildId, character, item.name, amount)
             db.characterTransactionsScope.addTransactionForCharacter(
-                s, guildId, character, Transaction(Date(), null, "USE", TransactionType.REMOVE, mapOf(item.name to amount.toFloat()))
+                session,
+                guildId,
+                character,
+                Transaction(Date(), null, "USE", TransactionType.REMOVE, mapOf(item.name to amount.toFloat()))
             )
         }.let {
             when {

@@ -6,7 +6,6 @@ import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.*
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import kotlinx.coroutines.flow.first
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.AssignCommand
@@ -15,9 +14,7 @@ import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.AssignItemLocale
 import org.wagham.config.locale.subcommands.AssignItemsLocale
 import org.wagham.db.KabotMultiDBClient
-import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Item
-import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.*
 import java.lang.IllegalStateException
 
@@ -83,9 +80,9 @@ class AssignItems(
                     }
                 )
             } else {
-                db.transaction(params.guildId.toString()) { s ->
-                    itemsToAssign.entries.fold(true) { acc, it ->
-                        acc && db.charactersScope.addItemToInventory(s, params.guildId.toString(), targetCharacter.id, it.key, it.value)
+                db.transaction(params.guildId.toString()) { session ->
+                    itemsToAssign.entries.forEach { (item, qty) ->
+                       db.charactersScope.addItemToInventory(session, params.guildId.toString(), targetCharacter.id, item, qty)
                     }
                 }.let {
                     if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))

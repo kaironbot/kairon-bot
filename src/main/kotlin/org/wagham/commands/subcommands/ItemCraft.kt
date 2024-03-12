@@ -2,7 +2,6 @@ package org.wagham.commands.subcommands
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
-import com.mongodb.reactivestreams.client.ClientSession
 import dev.kord.common.Locale
 import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
@@ -19,8 +18,8 @@ import dev.kord.rest.builder.interaction.integer
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.actionRow
+import dev.kord.rest.builder.message.embed
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.ItemCommand
@@ -37,6 +36,7 @@ import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Character
 import org.wagham.db.models.Item
 import org.wagham.db.models.ScheduledEvent
+import org.wagham.db.models.client.KabotSession
 import org.wagham.db.models.embed.CraftRequirement
 import org.wagham.db.models.embed.Transaction
 import org.wagham.utils.*
@@ -145,35 +145,38 @@ class ItemCraft(
         else craftItemAndAssignImmediatelyToCharacter(guildId, item, recipeIndex,amount, character, locale)
 
     private suspend fun payCostAndRecord(
-        s: ClientSession,
+        session: KabotSession,
         guildId: String,
         character: String,
         recipe: CraftRequirement,
-        amount: Int) : Boolean {
-        val moneyStep = db.charactersScope.subtractMoney(s, guildId, character, recipe.cost * amount)
-        val itemsStep = recipe.materials.all { (material, qty) ->
-            db.charactersScope.removeItemFromInventory(s, guildId, character, material, (qty*amount).toInt())
+        amount: Int
+    ) {
+        db.charactersScope.subtractMoney(session, guildId, character, recipe.cost * amount)
+        recipe.materials.forEach { (material, qty) ->
+            db.charactersScope.removeItemFromInventory(session, guildId, character, material, (qty*amount).toInt())
         }
-        val itemsRecord = recipe.materials.mapValues { (it.value * amount) } +
-                (transactionMoney to recipe.cost*amount)
-        val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
-            s, guildId, character, Transaction(Date(), null, "CRAFT", TransactionType.REMOVE, itemsRecord)
+        val itemsRecord = recipe.materials.mapValues { (it.value * amount) } + (transactionMoney to recipe.cost*amount)
+        db.characterTransactionsScope.addTransactionForCharacter(
+            session,
+            guildId,
+            character,
+            Transaction(Date(), null, "CRAFT", TransactionType.REMOVE, itemsRecord)
         )
-        return moneyStep && itemsStep && recordStep
     }
 
     private suspend fun craftItemAndAssignImmediatelyToCharacter(guildId: String, item: Item, recipeIndex: Int, amount: Int, character: String, locale: String) =
-        db.transaction(guildId) { s ->
+        db.transaction(guildId) { session ->
             val recipe = item.craft[recipeIndex]
-            val costStep = payCostAndRecord(s, guildId, character, recipe, amount)
+            payCostAndRecord(session, guildId, character, recipe, amount)
 
-            val assignStep = db.charactersScope.addItemToInventory(s, guildId, character, item.name, amount)
+            db.charactersScope.addItemToInventory(session, guildId, character, item.name, amount)
 
-            val recordStep = costStep && db.characterTransactionsScope.addTransactionForCharacter(
-                s, guildId, character, Transaction(Date(), null, "CRAFT", TransactionType.ADD, mapOf(item.name to amount.toFloat()))
+            db.characterTransactionsScope.addTransactionForCharacter(
+                session,
+                guildId,
+                character,
+                Transaction(Date(), null, "CRAFT", TransactionType.ADD, mapOf(item.name to amount.toFloat()))
             )
-
-            assignStep && recordStep
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
@@ -186,7 +189,7 @@ class ItemCraft(
         val recipe = item.craft[recipeIndex]
         return db.transaction(guildId) { s ->
             val result = payCostAndRecord(s, guildId, character, recipe, amount)
-            result
+            mapOf("result" to result)
         }.let {
             when {
                 it.committed -> {

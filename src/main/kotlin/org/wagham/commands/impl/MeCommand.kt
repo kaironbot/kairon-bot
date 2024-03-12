@@ -14,8 +14,8 @@ import dev.kord.core.on
 import dev.kord.rest.builder.component.option
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.actionRow
+import dev.kord.rest.builder.message.embed
 import kotlinx.coroutines.flow.firstOrNull
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
@@ -85,7 +85,7 @@ class MeCommand(
      * It will fail if there is no class defined in the playable resources or if there is no corresponding character.
      */
     private fun handleButtons() = kord.on<ButtonInteractionCreateEvent> {
-        if(MulticlassOperation.values().any { verifyId(interaction.componentId, it.name) }) {
+        if(MulticlassOperation.entries.any { verifyId(interaction.componentId, it.name) }) {
             val params = interaction.extractCommonParameters()
             val resources = db.utilityScope.getPlayableResources(params.guildId.toString())
             val (operation, player, creationDate) = extractComponentsFromComponentId(interaction.componentId)

@@ -5,8 +5,8 @@ import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.entity.channel.MessageChannel
 import dev.kord.rest.builder.component.MessageComponentBuilder
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.actionRow
+import dev.kord.rest.builder.message.embed
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale
 import org.wagham.db.exceptions.NoActiveCharacterException

@@ -13,14 +13,17 @@ import dev.kord.core.event.interaction.SelectMenuInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.rest.builder.component.option
 import dev.kord.rest.builder.message.create.UserMessageCreateBuilder
-import dev.kord.rest.builder.message.create.actionRow
-import dev.kord.rest.builder.message.create.embed
+import dev.kord.rest.builder.message.actionRow
+import dev.kord.rest.builder.message.embed
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.fold
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
+import org.apache.commons.rng.sampling.DiscreteProbabilityCollectionSampler
+import org.apache.commons.rng.simple.RandomSource
 import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
 import org.wagham.components.Identifiable
@@ -69,13 +72,30 @@ class PeriodicMarketEvent(
         Triple(LabelStub("a8159199-9b4b-4779-8e21-bd6d76ebb0dd", "T5"), 0, true)
     )
 
-    private suspend fun retrieveItemsForCategory(guildId: Snowflake, type: LabelStub, qty: Int, consumable: Boolean): Map<Item, CraftRequirement> =
+    private suspend fun retrieveItemsForCategory(
+        guildId: Snowflake,
+        type: LabelStub,
+        qty: Int,
+        consumable: Boolean,
+        frequencies: Map<String, Int>
+    ): Map<Item, CraftRequirement> =
         db.itemsScope.getItems(guildId.toString(), listOfNotNull(
             type,
             LabelStub("8c7f4255-f694-4bc8-ae2b-fb95bbd5bc3f", "Recipe"),
             LabelStub("a7f617e6-bb48-4beb-a9c4-389cc1e002e3", "Market"),
             LabelStub("edd53df7-dbb1-4593-b9ea-df5f90f489cf", "Consumable").takeIf { consumable }
-        )).toList().shuffled().take(qty).associateWith { recipe ->
+        )).toList().let { items ->
+            (0 until qty).fold(Pair(items, emptyList<Item>())) { acc, _ ->
+                val sample = DiscreteProbabilityCollectionSampler(
+                    RandomSource.XO_RO_SHI_RO_128_PP.create(),
+                    acc.first.associateWith { (1.0/frequencies.getOrDefault(it.name, 1)) }
+                ).sample()
+                Pair(
+                    items.filter { it.name != sample.name },
+                    acc.second + sample
+                )
+            }.second
+        }.associateWith { recipe ->
             val item = db.itemsScope.isMaterialOf(guildId.toString(), recipe).first()
             CraftRequirement(cost = item.craft.first { it.label == "Craft" }.cost / 10)
         }
@@ -131,15 +151,21 @@ class PeriodicMarketEvent(
                 else -> {
                     val item = market.idToItems.getValue(itemId)
                     val cost = market.items.getValue(item).cost
-                    db.transaction(params.guildId.toString()) { s ->
-                        db.charactersScope.subtractMoney(s, params.guildId.toString(), activeCharacter.id, cost) &&
-                            db.charactersScope.addItemToInventory(s, params.guildId.toString(), activeCharacter.id, item, 1) &&
-                            db.characterTransactionsScope.addTransactionForCharacter(
-                                s, params.guildId.toString(), activeCharacter.id, Transaction(Date(), null, "BUY", TransactionType.REMOVE, mapOf(transactionMoney to cost))
-                            ) &&
-                            db.characterTransactionsScope.addTransactionForCharacter(
-                                s, params.guildId.toString(), activeCharacter.id, Transaction(Date(), null, "BUY", TransactionType.ADD, mapOf(item to 1.0f))
-                            )
+                    db.transaction(params.guildId.toString()) { session ->
+                        db.charactersScope.subtractMoney(session, params.guildId.toString(), activeCharacter.id, cost)
+                        db.charactersScope.addItemToInventory(session, params.guildId.toString(), activeCharacter.id, item, 1)
+                        db.characterTransactionsScope.addTransactionForCharacter(
+                            session,
+                            params.guildId.toString(),
+                            activeCharacter.id,
+                            Transaction(Date(), null, "BUY", TransactionType.REMOVE, mapOf(transactionMoney to cost))
+                        )
+                        db.characterTransactionsScope.addTransactionForCharacter(
+                            session,
+                            params.guildId.toString(),
+                            activeCharacter.id,
+                            Transaction(Date(), null, "BUY", TransactionType.ADD, mapOf(item to 1.0f))
+                        )
                     }.let {
                         if(it.committed) {
                             val newMarket = updateMarket(params.guildId, activeCharacter.id, itemId)
@@ -202,14 +228,20 @@ class PeriodicMarketEvent(
      * Generates a new market with random objects for each guild that activated this event.
      * The function will:
      * 1. Disable the previous market.
-     * 2. Generate a new set of [Item]s to put in the market. The items will be saved with a short id in a cache, to
+     * 2. Generate a new set of [Item]s to put in the market. The probability of getting an item depends on the frequency
+     * of appearance in the past markets. The items will be saved with a short id in a cache, to
      * avoid storing information in the component ids.
      * 3. Generate and publish a new market message.
      */
     private suspend fun generateNewMarket(guildId: Snowflake) {
         disablePreviousMarket(guildId)
+        val pastFrequencies = db.utilityScope.getLastMarkets(guildId.toString(), 10)
+            .fold(mutableMapOf<String, Int>()) { acc, market ->
+                market.items.keys.forEach { acc[it] = (acc[it] ?: 0) + 1 }
+                acc
+            }
         val newItems = categories.fold(emptyMap<Item, CraftRequirement>()) { acc, (label, qty, consumable) ->
-            acc + retrieveItemsForCategory(guildId, label, qty, consumable)
+            acc + retrieveItemsForCategory(guildId, label, qty, consumable, pastFrequencies)
         }
         val idToItems = newItems.keys.associate { shortId() to it.name }
         val message = kord.getChannelOfType(guildId, Channels.MARKET_CHANNEL, cacheManager).createMessage(
@@ -239,7 +271,7 @@ class PeriodicMarketEvent(
                                 logger.info { it }
                                 generateNewMarket(guild.id)
                             } catch (e: Exception) {
-                                logger.info { "Smoething went wrong" }
+                                logger.info { "Something went wrong" }
                                 logger.error { e.stackTraceToString() }
                             }
                         }

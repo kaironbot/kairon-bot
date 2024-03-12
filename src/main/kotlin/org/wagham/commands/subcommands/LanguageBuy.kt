@@ -2,7 +2,6 @@ package org.wagham.commands.subcommands
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
-import com.mongodb.reactivestreams.client.ClientSession
 import dev.kord.common.Locale
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
@@ -17,14 +16,12 @@ import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.toList
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.LanguageCommand
 import org.wagham.components.CacheManager
 import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.LanguageBuyLocale
-import org.wagham.config.locale.subcommands.ToolBuyLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.ScheduledEventArg
 import org.wagham.db.enums.ScheduledEventState
@@ -34,6 +31,7 @@ import org.wagham.db.exceptions.NoActiveCharacterException
 import org.wagham.db.models.Character
 import org.wagham.db.models.LanguageProficiency
 import org.wagham.db.models.ScheduledEvent
+import org.wagham.db.models.client.KabotSession
 import org.wagham.db.models.embed.AbilityCost
 import org.wagham.db.models.embed.ProficiencyStub
 import org.wagham.db.models.embed.Transaction
@@ -97,27 +95,29 @@ class LanguageBuy(
     }
 
     private suspend fun payLanguageCost(
-        s: ClientSession,
+        session: KabotSession,
         guildId: String,
         characterId: String,
         cost: AbilityCost
-    ): Boolean {
-        val moneyStep = db.charactersScope.subtractMoney(s, guildId, characterId, cost.moCost)
-        val itemsStep = cost.itemsCost.all { (material, qty) ->
-            db.charactersScope.removeItemFromInventory(s, guildId, characterId, material, qty)
+    ) {
+        db.charactersScope.subtractMoney(session, guildId, characterId, cost.moCost)
+       cost.itemsCost.forEach { (material, qty) ->
+            db.charactersScope.removeItemFromInventory(session, guildId, characterId, material, qty)
         }
         val itemsRecord = cost.itemsCost.mapValues { it.value.toFloat() } + (transactionMoney to cost.moCost)
-        val transactionsStep = db.characterTransactionsScope.addTransactionForCharacter(
-            s, guildId, characterId, Transaction(
-                Date(), null, "BUY LANGUAGE", TransactionType.REMOVE, itemsRecord))
-        return moneyStep && itemsStep && transactionsStep
+        db.characterTransactionsScope.addTransactionForCharacter(
+            session,
+            guildId,
+            characterId,
+            Transaction(
+                Date(), null, "BUY LANGUAGE", TransactionType.REMOVE, itemsRecord)
+        )
     }
 
     private suspend fun payAndDelayAssignment(guildId: String, language: LanguageProficiency, character: String, locale: String): InteractionResponseModifyBuilder.() -> Unit {
         val cost = language.cost ?: throw IllegalStateException("This tool cannot be bought")
-        return db.transaction(guildId) { s ->
-            val payStep = payLanguageCost(s, guildId, character, cost)
-            payStep
+        return db.transaction(guildId) { session ->
+            payLanguageCost(session, guildId, character, cost)
         }.let {
             when {
                 it.committed -> {
@@ -149,13 +149,16 @@ class LanguageBuy(
 
 
     private suspend fun assignLanguageToCharacterImmediately(guildId: String, language: LanguageProficiency, character: String, locale: String) =
-        db.transaction(guildId) { s ->
+        db.transaction(guildId) { session ->
             val cost = language.cost ?: throw IllegalStateException("This tool cannot be bought")
-            val payStep = payLanguageCost(s, guildId, character, cost)
-            val proficiencyStep = db.charactersScope.addLanguageToCharacter(s, guildId, character, ProficiencyStub(language.id, language.name))
+            payLanguageCost(session, guildId, character, cost)
+            db.charactersScope.addLanguageToCharacter(session, guildId, character, ProficiencyStub(language.id, language.name))
 
-            payStep && proficiencyStep && db.characterTransactionsScope.addTransactionForCharacter(
-                s, guildId, character, Transaction(Date(), null, "BUY LANGUAGE", TransactionType.ADD, mapOf(language.name to 1f))
+            db.characterTransactionsScope.addTransactionForCharacter(
+                session,
+                guildId,
+                character,
+                Transaction(Date(), null, "BUY LANGUAGE", TransactionType.ADD, mapOf(language.name to 1f))
             )
         }.let {
             when {

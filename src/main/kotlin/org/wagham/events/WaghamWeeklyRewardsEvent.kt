@@ -56,7 +56,6 @@ class WaghamWeeklyRewardsEvent(
             val weekStart: Date,
             val weekEnd: Date,
             val tBadge: Int,
-            val master: Map<String, Int>,
             val delegates: Map<String, Int> = emptyMap(),
             val playerRewards: Map<String, Reward> = emptyMap()
         ) {
@@ -64,17 +63,12 @@ class WaghamWeeklyRewardsEvent(
             fun rewardsMessage() = buildString {
                 val dateFormatter = SimpleDateFormat("dd/MM")
                 append("**Premi della settimana dal ${dateFormatter.format(weekStart)} al ${dateFormatter.format(weekEnd)}**\n\n")
-                append("**Premi master**\n")
-                master.entries.forEach {
-                    val (playerId, characterName) = it.key.split(":")
-                    append("($characterName) <@!${playerId}>: ${it.value}\n")
-                }
                 append("\n**Stipendi Delegati**\n")
                 delegates.entries.forEach {
                     val (playerId, characterName) = it.key.split(":")
                     append("($characterName) <@!${playerId}>: ${it.value}\n")
                 }
-                append("\n**Premi Edifici**\n")
+                append("\n**Premi Competenze**\n")
                 playerRewards.entries.forEach{ (characterId, reward) ->
                     val (playerId, characterName) = characterId.split(":")
                     append("$characterName - (<@!$playerId>)\n")
@@ -101,19 +95,6 @@ class WaghamWeeklyRewardsEvent(
         calendar.add(Calendar.DAY_OF_WEEK, 6)
         val lastDay = calendar.time
         return Pair(firstDay, lastDay)
-    }
-
-    private suspend fun getMasterRewards(guildId: Snowflake, startDate: Date, endDate: Date): Map<String,Int> {
-        val expTable = cacheManager.getExpTable(guildId)
-        return db.sessionScope
-            .getAllSessions(guildId.toString(), startDate = startDate, endDate = endDate)
-            .fold(emptyMap<String, Int>()) { acc, it ->
-                acc + (it.master to (acc[it.master] ?: 0) + 1)
-            }.map {
-                val character = db.charactersScope.getCharacter(guildId.toString(), it.key)
-                val tier = expTable.expToTier(character.ms().toFloat())
-                character.id to (tierRewards.getValue(tier) * it.value)
-            }.toMap()
     }
 
     private suspend fun getDelegateRewards(guildId: Snowflake): Map<String, Int> {
@@ -197,7 +178,6 @@ class WaghamWeeklyRewardsEvent(
             weekStart,
             weekEnd,
             70,
-            getMasterRewards(guildId, weekStart, weekEnd),
             getDelegateRewards(guildId)
         )
         val expTable = cacheManager.getExpTable(guildId)
@@ -231,42 +211,28 @@ class WaghamWeeklyRewardsEvent(
             }
 
         val transactionResult = db.transaction(guildId.toString()) { session ->
-            getAllEligibleCharacters(guildId).fold(true) { status, character ->
-                    val moneyToGive = (updatedLog.master[character.id]?.toFloat() ?: 0f) +
-                            (updatedLog.delegates[character.id]?.toFloat() ?: 0f) +
-                            (updatedLog.playerRewards[character.id]?.money ?: 0f)
-                    val moneyResult = if(moneyToGive > 0f) {
-                        db.charactersScope.addMoney(session, guildId.toString(), character.id, moneyToGive).also {
-                            if(!it) logger.warn { "Money failure: ${character.id}" }
-                        }
-                    } else true
-
+            getAllEligibleCharacters(guildId).collect { character ->
+                    val moneyToGive = (updatedLog.delegates[character.id]?.toFloat() ?: 0f) + (updatedLog.playerRewards[character.id]?.money ?: 0f)
+                    if(moneyToGive > 0f) {
+                        db.charactersScope.addMoney(session, guildId.toString(), character.id, moneyToGive)
+                    }
 
                     val itemsToGive = updatedLog.playerRewards[character.id]?.items ?: emptyMap()
-                    val itemsResult = itemsToGive.entries.fold(true) { acc, (item, qty) ->
-                        acc && db.charactersScope.addItemToInventory(
-                            session,
-                            guildId.toString(),
-                            character.id,
-                            item,
-                            qty
-                        ).also { res ->
-                            if(!res) logger.warn { "Item failure ($item): ${character.id}" }
-                        }
+                    itemsToGive.entries.forEach { (item, qty) ->
+                        db.charactersScope.addItemToInventory(session, guildId.toString(), character.id, item, qty)
                     }
 
                     val itemsForTransaction = itemsToGive.mapValues { it.value.toFloat() } +
-                            (mapOf(transactionMoney to moneyToGive).takeIf { moneyToGive > 0f } ?: emptyMap())
+                        (mapOf(transactionMoney to moneyToGive).takeIf { moneyToGive > 0f } ?: emptyMap())
 
-                    val recordStep = db.characterTransactionsScope.addTransactionForCharacter(
-                        session, guildId.toString(), character.id, Transaction(
+                    db.characterTransactionsScope.addTransactionForCharacter(
+                        session,
+                        guildId.toString(),
+                        character.id,
+                        Transaction(
                             Date(), null, "REWARDS", TransactionType.ADD, itemsForTransaction
                         )
-                    ).also {
-                        if(!it) logger.warn { "Record failure: ${character.id}" }
-                    }
-
-                    status && moneyResult && itemsResult && recordStep
+                    )
                 }
         }
         getChannelOfType(guildId, Channels.LOG_CHANNEL).sendTextMessage(buildString {
@@ -282,7 +248,7 @@ class WaghamWeeklyRewardsEvent(
             kord.guilds.collect { guild ->
                 if (cacheManager.getConfig(guild.id).eventChannels[eventId]?.enabled == true) {
                     taskExecutorScope.launch {
-                        val schedulerConfig = "0 0 18 * * ${getTimezoneOffset()}o 2w"
+                        val schedulerConfig = "0 0 18 * * ${getTimezoneOffset()}o 0w"
                         logger.info { "Starting Weekly Rewards for guild ${guild.name} at $schedulerConfig" }
                         doInfinity(schedulerConfig) {
                             giveRewards(guild.id)

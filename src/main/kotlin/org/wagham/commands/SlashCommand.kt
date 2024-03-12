@@ -6,8 +6,7 @@ import dev.kord.core.entity.interaction.GuildChatInputCommandInteraction
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.rest.builder.RequestBuilder
-import dev.kord.rest.builder.message.create.embed
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.embed
 import kotlinx.coroutines.flow.firstOrNull
 import org.wagham.config.Colors
 import org.wagham.config.locale.CommonLocale

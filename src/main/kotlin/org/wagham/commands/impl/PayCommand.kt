@@ -121,22 +121,22 @@ class PayCommand(
         }.let { updateBehaviour.edit(it) }
     }
 
-    private suspend fun executeTransaction(params: InteractionParameters, sourceCharacter: Character, targetCharacters: Collection<Character>, amount: Float) = db.transaction(params.guildId.toString()) { s ->
-        val subtraction = db.charactersScope.subtractMoney(s, params.guildId.toString(), sourceCharacter.id, amount*targetCharacters.size)
-        targetCharacters.fold(subtraction) { acc, targetCharacter ->
-            val givenTransaction = Transaction(
-                Date(), targetCharacter.id, "PAY", TransactionType.REMOVE, mapOf(transactionMoney to amount)
-            )
-            val receivedTransaction = Transaction(
-                Date(), sourceCharacter.id, "PAY", TransactionType.ADD, mapOf(transactionMoney to amount)
-            )
-            acc &&
-                    db.charactersScope.addMoney(s, params.guildId.toString(), targetCharacter.id, amount) &&
-                    db.characterTransactionsScope.addTransactionForCharacter(s, params.guildId.toString(), sourceCharacter.id, givenTransaction) &&
-                    db.characterTransactionsScope.addTransactionForCharacter(s, params.guildId.toString(), targetCharacter.id, receivedTransaction)
+    private suspend fun executeTransaction(params: InteractionParameters, sourceCharacter: Character, targetCharacters: Collection<Character>, amount: Float) =
+        db.transaction(params.guildId.toString()) { session ->
+            db.charactersScope.subtractMoney(session, params.guildId.toString(), sourceCharacter.id, amount*targetCharacters.size)
+            targetCharacters.forEach { targetCharacter ->
+                val givenTransaction = Transaction(
+                    Date(), targetCharacter.id, "PAY", TransactionType.REMOVE, mapOf(transactionMoney to amount)
+                )
+                val receivedTransaction = Transaction(
+                    Date(), sourceCharacter.id, "PAY", TransactionType.ADD, mapOf(transactionMoney to amount)
+                )
+                db.charactersScope.addMoney(session, params.guildId.toString(), targetCharacter.id, amount)
+                db.characterTransactionsScope.addTransactionForCharacter(session, params.guildId.toString(), sourceCharacter.id, givenTransaction)
+                db.characterTransactionsScope.addTransactionForCharacter(session, params.guildId.toString(), targetCharacter.id, receivedTransaction)
+            }
+        }.let {
+            if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
+            else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
         }
-    }.let {
-        if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
-        else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")
-    }
 }

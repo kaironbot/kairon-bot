@@ -6,7 +6,7 @@ import dev.kord.core.Kord
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.embed
 import kotlinx.coroutines.flow.toList
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand

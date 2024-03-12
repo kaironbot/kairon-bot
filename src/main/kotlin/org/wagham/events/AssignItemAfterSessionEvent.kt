@@ -20,6 +20,7 @@ import org.wagham.db.enums.LabelType
 import org.wagham.db.enums.TransactionType
 import org.wagham.db.models.Character
 import org.wagham.db.models.Item
+import org.wagham.db.models.Session
 import org.wagham.db.models.embed.LabelStub
 import org.wagham.db.models.embed.Transaction
 import org.wagham.entities.channels.RegisteredSession
@@ -40,6 +41,10 @@ class AssignItemAfterSessionEvent(
     private val t4Label = LabelStub("290964a2-c86b-4a16-b8c4-cf07cf95dedc", "T4")
     private val t5Label = LabelStub("a8159199-9b4b-4779-8e21-bd6d76ebb0dd", "T5")
 
+    companion object {
+        private val tierRewards = mapOf("1" to 20f, "2" to 40f, "3" to 100f, "4" to 200f, "5" to 400f)
+    }
+
     private suspend fun getRandomItem(guildId: String, labels: List<LabelStub>): Pair<Item, Int> =
         db.itemsScope.getItems(guildId, labels).toList().random().let {
             it to 1
@@ -53,48 +58,92 @@ class AssignItemAfterSessionEvent(
         }
     }
 
+    private suspend fun assignRecipes(guildId: String, session: Session) {
+        val itemLabels = db.labelsScope.getLabels(
+            guildId,
+            session.labels.map { it.id } + RECIPE_LABEL_ID,
+            LabelType.ITEM).map {
+            it.toLabelStub()
+        }.toList().let { labels ->
+            if (labels.contains(t5Label)) labels.filter { it != t5Label } + t4Label
+            else labels
+        }
+        if (itemLabels.isNotEmpty()) {
+            val characterToItem = db.charactersScope.getCharacters(
+                guildId,
+                session.characters.map { it.character }
+            ).filter {
+                it.status == CharacterStatus.active
+            }.associateTo {
+                getRandomItem(guildId, itemLabels)
+            }
+            val transactionResult = db.transaction(guildId) { kabotSession ->
+                characterToItem.entries.forEach { (participant, prize) ->
+                    db.charactersScope.addItemToInventory(kabotSession, guildId, participant.id, prize.first.name, prize.second)
+                    db.characterTransactionsScope.addTransactionForCharacter(
+                        kabotSession,
+                        guildId,
+                        participant.id,
+                        Transaction(
+                            Date(),
+                            null,
+                            "SESSION_REWARD",
+                            TransactionType.ADD,
+                            mapOf(prize.first.name to prize.second.toFloat())
+                        )
+                    )
+                }
+            }
+
+            if (transactionResult.committed) {
+                val channel = kord.getChannelOfType(Snowflake(guildId), Channels.MESSAGE_CHANNEL, cacheManager)
+                channel.sendTextMessage(characterToItem.buildMessage(session.title))
+            } else {
+                val channel = kord.getChannelOfType(Snowflake(guildId), Channels.LOG_CHANNEL, cacheManager)
+                channel.sendTextMessage("Cannot assign recipes for session $guildId\n${transactionResult.exception?.stackTraceToString()}")
+            }
+        }
+    }
+
+    private suspend fun assignMasterReward(guildId: String, session: Session) {
+        val character = db.charactersScope.getCharacter(guildId, session.master)
+        val expTable = cacheManager.getExpTable(Snowflake(guildId))
+        val tier = expTable.expToTier(character.ms().toFloat())
+        val reward = tierRewards.getValue(tier)
+        val transactionResult = db.transaction(guildId) { kabotSession ->
+            db.charactersScope.addMoney(kabotSession, guildId, character.id, reward)
+            db.characterTransactionsScope.addTransactionForCharacter(
+                kabotSession,
+                guildId,
+                character.id,
+                Transaction(
+                    Date(), null, "MASTER REWARD ${session.title}", TransactionType.ADD, mapOf(transactionMoney to reward)
+                )
+            )
+        }
+
+        if (transactionResult.committed) {
+            val channel = kord.getChannelOfType(Snowflake(guildId), Channels.MESSAGE_CHANNEL, cacheManager)
+            channel.sendTextMessage(buildString {
+                append("Per la sessione **")
+                append(session.title)
+                append("** ${character.name} (<@${character.player}>) riceve ")
+                append(reward.toInt())
+                append(" MO")
+            })
+        } else {
+            val channel = kord.getChannelOfType(Snowflake(guildId), Channels.LOG_CHANNEL, cacheManager)
+            channel.sendTextMessage("Cannot assign recipes for session $guildId\n${transactionResult.exception?.stackTraceToString()}")
+        }
+    }
+
     private fun assignItemsToParticipants(registeredSession: RegisteredSession) = taskExecutorScope.launch {
         val session = db.sessionScope.getSessionById(registeredSession.guildId, registeredSession.sessionId)
-        if(session != null && session.labels.any { it.id == LORE_LABEL_ID } && session.labels.none { it.id == PBV_LABEL_ID}) {
-            val itemLabels = db.labelsScope.getLabels(registeredSession.guildId, session.labels.map { it.id } + RECIPE_LABEL_ID, LabelType.ITEM).map {
-                it.toLabelStub()
-            }.toList().let { labels ->
-                if(labels.contains(t5Label)) labels.filter { it != t5Label } + t4Label
-                else labels
+        if(session != null && session.labels.none { it.id == PBV_LABEL_ID }) {
+            if (session.labels.any { it.id == LORE_LABEL_ID }) {
+                assignRecipes(registeredSession.guildId, session)
             }
-            if (itemLabels.isNotEmpty()) {
-                val characterToItem = db.charactersScope.getCharacters(
-                    registeredSession.guildId,
-                    session.characters.map { it.character }
-                ).filter {
-                    it.status == CharacterStatus.active
-                }.associateTo {
-                    getRandomItem(registeredSession.guildId, itemLabels)
-                }
-                val transactionResult = db.transaction(registeredSession.guildId) { s ->
-                    characterToItem.entries.all { (participant, prize) ->
-                        db.charactersScope.addItemToInventory(
-                            s,
-                            registeredSession.guildId,
-                            participant.id,
-                            prize.first.name,
-                            prize.second
-                        ) && db.characterTransactionsScope.addTransactionForCharacter(
-                            s, registeredSession.guildId, participant.id, Transaction(
-                                Date(), null, "SESSION_REWARD", TransactionType.ADD, mapOf(prize.first.name to prize.second.toFloat())
-                            )
-                        )
-                    }
-                }
-
-                if(transactionResult.committed) {
-                    val channel = kord.getChannelOfType(Snowflake(registeredSession.guildId), Channels.MESSAGE_CHANNEL, cacheManager)
-                    channel.sendTextMessage(characterToItem.buildMessage(session.title))
-                } else {
-                    val channel = kord.getChannelOfType(Snowflake(registeredSession.guildId), Channels.LOG_CHANNEL, cacheManager)
-                    channel.sendTextMessage("Cannot assign recipes for session ${registeredSession.guildId}\n${transactionResult.exception?.stackTraceToString()}")
-                }
-            }
+            assignMasterReward(registeredSession.guildId, session)
         }
     }
 

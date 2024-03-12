@@ -14,8 +14,8 @@ import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEve
 import dev.kord.core.on
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.actionRow
+import dev.kord.rest.builder.message.embed
 import org.wagham.annotations.BotCommand
 import org.wagham.commands.SimpleResponseSlashCommand
 import org.wagham.components.CacheManager
@@ -40,8 +40,8 @@ class InventoryCommand(
 ) : SimpleResponseSlashCommand(), MultiCharacterCommand<User> {
 
     companion object {
-        const val previous = "previous"
-        const val next  = "next"
+        const val PREVIOUS = "previous"
+        const val NEXT  = "next"
 
         private data class InventoryCacheData(
             val responsible: Snowflake,
@@ -131,7 +131,7 @@ class InventoryCommand(
             embed {
                 author {
                     name = characterName
-                    icon = user.avatar?.url
+                    icon = user.avatar?.cdnUrl?.toUrl()
                 }
                 description = buildString {
                     append("**${InventoryLocale.MONEY.locale(locale)}**\n")
@@ -144,10 +144,10 @@ class InventoryCommand(
                 color = Colors.DEFAULT.value
             }
             actionRow {
-                interactionButton(ButtonStyle.Secondary, buildElementId(previous, interactionId)) {
+                interactionButton(ButtonStyle.Secondary, buildElementId(PREVIOUS, interactionId)) {
                     label = InventoryLocale.LABEL_PREVIOUS.locale(locale)
                 }
-                interactionButton(ButtonStyle.Secondary, buildElementId(next, interactionId)) {
+                interactionButton(ButtonStyle.Secondary, buildElementId(NEXT, interactionId)) {
                     label = InventoryLocale.LABEL_NEXT.locale(locale)
                 }
             }
@@ -162,14 +162,14 @@ class InventoryCommand(
                 when {
                     data == null -> interaction.updateWithExpirationError(params.locale)
                     data.responsible != params.responsible.id -> interaction.respondWithForbiddenError(params.locale)
-                    op == previous -> {
+                    op == PREVIOUS -> {
                         val newPage = data.list.previousPage()
                         interactionCache.put(id, data.copy(list = newPage))
                         interaction.deferPublicMessageUpdate().edit(
                             generateInventoryEmbed(id, newPage, data.money, data.target, data.characterName, params.locale)
                         )
                     }
-                    op == next -> {
+                    op == NEXT -> {
                         val newPage = data.list.nextPage()
                         interactionCache.put(id, data.copy(list = newPage))
                         interaction.deferPublicMessageUpdate().edit(

@@ -57,17 +57,22 @@ class ItemSell(
     override suspend fun registerCommand() { }
 
     private suspend fun removeItemFromCharacter(guildId: String, item: Item, amount: Int, character: String, locale: String) =
-        db.transaction(guildId) { s ->
-            db.charactersScope.addMoney(s, guildId, character, item.sell!!.cost*amount) &&
-                db.charactersScope.removeItemFromInventory(s, guildId, character, item.name, amount) &&
-                db.characterTransactionsScope.addTransactionForCharacter(
-                    s, guildId, character, Transaction(
-                        Date(), null, "SELL", TransactionType.ADD, mapOf(
-                            transactionMoney to item.sell!!.cost*amount))
-                ) &&
-                db.characterTransactionsScope.addTransactionForCharacter(
-                    s, guildId, character, Transaction(Date(), null, "SELL", TransactionType.REMOVE, mapOf(item.name to amount.toFloat()))
+        db.transaction(guildId) { session ->
+            db.charactersScope.addMoney(session, guildId, character, item.sell!!.cost*amount)
+            db.charactersScope.removeItemFromInventory(session, guildId, character, item.name, amount)
+            db.characterTransactionsScope.addTransactionForCharacter(
+                session,
+                guildId,
+                character,
+                Transaction(
+                    Date(), null, "SELL", TransactionType.ADD, mapOf(transactionMoney to item.sell!!.cost*amount))
                 )
+            db.characterTransactionsScope.addTransactionForCharacter(
+                session,
+                guildId,
+                character,
+                Transaction(Date(), null, "SELL", TransactionType.REMOVE, mapOf(item.name to amount.toFloat()))
+            )
         }.let {
             when {
                 it.committed -> createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))

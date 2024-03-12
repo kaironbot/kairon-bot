@@ -118,14 +118,18 @@ class AssignTool(
     }
 
     private suspend fun assignToolProficiency(tool: ToolProficiency, target: String, params: InteractionParameters) =
-        db.transaction(params.guildId.toString()) { s ->
+        db.transaction(params.guildId.toString()) { session ->
             db.charactersScope.addProficiencyToCharacter(
-                s,
+                session,
                 params.guildId.toString(),
                 target,
                 ProficiencyStub(tool.id, tool.name)
-            ) && db.characterTransactionsScope.addTransactionForCharacter(
-                s, params.guildId.toString(), target, Transaction(
+            )
+            db.characterTransactionsScope.addTransactionForCharacter(
+                session,
+                params.guildId.toString(),
+                target,
+                Transaction(
                     Date(), null, "ASSIGN", TransactionType.ADD, mapOf(tool.name to 1f)
                 )
             )

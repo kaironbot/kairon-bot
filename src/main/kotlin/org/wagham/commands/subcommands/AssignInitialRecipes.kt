@@ -77,13 +77,18 @@ class AssignInitialRecipes(
             val tier = expTable.expToTier(levelExp.toFloat()).toInt().coerceAtMost(4)
             getRandomItem(guildId.toString(), tier, character)
         }
-        return db.transaction(guildId.toString()) {
-            recipes.all { recipe ->
-                db.charactersScope.addItemToInventory(it, guildId.toString(), character.id, recipe.name, 1)
-            } && db.characterTransactionsScope.addTransactionForCharacter(
-                it, guildId.toString(), character.id, Transaction(
-            Date(), null, "INITIAL_RECIPES", TransactionType.ADD, recipes.map { r -> r.name }.associateWith { 1f }
-            ))
+        return db.transaction(guildId.toString()) { session ->
+            recipes.forEach { recipe ->
+                db.charactersScope.addItemToInventory(session, guildId.toString(), character.id, recipe.name, 1)
+            }
+            db.characterTransactionsScope.addTransactionForCharacter(
+                session,
+                guildId.toString(),
+                character.id,
+                Transaction(
+                    Date(), null, "INITIAL_RECIPES", TransactionType.ADD, recipes.map { r -> r.name }.associateWith { 1f }
+                )
+            )
         }.let {
             if(it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
             else createGenericEmbedError(locale)

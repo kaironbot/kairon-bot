@@ -22,10 +22,9 @@ import dev.kord.core.event.interaction.SelectMenuInteractionCreateEvent
 import dev.kord.core.on
 import dev.kord.rest.builder.component.option
 import dev.kord.rest.builder.interaction.*
-import dev.kord.rest.builder.message.create.embed
 import dev.kord.rest.builder.message.modify.FollowupMessageModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.actionRow
+import dev.kord.rest.builder.message.embed
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.CharacterCommand

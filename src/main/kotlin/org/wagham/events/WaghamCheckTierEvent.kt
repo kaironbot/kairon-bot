@@ -17,7 +17,6 @@ import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.CharacterStatus
 import org.wagham.db.models.Character
-import org.wagham.db.models.Session
 import org.wagham.entities.channels.RegisteredSession
 import org.wagham.utils.getChannelOfTypeOrDefault
 import org.wagham.utils.sendTextMessage
@@ -75,7 +74,7 @@ class WaghamCheckTierEvent(
             val player = kord.defaultSupplier.getMemberOrNull(guildId, Snowflake(character.player))
             if (player == null) {
                 acc.copy(second = acc.second + character)
-            } else if (player.roles.toList().none { !Regex("Tier $tier.*").matches(it.name) }) {
+            } else if (player.roles.toList().none { Regex("Tier $tier.*").matches(it.name) }) {
                 acc.copy(first = acc.first + (player to character))
             } else acc
         }.let { updates ->
@@ -109,7 +108,7 @@ class WaghamCheckTierEvent(
      *
      * @param registeredSession a [RegisteredSession] message.
      */
-    private suspend fun updateRolesAndAssignRecipes(registeredSession: RegisteredSession) {
+    private suspend fun updateRoles(registeredSession: RegisteredSession) {
         db.sessionScope.getSessionById(registeredSession.guildId, registeredSession.sessionId)?.let { session ->
             val activeCharacters = db.charactersScope.getCharacters(
                 registeredSession.guildId,
@@ -129,7 +128,7 @@ class WaghamCheckTierEvent(
         try {
             val channel = cacheManager.getChannel<WaghamCheckTierEvent, RegisteredSession>()
             for(message in channel) {
-                updateRolesAndAssignRecipes(message)
+                updateRoles(message)
             }
         } catch (e: Exception) {
             logger.info { "Error while dispatching tier updates op: ${e.stackTraceToString()}" }

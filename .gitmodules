@@ -1,0 +1,3 @@
+[submodule "kabot-db-connector"]
+	path = kabot-db-connector
+	url = ../kabot-db-connector

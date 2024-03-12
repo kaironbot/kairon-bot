@@ -103,7 +103,7 @@ class GiveCommand(
         targetCharacter: Character,
         item: Item,
         amount: Int
-    ) = db.transaction(params.guildId.toString()) { s ->
+    ) = db.transaction(params.guildId.toString()) { session ->
         val guildId = params.guildId.toString()
         val givenTransaction = Transaction(
             Date(), targetCharacter.id, "GIVE", TransactionType.REMOVE, mapOf(item.name to amount.toFloat())
@@ -111,10 +111,10 @@ class GiveCommand(
         val receivedTransaction = Transaction(
             Date(), character.id, "GIVE", TransactionType.ADD, mapOf(item.name to (amount*item.giveRatio))
         )
-        db.charactersScope.removeItemFromInventory(s, guildId, character.id, item.name, amount) &&
-                db.charactersScope.addItemToInventory(s, guildId, targetCharacter.id, item.name, (amount*item.giveRatio).toInt()) &&
-                db.characterTransactionsScope.addTransactionForCharacter(s, guildId, character.id, givenTransaction) &&
-                db.characterTransactionsScope.addTransactionForCharacter(s, guildId, targetCharacter.id, receivedTransaction)
+        db.charactersScope.removeItemFromInventory(session, guildId, character.id, item.name, amount)
+        db.charactersScope.addItemToInventory(session, guildId, targetCharacter.id, item.name, (amount*item.giveRatio).toInt())
+        db.characterTransactionsScope.addTransactionForCharacter(session, guildId, character.id, givenTransaction)
+        db.characterTransactionsScope.addTransactionForCharacter(session, guildId, targetCharacter.id, receivedTransaction)
     }.let {
         if (it.committed) createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(params.locale))
         else createGenericEmbedError("Error: ${it.exception?.stackTraceToString()}")

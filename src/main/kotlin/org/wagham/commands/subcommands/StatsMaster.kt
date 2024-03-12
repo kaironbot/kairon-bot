@@ -16,9 +16,10 @@ import dev.kord.core.on
 import dev.kord.rest.builder.interaction.RootInputChatBuilder
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
+import dev.kord.rest.builder.message.addFile
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.actionRow
-import dev.kord.rest.builder.message.modify.embed
+import dev.kord.rest.builder.message.actionRow
+import dev.kord.rest.builder.message.embed
 import kotlinx.coroutines.flow.toList
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.impl.StatsCommand
