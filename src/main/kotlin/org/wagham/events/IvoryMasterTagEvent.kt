@@ -52,7 +52,7 @@ class IvoryMasterTagEvent (
 				roles = user.roles.filter { it.name != "Master" }.map { it.id }.toList().toMutableSet()
 			}
 			user.getDmChannel().sendTextMessage(message)
-			getChannelOfType(Snowflake(1099390660672503980), Channels.MESSAGE_CHANNEL)
+			getChannelOfType(Snowflake(1099390660672503980), Channels.LOG_CHANNEL)
 				.sendTextMessage("Removed master tag from ${user.username}")
 		}
 
@@ -65,7 +65,7 @@ class IvoryMasterTagEvent (
 					checkMasterInactivity(Snowflake(1099390660672503980))
 				} catch (e: Exception) {
 					logger.info { "Error while dispatching drop op: ${e.stackTraceToString()}" }
-					getChannelOfType(Snowflake(1099390660672503980), Channels.MESSAGE_CHANNEL)
+					getChannelOfType(Snowflake(1099390660672503980), Channels.LOG_CHANNEL)
 						.sendTextMessage("Error while dispatching drop op: ${e.stackTraceToString()}")
 				}
 			}
