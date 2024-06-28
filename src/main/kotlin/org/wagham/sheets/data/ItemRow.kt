@@ -5,6 +5,7 @@ import org.wagham.db.models.embed.BuySellRequirement
 import org.wagham.db.models.embed.CraftRequirement
 import org.wagham.db.models.embed.Label
 import org.wagham.db.models.embed.LabelStub
+import org.wagham.db.utils.StringNormalizer
 import org.wagham.sheets.GoogleSheetsUtils
 import org.wagham.sheets.getHeaderMapping
 import org.wagham.utils.formatToFloat
@@ -79,7 +80,8 @@ class ItemRow(
                     extractRecipeCraftOrNull(),
                     *extractUpgradeCraftOrNull(alreadyParsed)
                 ),
-                labels = extractLabels(labelsByName)
+                labels = extractLabels(labelsByName),
+                normalizedName = StringNormalizer.normalize(getValue("Name_Item").trim())
             )
         private fun Map<String, String>.toRecipeOrNull(labelsByName: Map<String, Label>) =
             if(getValue("Name_Resource").trim().isNotBlank()) {
@@ -90,7 +92,8 @@ class ItemRow(
                     }.takeIf { getValue("sellable?").formatToInt() == 1 },
                     category = "Recipe",
                     giveRatio = 1.0f,
-                    labels = extractLabels(labelsByName) + labelsByName.getValue("Recipe").toLabelStub()
+                    labels = extractLabels(labelsByName) + labelsByName.getValue("Recipe").toLabelStub(),
+                    normalizedName = StringNormalizer.normalize(getValue("Name_Resource").trim())
                 )
             } else null
 
@@ -113,7 +116,7 @@ class ItemRow(
                 timeRequired = null,
                 minQuantity = quantity,
                 maxQuantity = quantity,
-                materials = mapOf(getValue("Name_Resource") to 1f/quantity),
+                materials = mapOf(getValue("Name_Resource").trim() to 1f/quantity),
                 label = "Craft",
                 cost = getValue("Craft Mo Cost").formatToFloat()
             )
@@ -130,7 +133,7 @@ class ItemRow(
                     maxQuantity = 1,
                     materials = mapOf(
                         baseItem.item.name to 1f,
-                        getValue("Name_Resource") to 1f
+                        getValue("Name_Resource").trim() to 1f
                     ),
                     label = "Upgrade $itemName",
                     cost = getValue("Craft Mo Cost").formatToFloat() -

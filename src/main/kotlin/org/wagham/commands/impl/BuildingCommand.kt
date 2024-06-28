@@ -37,7 +37,7 @@ class BuildingCommand(
                 } ?: (this / 2)
 
         fun describeBuildingMessage(
-            building: BuildingWithBounty,
+            building: BaseBuilding,
             locale: String,
             config: ServerConfig,
             character: Character?
@@ -77,30 +77,33 @@ class BuildingCommand(
                         append("\n")
                     }
                     append("**${BuildingLocale.WEEKLY_PRIZE.locale(locale)}**\n")
-                    building.bounty.prizes.forEach {
-                        append(it.probability*100)
-                        append("% - ")
-                        if(it.moneyDelta != 0) {
-                            append(it.moneyDelta)
-                            append(" MO")
+                    if(building is BuildingWithBounty) {
+                        building.bounty.prizes.forEach {
+                            append(it.probability*100)
+                            append("% - ")
+                            if(it.moneyDelta != 0) {
+                                append(it.moneyDelta)
+                                append(" MO")
+                            }
+                            if (it.guaranteedItems.isNotEmpty()) {
+                                if(it.moneyDelta != 0) append(", ")
+                                append(
+                                    it.guaranteedItems.entries.joinToString(", ") { i -> "${i.key} x${i.value}" }
+                                )
+                            }
+                            it.randomItems.forEach { p ->
+                                append(", ")
+                                append(p.itemId)
+                                append("x")
+                                append(p.qty)
+                                append(" (")
+                                append(p.probability*100)
+                                append("%)")
+                            }
+                            append("\n")
                         }
-                        if (it.guaranteedItems.isNotEmpty()) {
-                            if(it.moneyDelta != 0) append(", ")
-                            append(
-                                it.guaranteedItems.entries.joinToString(", ") { i -> "${i.key} x${i.value}" }
-                            )
-                        }
-                        it.randomItems.forEach { p ->
-                            append(", ")
-                            append(p.itemId)
-                            append("x")
-                            append(p.qty)
-                            append(" (")
-                            append(p.probability*100)
-                            append("%)")
-                        }
-                        append("\n")
                     }
+
                 }
             }
         }
