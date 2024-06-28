@@ -116,6 +116,7 @@ class UpdateDatabasesEvent(
         } catch (e: Exception) {
             getLogChannel(guildId).sendTextMessage("There was an error refreshing languages: ${e.message}")
         }
+
     private suspend fun updateTools(guildId: Snowflake) =
         try {
             val tools = ToolProficiencyRow.parseRows()

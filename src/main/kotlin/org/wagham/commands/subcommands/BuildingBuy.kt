@@ -32,11 +32,12 @@ import org.wagham.config.locale.CommonLocale
 import org.wagham.config.locale.subcommands.BuildingBuyLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.TransactionType
+import org.wagham.db.models.BaseBuilding
 import org.wagham.db.models.Building
+import org.wagham.db.models.BuildingRecipe
 import org.wagham.db.models.Character
 import org.wagham.db.models.ServerConfig
 import org.wagham.db.models.embed.Transaction
-import org.wagham.db.pipelines.buildings.BuildingWithBounty
 import org.wagham.utils.*
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -57,7 +58,7 @@ class BuildingBuy(
         private data class InteractionData(
             val userId: Snowflake,
             val character: Character,
-            val building: BuildingWithBounty? = null
+            val building: BuildingRecipe? = null
         )
     }
 
@@ -76,7 +77,7 @@ class BuildingBuy(
         }
     }
 
-    private fun Character.hasResources(building: BuildingWithBounty) =
+    private fun Character.hasResources(building: BaseBuilding) =
         money >= building.moCost
             && building.materials.entries.all { (material, qty) ->
                 inventory[material]?.let { m ->
@@ -84,12 +85,12 @@ class BuildingBuy(
                 } ?: false
         }
 
-    private fun Character.doesNotExceedLimits(building: BuildingWithBounty, serverConfig: ServerConfig) =
+    private fun Character.doesNotExceedLimits(building: BaseBuilding, serverConfig: ServerConfig) =
         serverConfig.buildingRestrictions.entries.filter{ it.value != null}.all { (restrictionType, limit) ->
             restrictionType.validator(limit!!, this, building)
         }
 
-    private fun Character.canBuild(building: BuildingWithBounty, serverConfig: ServerConfig) =
+    private fun Character.canBuild(building: BaseBuilding, serverConfig: ServerConfig) =
         !building.upgradeOnly && hasResources(building) && doesNotExceedLimits(building, serverConfig)
 
     private suspend fun handleSelection() =
@@ -297,7 +298,7 @@ class BuildingBuy(
     }
 
     private suspend fun getEligibleBuildings(guildId: Snowflake) =
-        cacheManager.getCollectionOfType<BuildingWithBounty>(guildId).filter { !it.upgradeOnly }
+        cacheManager.getCollectionOfType<BuildingRecipe>(guildId).filter { !it.upgradeOnly }
 
     private fun ModalSubmitInteraction.extractInput(id: String) =
         textInputs[buildElementId(id)]?.value?.trim() ?: throw IllegalStateException("Cannot find $id")

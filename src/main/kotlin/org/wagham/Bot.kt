@@ -122,6 +122,10 @@ class KaironBot(
             db.buildingsScope.getBuildingsWithBounty(guildId.toString()).toList()
         }
 
+        cacheManager.createNewCollectionCache<BuildingRecipe> { guildId, db ->
+            db.buildingsScope.getAllBuildingRecipes(guildId.toString()).toList()
+        }
+
         cacheManager.createNewCollectionCache<Item> { guildId, db ->
             db.itemsScope.getAllItems(guildId.toString()).toList().sortedBy { it.name }
         }

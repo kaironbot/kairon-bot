@@ -61,7 +61,7 @@ class PeriodicMarketEvent(
         .build()
     private val categories = listOf(
         Triple(LabelStub("b7fad60e-c169-4c96-924e-cd95b0e2560d", "T1"), 3, false),
-        Triple(LabelStub("8cc79b51-ada0-4986-802f-c4c6c34e7124", "T2"), 6, false),
+        Triple(LabelStub("8cc79b51-ada0-4986-802f-c4c6c34e7124", "T2"), 5, false),
         Triple(LabelStub("5a204826-61fe-4c07-a989-cab1e4537f92", "T3"), 4, false),
         Triple(LabelStub("290964a2-c86b-4a16-b8c4-cf07cf95dedc", "T4"), 2, false),
         Triple(LabelStub("a8159199-9b4b-4779-8e21-bd6d76ebb0dd", "T5"), 0, false),
@@ -99,6 +99,20 @@ class PeriodicMarketEvent(
             val item = db.itemsScope.isMaterialOf(guildId.toString(), recipe).first()
             CraftRequirement(cost = item.craft.first { it.label == "Craft" }.cost / 10)
         }
+
+    private suspend fun retrieveAdditionalItems(
+        guildId: Snowflake,
+        qty: Int
+    ): Map<Item, CraftRequirement> = db.itemsScope
+        .getItemsMatching(
+            guildId.toString(),
+            labels = listOf(LabelStub("8c7f4255-f694-4bc8-ae2b-fb95bbd5bc3f", "Recipe")),
+            query = "resourcesfor${('a'..'z').random()}"
+        ).toList().randomOrNull()?.let { recipe ->
+            val item = db.itemsScope.isMaterialOf(guildId.toString(), recipe).first()
+            mapOf(recipe to CraftRequirement(cost = item.craft.first { it.label == "Craft" }.cost / 10))
+        } ?: emptyMap()
+
 
     /**
      * Handles the selection of an item by putting the ID of the corresponding item in the interaction cache.
@@ -242,7 +256,7 @@ class PeriodicMarketEvent(
             }
         val newItems = categories.fold(emptyMap<Item, CraftRequirement>()) { acc, (label, qty, consumable) ->
             acc + retrieveItemsForCategory(guildId, label, qty, consumable, pastFrequencies)
-        }
+        } + retrieveAdditionalItems(guildId, 1)
         val idToItems = newItems.keys.associate { shortId() to it.name }
         val message = kord.getChannelOfType(guildId, Channels.MARKET_CHANNEL, cacheManager).createMessage(
             newItems.generateMessage(guildId, idToItems)
@@ -264,7 +278,7 @@ class PeriodicMarketEvent(
             kord.guilds.collect { guild ->
                 if (cacheManager.getConfig(guild.id).eventChannels[eventId]?.enabled == true) {
                     taskExecutorScope.launch {
-                        val schedulerConfig = "0 0 0 * * ${getTimezoneOffset()}o 0,3w"
+                        val schedulerConfig = "0 0 0 * * ${getTimezoneOffset()}o 0,2,5w"
                         logger.info { "Starting Periodic Market for guild ${guild.name} at $schedulerConfig" }
                         doInfinity(schedulerConfig) {
                             try {
