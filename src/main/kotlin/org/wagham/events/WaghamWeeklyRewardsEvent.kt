@@ -202,7 +202,7 @@ class WaghamWeeklyRewardsEvent(
                 val nonCraftTools = character.proficiencies.count { tool ->
                     otherTools.any { it.id == tool.id }
                 }
-                val moneyReward = guildRewards.getValue("$tier") * (1 + nonCraftTools/2f)
+                val moneyReward = guildRewards.getValue("$tier") * (1 + nonCraftTools)
 
                 val rewards = Reward(null, null, recipeRewards, moneyReward)
                 log.copy(

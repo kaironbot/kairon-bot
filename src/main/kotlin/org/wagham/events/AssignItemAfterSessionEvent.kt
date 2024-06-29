@@ -6,6 +6,7 @@ import dev.kord.core.Kord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.count
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -40,6 +41,13 @@ class AssignItemAfterSessionEvent(
     private val logger = KotlinLogging.logger {}
     private val t4Label = LabelStub("290964a2-c86b-4a16-b8c4-cf07cf95dedc", "T4")
     private val t5Label = LabelStub("a8159199-9b4b-4779-8e21-bd6d76ebb0dd", "T5")
+    private val tagLabelIds = mapOf(
+        "T1" to "b7fad60e-c169-4c96-924e-cd95b0e2560d",
+        "T2" to "8cc79b51-ada0-4986-802f-c4c6c34e7124",
+        "T3" to "5a204826-61fe-4c07-a989-cab1e4537f92",
+        "T4" to "290964a2-c86b-4a16-b8c4-cf07cf95dedc",
+        "T5" to "290964a2-c86b-4a16-b8c4-cf07cf95dedc"
+    )
 
     companion object {
         private val tierRewards = mapOf("1" to 20f, "2" to 40f, "3" to 100f, "4" to 200f, "5" to 400f)
@@ -110,14 +118,29 @@ class AssignItemAfterSessionEvent(
         val expTable = cacheManager.getExpTable(Snowflake(guildId))
         val tier = expTable.expToTier(character.ms().toFloat())
         val reward = tierRewards.getValue(tier)
+        val masteredCount = db.sessionScope.getAllMasteredSessions(guildId, character.player).count()
+        val rewardItem = if(masteredCount % 4 == 0) {
+            val itemLabels = db.labelsScope.getLabels(
+                guildId,
+                listOf(tagLabelIds.getValue("T$tier"), RECIPE_LABEL_ID),
+                LabelType.ITEM
+            ).map {
+                it.toLabelStub()
+            }.toList()
+            getRandomItem(guildId, itemLabels)
+        } else null
         val transactionResult = db.transaction(guildId) { kabotSession ->
             db.charactersScope.addMoney(kabotSession, guildId, character.id, reward)
+            val assignedPrizes = if (rewardItem != null) {
+                db.charactersScope.addItemToInventory(kabotSession, guildId, character.id, rewardItem.first.name, rewardItem.second)
+                mapOf(transactionMoney to reward, rewardItem.first.name to 1f)
+            } else mapOf(transactionMoney to reward)
             db.characterTransactionsScope.addTransactionForCharacter(
                 kabotSession,
                 guildId,
                 character.id,
                 Transaction(
-                    Date(), null, "MASTER REWARD ${session.title}", TransactionType.ADD, mapOf(transactionMoney to reward)
+                    Date(), null, "MASTER REWARD ${session.title}", TransactionType.ADD, assignedPrizes
                 )
             )
         }
@@ -130,6 +153,9 @@ class AssignItemAfterSessionEvent(
                 append("** ${character.name} (<@${character.player}>) riceve ")
                 append(reward.toInt())
                 append(" MO")
+                if(rewardItem != null) {
+                    append("e ${rewardItem.first.name}")
+                }
             })
         } else {
             val channel = kord.getChannelOfType(Snowflake(guildId), Channels.LOG_CHANNEL, cacheManager)

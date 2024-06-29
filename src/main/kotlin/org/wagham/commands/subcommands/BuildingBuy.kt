@@ -86,7 +86,7 @@ class BuildingBuy(
         }
 
     private fun Character.doesNotExceedLimits(building: BaseBuilding, serverConfig: ServerConfig) =
-        serverConfig.buildingRestrictions.entries.filter{ it.value != null}.all { (restrictionType, limit) ->
+        serverConfig.buildingRestrictions.entries.filter { it.value != null }.all { (restrictionType, limit) ->
             restrictionType.validator(limit!!, this, building)
         }
 
