@@ -74,18 +74,25 @@ class IvoryMasterTagEvent (
 			min(min(created, lastPlayed), lastMastered) <= 90
 		}.toList().none()
 	}.collect { user ->
-		user.edit {
-			roles = mutableSetOf(Snowflake("1102911597174853763"))
+		try {
+			user.edit {
+				roles = mutableSetOf(Snowflake("1102911597174853763"))
+			}
+			user.getDmChannel().sendTextMessage(playerMessage)
+			db.charactersScope.getActiveCharacters(guild.toString(), user.id.toString()).collect { character ->
+				db.charactersScope.updateCharacter(
+					guild.toString(),
+					character.copy(status = CharacterStatus.retired)
+				)
+			}
+			getChannelOfType(Snowflake(1099390660672503980), Channels.LOG_CHANNEL)
+				.sendTextMessage("Removed player tag from ${user.username}")
+		} catch(e: Exception) {
+			logger.error { e.stackTraceToString() }
+			getChannelOfType(Snowflake(1099390660672503980), Channels.LOG_CHANNEL)
+				.sendTextMessage("Error while removing player tag from ${user.username}")
 		}
-		user.getDmChannel().sendTextMessage(playerMessage)
-		db.charactersScope.getActiveCharacters(guild.toString(), user.id.toString()).collect { character ->
-			db.charactersScope.updateCharacter(
-				guild.toString(),
-				character.copy(status = CharacterStatus.retired)
-			)
-		}
-		getChannelOfType(Snowflake(1099390660672503980), Channels.LOG_CHANNEL)
-			.sendTextMessage("Removed master tag from ${user.username}")
+
 	}
 
 	override fun register() {
