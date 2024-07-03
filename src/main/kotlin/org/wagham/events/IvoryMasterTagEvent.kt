@@ -63,7 +63,9 @@ class IvoryMasterTagEvent (
 		}
 
 	private suspend fun getAllPlayers(guild: Snowflake) = kord.getGuild(guild).members.filter { user ->
-		user.roles.toList().none { it.name == "Admin" || it.name == "Moderazione" }
+		user.roles.toList().let { roles ->
+			roles.none { it.name == "Admin" || it.name == "Moderazione" || it.name == "Delegato" } && roles.any { it.name == "Giocatore" }
+		} && !user.isBot
 	}
 
 	private suspend fun checkPlayerInactivity(guild: Snowflake) = getAllPlayers(guild).filter { user ->
