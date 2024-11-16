@@ -142,7 +142,7 @@ class UpdateDatabasesEvent(
                         logger.info { "Starting Update Database for guild ${guild.name} at $schedulerConfig" }
                         doInfinity(schedulerConfig) {
                             updateBuildings(guild.id)
-                            updateItems(guild.id)
+//                            updateItems(guild.id)
                             updateLanguages(guild.id)
                             updateTools(guild.id)
                         }
