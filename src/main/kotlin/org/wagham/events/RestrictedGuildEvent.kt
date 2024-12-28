@@ -9,16 +9,16 @@ import dev.kord.core.behavior.MessageBehavior
  */
 abstract class RestrictedGuildEvent : Event {
 
-    protected suspend fun isAllowed(guildId: Snowflake?, message: MessageBehavior) =
-        guildId != null && cacheManager.getConfig(guildId).let {
-            it.eventChannels[eventId] == null || (
-                it.eventChannels[eventId] != null && it.eventChannels[eventId]!!.allowedChannels.let { channels ->
-                    channels.isEmpty() || channels.contains(message.channelId.toString())
-                }
-            )
-        }
+	protected suspend fun isAllowed(guildId: Snowflake?, message: MessageBehavior) =
+		guildId != null && cacheManager.getConfig(guildId).let {
+			it.eventChannels[eventId] == null || (
+				it.eventChannels[eventId] != null && it.eventChannels[eventId]!!.allowedChannels.let { channels ->
+					channels.isEmpty() || channels.contains(message.channelId.toString())
+				}
+				)
+		}
 
-    protected suspend fun isEnabled(guildId: Snowflake?) =
-        guildId?.let {cacheManager.getConfig(it).eventChannels[eventId]?.enabled } == true
+	protected suspend fun isEnabled(guildId: Snowflake?) =
+		guildId?.let {cacheManager.getConfig(it).eventChannels[eventId]?.enabled } == true
 
 }
