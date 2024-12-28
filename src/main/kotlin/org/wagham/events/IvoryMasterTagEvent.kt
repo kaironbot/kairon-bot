@@ -4,6 +4,8 @@ import dev.inmo.krontab.doInfinity
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.edit
+import dev.kord.core.event.guild.MemberUpdateEvent
+import dev.kord.core.on
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
@@ -21,6 +23,7 @@ import org.wagham.utils.daysToToday
 import org.wagham.utils.getChannelOfType
 import org.wagham.utils.getTimezoneOffset
 import org.wagham.utils.sendTextMessage
+import java.util.*
 import kotlin.math.min
 
 @BotEvent("wagham")
@@ -30,6 +33,7 @@ class IvoryMasterTagEvent (
 	override val cacheManager: CacheManager
 ): Event {
 
+	private val ivoryGuildId = Snowflake(1099390660672503980)
 	override val eventId = "ivory_master_tag"
 	private val logger = KotlinLogging.logger {}
 	private val taskExecutorScope = CoroutineScope(Dispatchers.Default)
@@ -50,7 +54,9 @@ class IvoryMasterTagEvent (
 		}
 
 	private suspend fun checkMasterInactivity(guild: Snowflake) = getAllMasters(guild).filter { user ->
-			db.charactersScope.getCharacters(guild.toString(), user.id.toString()).firstOrNull {
+			db.playersScope.getPlayer(guild.toString(), user.id.toString()).let {
+				it?.masterSince == null || daysToToday(it.masterSince!!) > 30
+			} && db.charactersScope.getCharacters(guild.toString(), user.id.toString()).firstOrNull {
 				it.lastMastered != null && daysToToday(it.lastMastered!!) <= 30
 			} == null
 		}.collect { user ->
@@ -74,7 +80,7 @@ class IvoryMasterTagEvent (
 			val lastPlayed = character.lastPlayed?.let { daysToToday(it) } ?: 100
 			val lastMastered = character.lastMastered?.let { daysToToday(it) } ?: 100
 			min(min(created, lastPlayed), lastMastered) <= 90
-		}.toList().none()
+		}.toList().none { it }
 	}.collect { user ->
 		try {
 			user.edit {
@@ -94,7 +100,6 @@ class IvoryMasterTagEvent (
 			getChannelOfType(Snowflake(1099390660672503980), Channels.LOG_CHANNEL)
 				.sendTextMessage("Error while removing player tag from ${user.username}")
 		}
-
 	}
 
 	override fun register() {
@@ -103,13 +108,29 @@ class IvoryMasterTagEvent (
 			logger.info { "Starting Inactivity check at $schedulerConfig" }
 			doInfinity(schedulerConfig) {
 				try {
-					checkMasterInactivity(Snowflake(1099390660672503980))
-					checkPlayerInactivity(Snowflake(1099390660672503980))
+					checkMasterInactivity(ivoryGuildId)
+					checkPlayerInactivity(ivoryGuildId)
 				} catch (e: Exception) {
 					logger.info { "Error while dispatching drop op: ${e.stackTraceToString()}" }
 					getChannelOfType(Snowflake(1099390660672503980), Channels.LOG_CHANNEL)
 						.sendTextMessage("Error while dispatching drop op: ${e.stackTraceToString()}")
 				}
+			}
+		}
+
+		kord.on<MemberUpdateEvent> {
+			try {
+				old?.also { oldMember ->
+					val hasMasterRole = member.roles.firstOrNull { it.name == "Master" } != null
+					val hadMasterRole = oldMember.roles.firstOrNull { it.name == "Master" } != null
+					if (!hadMasterRole && hasMasterRole) {
+						db.playersScope.setMasterDate(ivoryGuildId.toString(), member.id.toString(), Date())
+					} else if (!hasMasterRole && hadMasterRole) {
+						db.playersScope.setMasterDate(ivoryGuildId.toString(), member.id.toString(), null)
+					}
+				}
+			} catch (e: Exception) {
+				logger.error { "Something went wrong while updating master date:\n${e.stackTraceToString()}" }
 			}
 		}
 	}

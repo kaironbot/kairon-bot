@@ -16,41 +16,41 @@ import org.wagham.utils.sendTextMessage
 
 @BotEvent("wagham")
 class WaghamWelcomeMessageEvent(
-    override val kord: Kord,
-    override val db: KabotMultiDBClient,
-    override val cacheManager: CacheManager
+	override val kord: Kord,
+	override val db: KabotMultiDBClient,
+	override val cacheManager: CacheManager
 ) : Event {
 
-    override val eventId = "wagham_welcome_message"
-    override fun register() {
-        kord.on<MemberJoinEvent> {
-            if(cacheManager.getConfig(this.getGuild().id).eventChannels[eventId]?.enabled == true) {
-                this.getGuild()
-                    .roles
-                    .firstOrNull { it.name == "Aspirante Giocatore" }
-                    ?.let {
-                        this.member.addRole(it.id)
-                    }
-                cacheManager.getConfig(guildId).channels[Channels.WELCOME_CHANNEL.name]
-                    ?.let {
-                        this.getGuild().getChannel(Snowflake(it)).asChannelOf<MessageChannel>()
-                            .sendTextMessage(buildString {
-                                append("Benvenuto, <@${this@on.member.id}> in Tales from Ivory!\n")
-                                append("Consulta i <#1169229187723313163>! ")
-                                append("L'<@&1099408245136822334> ti contatterà appena possibile per assisterti nella creazione del personaggio e per orientarti nel server.\n")
-                                append("Buon divertimento!")
-                            })
-                    }
-            }
-        }
+	override val eventId = "wagham_welcome_message"
+	override fun register() {
+		kord.on<MemberJoinEvent> {
+			if(cacheManager.getConfig(this.getGuild().id).eventChannels[eventId]?.enabled == true) {
+				this.getGuild()
+					.roles
+					.firstOrNull { it.name == "Aspirante Giocatore" }
+					?.let {
+						this.member.addRole(it.id)
+					}
+				cacheManager.getConfig(guildId).channels[Channels.WELCOME_CHANNEL.name]
+					?.let {
+						this.getGuild().getChannel(Snowflake(it)).asChannelOf<MessageChannel>()
+							.sendTextMessage(buildString {
+								append("Benvenuto, <@${this@on.member.id}> in Tales from Ivory!\n")
+								append("Consulta i <#1169229187723313163>! ")
+								append("L'<@&1099408245136822334> ti contatterà appena possibile per assisterti nella creazione del personaggio e per orientarti nel server.\n")
+								append("Buon divertimento!")
+							})
+					}
+			}
+		}
 
-        kord.on<MemberLeaveEvent> {
-            if(cacheManager.getConfig(this.getGuild().id).eventChannels[eventId]?.enabled == true) {
-                getGuild().getChannel(Snowflake("1099399338498719876")).asChannelOf<MessageChannel>().sendTextMessage(
-                    "<@${this.user.id}> ha abbandonato il server"
-                )
-            }
-        }
-    }
+		kord.on<MemberLeaveEvent> {
+			if(cacheManager.getConfig(this.getGuild().id).eventChannels[eventId]?.enabled == true) {
+				getGuild().getChannel(Snowflake("1099399338498719876")).asChannelOf<MessageChannel>().sendTextMessage(
+					"<@${this.user.id}> ha abbandonato il server"
+				)
+			}
+		}
+	}
 
 }

@@ -40,348 +40,348 @@ import kotlin.concurrent.schedule
 
 @BotEvent("all")
 class DailyAttendanceEvent(
-    override val kord: Kord,
-    override val db: KabotMultiDBClient,
-    override val cacheManager: CacheManager
+	override val kord: Kord,
+	override val db: KabotMultiDBClient,
+	override val cacheManager: CacheManager
 ) : Event, Identifiable {
 
-    override val eventId = "daily_attendance"
-    private var channelDispatcher: Job? = null
-    private val logger = KotlinLogging.logger {}
-    private val taskExecutorScope = CoroutineScope(Dispatchers.Default)
-    private val channels = Caffeine.newBuilder().build<Snowflake, Channel<UpdateGuildAttendanceMessage>>()
-    private val channelConsumers: Cache<Snowflake, Job> = Caffeine
-        .newBuilder()
-        .removalListener { _: Snowflake?, _: Job?, _: RemovalCause ->
-            ensureAllDispatchersAreAlive()
-        }.build<Snowflake, Job>()
+	override val eventId = "daily_attendance"
+	private var channelDispatcher: Job? = null
+	private val logger = KotlinLogging.logger {}
+	private val taskExecutorScope = CoroutineScope(Dispatchers.Default)
+	private val channels = Caffeine.newBuilder().build<Snowflake, Channel<UpdateGuildAttendanceMessage>>()
+	private val channelConsumers: Cache<Snowflake, Job> = Caffeine
+		.newBuilder()
+		.removalListener { _: Snowflake?, _: Job?, _: RemovalCause ->
+			ensureAllDispatchersAreAlive()
+		}.build<Snowflake, Job>()
 
-    private fun Map<String, List<AttendanceReportPlayer>>.appendList(buildCtx: StringBuilder) = entries
-        .flatMap { (k, v) ->
-            v.map {
-                it.tier to Pair(k, it)
-            }
-        }.groupBy { it.first }
-        .mapValues { (_, v) ->
-            v.map { it.second }
-        }.entries
-        .sortedBy { it.key }
-        .forEach { (tier, reports) ->
-            buildCtx.append("**$tier**: ")
-            reports.forEach { (p, r) ->
-                buildCtx.append("${r.characterName} <@$p> (${r.daysSinceLastPlayed.takeIf { it >= 0 } ?: "-"}), ")
-            }
-            buildCtx.append("\n")
-        }
+	private fun Map<String, List<AttendanceReportPlayer>>.appendList(buildCtx: StringBuilder) = entries
+		.flatMap { (k, v) ->
+			v.map {
+				it.tier to Pair(k, it)
+			}
+		}.groupBy { it.first }
+		.mapValues { (_, v) ->
+			v.map { it.second }
+		}.entries
+		.sortedBy { it.key }
+		.forEach { (tier, reports) ->
+			buildCtx.append("**$tier**: ")
+			reports.forEach { (p, r) ->
+				buildCtx.append("${r.characterName} <@$p> (${r.daysSinceLastPlayed.takeIf { it >= 0 } ?: "-"}), ")
+			}
+			buildCtx.append("\n")
+		}
 
-    private suspend fun buildDescription(locale: String, guildId: Snowflake, newAttendance: Boolean = false) = buildString {
-        append("${DailyAttendanceLocale.DESCRIPTION.locale(locale)}\n")
-        append("*${DailyAttendanceLocale.LAST_ACTIVITY.locale(locale)}*\n\n")
-        db.utilityScope.getLastAttendance(guildId.toString())?.let { report ->
-            append("**${DailyAttendanceLocale.AFTERNOON_AVAILABILITY.locale(locale)}**\n")
-            if (!newAttendance) {
-                report.afternoonPlayers.appendList(this)
-            }
-            append("\n")
-            append("**${DailyAttendanceLocale.EVENING_AVAILABILITY.locale(locale)}**\n")
-            if(!newAttendance) {
-                report.players.appendList(this)
-            }
-        }
-    }
+	private suspend fun buildDescription(locale: String, guildId: Snowflake, newAttendance: Boolean = false) = buildString {
+		append("${DailyAttendanceLocale.DESCRIPTION.locale(locale)}\n")
+		append("*${DailyAttendanceLocale.LAST_ACTIVITY.locale(locale)}*\n\n")
+		db.utilityScope.getLastAttendance(guildId.toString())?.let { report ->
+			append("**${DailyAttendanceLocale.AFTERNOON_AVAILABILITY.locale(locale)}**\n")
+			if (!newAttendance) {
+				report.afternoonPlayers.appendList(this)
+			}
+			append("\n")
+			append("**${DailyAttendanceLocale.EVENING_AVAILABILITY.locale(locale)}**\n")
+			if(!newAttendance) {
+				report.players.appendList(this)
+			}
+		}
+	}
 
-    private suspend fun getAttendanceReportForPlayer(guildId: String, playerId: String): List<AttendanceReportPlayer> {
-        val expTable = cacheManager.getExpTable(Snowflake(guildId))
-        val characters = db.charactersScope.getActiveCharacters(guildId, playerId).toList()
-        val minLastPlayer = characters
-            .mapNotNull { it.lastPlayed?.let(::daysToToday) }
-            .minOrNull() ?: -1
-        return characters.map {
-            AttendanceReportPlayer(
-                minLastPlayer,
-                expTable.expToTier(it.ms().toFloat()),
-                it.name
-            )
-        }
-    }
+	private suspend fun getAttendanceReportForPlayer(guildId: String, playerId: String): List<AttendanceReportPlayer> {
+		val expTable = cacheManager.getExpTable(Snowflake(guildId))
+		val characters = db.charactersScope.getActiveCharacters(guildId, playerId).toList()
+		val minLastPlayer = characters
+			.mapNotNull { it.lastPlayed?.let(::daysToToday) }
+			.minOrNull() ?: -1
+		return characters.map {
+			AttendanceReportPlayer(
+				minLastPlayer,
+				expTable.expToTier(it.ms().toFloat()),
+				it.name
+			)
+		}
+	}
 
-    private suspend fun prepareMessage(locale: String, guildId: Snowflake, newAttendance: Boolean = false): UserMessageCreateBuilder.() -> Unit {
-        val desc = buildDescription(locale, guildId, newAttendance)
-        return fun UserMessageCreateBuilder.() {
-            embed {
-                title = DailyAttendanceLocale.TITLE.locale(locale)
-                description = desc
-                color = Colors.DEFAULT.value
-            }
-            actionRow {
-                interactionButton(ButtonStyle.Primary, buildElementId("register", "afternoon")) {
-                    label = DailyAttendanceLocale.REGISTER_AFTERNOON.locale(locale)
-                }
-                interactionButton(ButtonStyle.Primary, buildElementId("register", "evening")) {
-                    label = DailyAttendanceLocale.REGISTER_EVENING.locale(locale)
-                }
-                interactionButton(ButtonStyle.Danger, buildElementId("abort", "afternoon")) {
-                    label = DailyAttendanceLocale.DEREGISTER_AFTERNOON.locale(locale)
-                }
-                interactionButton(ButtonStyle.Danger, buildElementId("abort", "evening")) {
-                    label = DailyAttendanceLocale.DEREGISTER_EVENING.locale(locale)
-                }
-            }
-        }
-    }
+	private suspend fun prepareMessage(locale: String, guildId: Snowflake, newAttendance: Boolean = false): UserMessageCreateBuilder.() -> Unit {
+		val desc = buildDescription(locale, guildId, newAttendance)
+		return fun UserMessageCreateBuilder.() {
+			embed {
+				title = DailyAttendanceLocale.TITLE.locale(locale)
+				description = desc
+				color = Colors.DEFAULT.value
+			}
+			actionRow {
+				interactionButton(ButtonStyle.Primary, buildElementId("register", "afternoon")) {
+					label = DailyAttendanceLocale.REGISTER_AFTERNOON.locale(locale)
+				}
+				interactionButton(ButtonStyle.Primary, buildElementId("register", "evening")) {
+					label = DailyAttendanceLocale.REGISTER_EVENING.locale(locale)
+				}
+				interactionButton(ButtonStyle.Danger, buildElementId("abort", "afternoon")) {
+					label = DailyAttendanceLocale.DEREGISTER_AFTERNOON.locale(locale)
+				}
+				interactionButton(ButtonStyle.Danger, buildElementId("abort", "evening")) {
+					label = DailyAttendanceLocale.DEREGISTER_EVENING.locale(locale)
+				}
+			}
+		}
+	}
 
-    private fun launchChannelDispatcher() = taskExecutorScope.launch {
-        try {
-            val channel = cacheManager.getChannel<DailyAttendanceEvent, UpdateGuildAttendanceMessage>()
-            for(message in channel) {
-                channels.getIfPresent(message.guildId)?.send(message)
-            }
-        } catch (e: Exception) {
-            logger.info { "Error while dispatching attendance op: ${e.stackTraceToString()}" }
-        }
-    }
+	private fun launchChannelDispatcher() = taskExecutorScope.launch {
+		try {
+			val channel = cacheManager.getChannel<DailyAttendanceEvent, UpdateGuildAttendanceMessage>()
+			for(message in channel) {
+				channels.getIfPresent(message.guildId)?.send(message)
+			}
+		} catch (e: Exception) {
+			logger.info { "Error while dispatching attendance op: ${e.stackTraceToString()}" }
+		}
+	}
 
-    private suspend fun removePlayerFromAfternoonAttendance(attendance: AttendanceReport, guildId: String, playerId: String) =
-        db.utilityScope.updateAttendance(
-            guildId,
-            attendance.copy(afternoonPlayers = attendance.afternoonPlayers - playerId)
-        )
+	private suspend fun removePlayerFromAfternoonAttendance(attendance: AttendanceReport, guildId: String, playerId: String) =
+		db.utilityScope.updateAttendance(
+			guildId,
+			attendance.copy(afternoonPlayers = attendance.afternoonPlayers - playerId)
+		)
 
-    private suspend fun removePlayerFromEveningAttendance(attendance: AttendanceReport, guildId: String, playerId: String) =
-        db.utilityScope.updateAttendance(guildId, attendance.copy(players = attendance.players - playerId))
+	private suspend fun removePlayerFromEveningAttendance(attendance: AttendanceReport, guildId: String, playerId: String) =
+		db.utilityScope.updateAttendance(guildId, attendance.copy(players = attendance.players - playerId))
 
-    private suspend fun addPlayerToAfternoonAttendance(attendance: AttendanceReport, guildId: String, playerId: String) {
-        if(!attendance.afternoonPlayers.containsKey(playerId)) {
-            val charactersAttendance = getAttendanceReportForPlayer(guildId, playerId)
-            db.utilityScope.updateAttendance(
-                guildId,
-                attendance.copy(afternoonPlayers = attendance.afternoonPlayers + (playerId to charactersAttendance))
-            )
-        }
-    }
+	private suspend fun addPlayerToAfternoonAttendance(attendance: AttendanceReport, guildId: String, playerId: String) {
+		if(!attendance.afternoonPlayers.containsKey(playerId)) {
+			val charactersAttendance = getAttendanceReportForPlayer(guildId, playerId)
+			db.utilityScope.updateAttendance(
+				guildId,
+				attendance.copy(afternoonPlayers = attendance.afternoonPlayers + (playerId to charactersAttendance))
+			)
+		}
+	}
 
-    private suspend fun addPlayerToEveningAttendance(attendance: AttendanceReport, guildId: String, playerId: String) {
-        if(!attendance.players.containsKey(playerId)) {
-            val charactersAttendance = getAttendanceReportForPlayer(guildId, playerId)
-            db.utilityScope.updateAttendance(
-                guildId,
-                attendance.copy(players = attendance.players + (playerId to charactersAttendance))
-            )
-        }
-    }
+	private suspend fun addPlayerToEveningAttendance(attendance: AttendanceReport, guildId: String, playerId: String) {
+		if(!attendance.players.containsKey(playerId)) {
+			val charactersAttendance = getAttendanceReportForPlayer(guildId, playerId)
+			db.utilityScope.updateAttendance(
+				guildId,
+				attendance.copy(players = attendance.players + (playerId to charactersAttendance))
+			)
+		}
+	}
 
-    private suspend fun refreshAttendance(attendance: AttendanceReport, guildId: String) {
-        val attendanceCache = (attendance.players.keys + attendance.afternoonPlayers.keys).associateWith {
-            getAttendanceReportForPlayer(guildId, it)
-        }
-        if(attendanceCache.isNotEmpty()) {
-            db.utilityScope.updateAttendance(
-                guildId,
-                attendance.copy(
-                    players = attendance.players.mapValues { (k, v) -> attendanceCache[k] ?: v },
-                    afternoonPlayers = attendance.afternoonPlayers.mapValues { (k, v) -> attendanceCache[k] ?: v }
-                )
-            )
-        }
-    }
+	private suspend fun refreshAttendance(attendance: AttendanceReport, guildId: String) {
+		val attendanceCache = (attendance.players.keys + attendance.afternoonPlayers.keys).associateWith {
+			getAttendanceReportForPlayer(guildId, it)
+		}
+		if(attendanceCache.isNotEmpty()) {
+			db.utilityScope.updateAttendance(
+				guildId,
+				attendance.copy(
+					players = attendance.players.mapValues { (k, v) -> attendanceCache[k] ?: v },
+					afternoonPlayers = attendance.afternoonPlayers.mapValues { (k, v) -> attendanceCache[k] ?: v }
+				)
+			)
+		}
+	}
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun launchGuildDispatcher(guildId: Snowflake) = taskExecutorScope.launch {
-        try {
-            val channel = channels.get(guildId) { Channel(UNLIMITED) }
-                ?: throw IllegalStateException("Cannot create guild $guildId channel")
-            for(message in channel) {
-                db.utilityScope.getLastAttendance(message.guildId.toString())?.let { currentAttendance ->
-                    when {
-                        message.operation == null || message.playerId == null ->
-                            refreshAttendance(currentAttendance, message.guildId.toString())
+	@OptIn(ExperimentalCoroutinesApi::class)
+	private fun launchGuildDispatcher(guildId: Snowflake) = taskExecutorScope.launch {
+		try {
+			val channel = channels.get(guildId) { Channel(UNLIMITED) }
+				?: throw IllegalStateException("Cannot create guild $guildId channel")
+			for(message in channel) {
+				db.utilityScope.getLastAttendance(message.guildId.toString())?.let { currentAttendance ->
+					when {
+						message.operation == null || message.playerId == null ->
+							refreshAttendance(currentAttendance, message.guildId.toString())
 
-                        message.operation == UpdateGuildAttendanceOperation.ABORT_AFTERNOON ->
-                            removePlayerFromAfternoonAttendance(
-                                currentAttendance,
-                                message.guildId.toString(),
-                                message.playerId
-                            )
+						message.operation == UpdateGuildAttendanceOperation.ABORT_AFTERNOON ->
+							removePlayerFromAfternoonAttendance(
+								currentAttendance,
+								message.guildId.toString(),
+								message.playerId
+							)
 
-                        message.operation == UpdateGuildAttendanceOperation.ABORT_EVENING ->
-                            removePlayerFromEveningAttendance(
-                                currentAttendance,
-                                message.guildId.toString(),
-                                message.playerId
-                            )
+						message.operation == UpdateGuildAttendanceOperation.ABORT_EVENING ->
+							removePlayerFromEveningAttendance(
+								currentAttendance,
+								message.guildId.toString(),
+								message.playerId
+							)
 
-                        message.operation == UpdateGuildAttendanceOperation.REGISTER_AFTERNOON ->
-                            addPlayerToAfternoonAttendance(
-                                currentAttendance,
-                                message.guildId.toString(),
-                                message.playerId
-                            )
+						message.operation == UpdateGuildAttendanceOperation.REGISTER_AFTERNOON ->
+							addPlayerToAfternoonAttendance(
+								currentAttendance,
+								message.guildId.toString(),
+								message.playerId
+							)
 
-                        message.operation == UpdateGuildAttendanceOperation.REGISTER_EVENING ->
-                            addPlayerToEveningAttendance(
-                                currentAttendance,
-                                message.guildId.toString(),
-                                message.playerId
-                            )
-                    }
-                    if (channel.isEmpty) {
-                        val discordChannel = kord.getChannelOfType(guildId, Channels.ATTENDANCE_CHANNEL, cacheManager)
-                        val locale = kord.getGuildOrNull(guildId)?.preferredLocale?.language ?: "en"
-                        val desc = buildDescription(locale, guildId)
-                        discordChannel.getMessage(Snowflake(currentAttendance.message)).edit {
-                            embed {
-                                title = DailyAttendanceLocale.TITLE.locale(locale)
-                                description = desc
-                                color = Colors.DEFAULT.value
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            logger.info { buildString {
-                append("Error while parsing attendance message in guild $guildId\n")
-                append("Error: $e\n")
-                append(e.stackTraceToString())
-            } }
-        } finally {
-            channelConsumers.invalidate(guildId)
-        }
-    }
+						message.operation == UpdateGuildAttendanceOperation.REGISTER_EVENING ->
+							addPlayerToEveningAttendance(
+								currentAttendance,
+								message.guildId.toString(),
+								message.playerId
+							)
+					}
+					if (channel.isEmpty) {
+						val discordChannel = kord.getChannelOfType(guildId, Channels.ATTENDANCE_CHANNEL, cacheManager)
+						val locale = kord.getGuildOrNull(guildId)?.preferredLocale?.language ?: "en"
+						val desc = buildDescription(locale, guildId)
+						discordChannel.getMessage(Snowflake(currentAttendance.message)).edit {
+							embed {
+								title = DailyAttendanceLocale.TITLE.locale(locale)
+								description = desc
+								color = Colors.DEFAULT.value
+							}
+						}
+					}
+				}
+			}
+		} catch (e: Exception) {
+			logger.info { buildString {
+				append("Error while parsing attendance message in guild $guildId\n")
+				append("Error: $e\n")
+				append(e.stackTraceToString())
+			} }
+		} finally {
+			channelConsumers.invalidate(guildId)
+		}
+	}
 
-    private fun handleRegistration() {
-        kord.on<ButtonInteractionCreateEvent> {
-            val guildId = interaction.data.guildId.value ?: throw GuildNotFoundException()
-            if(interaction.componentId.startsWith("${this@DailyAttendanceEvent::class.qualifiedName}")) {
-                val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
-                try {
-                    when {
-                        interaction.componentId.contains(UpdateGuildAttendanceOperation.ABORT_AFTERNOON.id) -> {
-                            channels.getIfPresent(guildId)?.send(
-                                UpdateGuildAttendanceMessage(
-                                    guildId,
-                                    UpdateGuildAttendanceOperation.ABORT_AFTERNOON,
-                                    interaction.user.id.toString()
-                                )
-                            )
-                        }
-                        interaction.componentId.contains(UpdateGuildAttendanceOperation.ABORT_EVENING.id) -> {
-                            channels.getIfPresent(guildId)?.send(
-                                UpdateGuildAttendanceMessage(
-                                    guildId,
-                                    UpdateGuildAttendanceOperation.ABORT_EVENING,
-                                    interaction.user.id.toString()
-                                )
-                            )
-                        }
-                        interaction.componentId.contains(UpdateGuildAttendanceOperation.REGISTER_EVENING.id) -> {
-                            channels.getIfPresent(guildId)?.send(
-                                UpdateGuildAttendanceMessage(
-                                    guildId,
-                                    UpdateGuildAttendanceOperation.REGISTER_EVENING,
-                                    interaction.user.id.toString()
-                                )
-                            )
-                        }
-                        interaction.componentId.contains(UpdateGuildAttendanceOperation.REGISTER_AFTERNOON.id) -> {
-                            channels.getIfPresent(guildId)?.send(
-                                UpdateGuildAttendanceMessage(
-                                    guildId,
-                                    UpdateGuildAttendanceOperation.REGISTER_AFTERNOON,
-                                    interaction.user.id.toString()
-                                )
-                            )
-                        }
-                    }
-                    interaction.deferEphemeralResponse().respond(
-                        createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
-                    )
-                } catch (e: Exception) {
-                    try {
-                        val response = interaction.deferEphemeralResponse()
-                        when(e) {
-                            is NoActiveCharacterException -> {
-                                response.respond(
-                                    createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
-                                )
-                            }
-                            else -> {
-                                kord.getChannelOfTypeOrDefault(guildId, Channels.LOG_CHANNEL, cacheManager).createMessage(
-                                    e.stackTraceToString()
-                                )
-                                response.respond(
-                                    createGenericEmbedError(DailyAttendanceLocale.CANNOT_REGISTER.locale(locale))
-                                )
-                            }
-                        }
-                    } catch (_: Exception) {
-                        if(e !is NoActiveCharacterException) {
-                            kord.getChannelOfTypeOrDefault(guildId, Channels.LOG_CHANNEL, cacheManager)
-                                .createMessage(e.stackTraceToString())
-                        }
-                    }
+	private fun handleRegistration() {
+		kord.on<ButtonInteractionCreateEvent> {
+			val guildId = interaction.data.guildId.value ?: throw GuildNotFoundException()
+			if(interaction.componentId.startsWith("${this@DailyAttendanceEvent::class.qualifiedName}")) {
+				val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
+				try {
+					when {
+						interaction.componentId.contains(UpdateGuildAttendanceOperation.ABORT_AFTERNOON.id) -> {
+							channels.getIfPresent(guildId)?.send(
+								UpdateGuildAttendanceMessage(
+									guildId,
+									UpdateGuildAttendanceOperation.ABORT_AFTERNOON,
+									interaction.user.id.toString()
+								)
+							)
+						}
+						interaction.componentId.contains(UpdateGuildAttendanceOperation.ABORT_EVENING.id) -> {
+							channels.getIfPresent(guildId)?.send(
+								UpdateGuildAttendanceMessage(
+									guildId,
+									UpdateGuildAttendanceOperation.ABORT_EVENING,
+									interaction.user.id.toString()
+								)
+							)
+						}
+						interaction.componentId.contains(UpdateGuildAttendanceOperation.REGISTER_EVENING.id) -> {
+							channels.getIfPresent(guildId)?.send(
+								UpdateGuildAttendanceMessage(
+									guildId,
+									UpdateGuildAttendanceOperation.REGISTER_EVENING,
+									interaction.user.id.toString()
+								)
+							)
+						}
+						interaction.componentId.contains(UpdateGuildAttendanceOperation.REGISTER_AFTERNOON.id) -> {
+							channels.getIfPresent(guildId)?.send(
+								UpdateGuildAttendanceMessage(
+									guildId,
+									UpdateGuildAttendanceOperation.REGISTER_AFTERNOON,
+									interaction.user.id.toString()
+								)
+							)
+						}
+					}
+					interaction.deferEphemeralResponse().respond(
+						createGenericEmbedSuccess(CommonLocale.SUCCESS.locale(locale))
+					)
+				} catch (e: Exception) {
+					try {
+						val response = interaction.deferEphemeralResponse()
+						when(e) {
+							is NoActiveCharacterException -> {
+								response.respond(
+									createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+								)
+							}
+							else -> {
+								kord.getChannelOfTypeOrDefault(guildId, Channels.LOG_CHANNEL, cacheManager).createMessage(
+									e.stackTraceToString()
+								)
+								response.respond(
+									createGenericEmbedError(DailyAttendanceLocale.CANNOT_REGISTER.locale(locale))
+								)
+							}
+						}
+					} catch (_: Exception) {
+						if(e !is NoActiveCharacterException) {
+							kord.getChannelOfTypeOrDefault(guildId, Channels.LOG_CHANNEL, cacheManager)
+								.createMessage(e.stackTraceToString())
+						}
+					}
 
-                }
-            }
-        }
-    }
+				}
+			}
+		}
+	}
 
-    private suspend fun resetPreviousInteraction(guild: Guild) {
-        try {
-            val lastAttendance = db.utilityScope.getLastAttendance(guild.id.toString())
-                ?: throw Exception("Attendance not found")
-            val channel = kord.getChannelOfType(guild.id, Channels.ATTENDANCE_CHANNEL, cacheManager)
-            channel.getMessage(Snowflake(lastAttendance.message)).edit {
-                components = mutableListOf()
-            }
-        } catch (_: Exception) {
-            logger.info("Cannot delete previous attendance message for guild ${guild.name}")
-        }
-    }
+	private suspend fun resetPreviousInteraction(guild: Guild) {
+		try {
+			val lastAttendance = db.utilityScope.getLastAttendance(guild.id.toString())
+				?: throw Exception("Attendance not found")
+			val channel = kord.getChannelOfType(guild.id, Channels.ATTENDANCE_CHANNEL, cacheManager)
+			channel.getMessage(Snowflake(lastAttendance.message)).edit {
+				components = mutableListOf()
+			}
+		} catch (_: Exception) {
+			logger.info("Cannot delete previous attendance message for guild ${guild.name}")
+		}
+	}
 
-    private fun ensureAllDispatchersAreAlive() = taskExecutorScope.launch {
-        if(channelDispatcher == null || channelDispatcher?.isActive == false) {
-            channelDispatcher = launchChannelDispatcher()
-        }
-        kord.guilds.collect {
-            val dispatcher = channelConsumers.get(it.id) { guildId -> launchGuildDispatcher(guildId) }
-                ?: throw IllegalStateException("Cannot create guild ${it.id} dispatcher")
-            if(!dispatcher.isActive) {
-                channelConsumers.put(it.id, launchGuildDispatcher(it.id))
-            }
-        }
-    }
+	private fun ensureAllDispatchersAreAlive() = taskExecutorScope.launch {
+		if(channelDispatcher == null || channelDispatcher?.isActive == false) {
+			channelDispatcher = launchChannelDispatcher()
+		}
+		kord.guilds.collect {
+			val dispatcher = channelConsumers.get(it.id) { guildId -> launchGuildDispatcher(guildId) }
+				?: throw IllegalStateException("Cannot create guild ${it.id} dispatcher")
+			if(!dispatcher.isActive) {
+				channelConsumers.put(it.id, launchGuildDispatcher(it.id))
+			}
+		}
+	}
 
-    override fun register() {
-        handleRegistration()
-        ensureAllDispatchersAreAlive()
-        Timer(eventId).schedule(
-            getStartingInstantOnNextDay(1, 0, 0).also {
-                logger.info { "$eventId will start on $it"  }
-            },
-            24 * 60 * 60 * 1000
-        ) {
-            runBlocking {
-                kord.guilds.collect {
-                    if (cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
-                        ensureAllDispatchersAreAlive()
-                        val reportDate = Calendar.getInstance().time
-                        val locale = it.preferredLocale.language
-                        val message = kord.getChannelOfType(it.id, Channels.ATTENDANCE_CHANNEL, cacheManager).createMessage(
-                            prepareMessage(locale, it.id, true)
-                        )
-                        resetPreviousInteraction(it)
-                        db.utilityScope.updateAttendance(
-                            it.id.toString(),
-                            AttendanceReport(
-                                reportDate,
-                                message.id.toString()
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
+	override fun register() {
+		handleRegistration()
+		ensureAllDispatchersAreAlive()
+		Timer(eventId).schedule(
+			getStartingInstantOnNextDay(1, 0, 0).also {
+				logger.info { "$eventId will start on $it"  }
+			},
+			24 * 60 * 60 * 1000
+		) {
+			runBlocking {
+				kord.guilds.collect {
+					if (cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
+						ensureAllDispatchersAreAlive()
+						val reportDate = Calendar.getInstance().time
+						val locale = it.preferredLocale.language
+						val message = kord.getChannelOfType(it.id, Channels.ATTENDANCE_CHANNEL, cacheManager).createMessage(
+							prepareMessage(locale, it.id, true)
+						)
+						resetPreviousInteraction(it)
+						db.utilityScope.updateAttendance(
+							it.id.toString(),
+							AttendanceReport(
+								reportDate,
+								message.id.toString()
+							)
+						)
+					}
+				}
+			}
+		}
+	}
 
 }

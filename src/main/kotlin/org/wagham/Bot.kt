@@ -110,11 +110,11 @@ class KaironBot(
             cacheManager.registerEvent(it.eventId)
             logger.info { "Registered ${it.eventId} event" }
         }
-        commands.forEach {
-            it.registerCommand()
-            it.registerCallback()
-            logger.info { "Registered ${it.commandName} command" }
-        }
+//        commands.forEach {
+//            it.registerCommand()
+//            it.registerCallback()
+//            logger.info { "Registered ${it.commandName} command" }
+//        }
 
         launch { schedulingManager.launchTasks(cacheManager, kord) }
 
