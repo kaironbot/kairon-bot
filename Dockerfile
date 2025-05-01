@@ -1,4 +1,4 @@
-FROM gradle:8.6-jdk21 AS BUILD
+FROM gradle:8.12.0-jdk21 AS BUILD
 
 COPY . /src
 WORKDIR /src

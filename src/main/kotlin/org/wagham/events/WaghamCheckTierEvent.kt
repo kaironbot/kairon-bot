@@ -1,5 +1,6 @@
 package org.wagham.events
 
+import dev.inmo.krontab.doInfinity
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.edit
@@ -20,8 +21,6 @@ import org.wagham.db.models.Character
 import org.wagham.entities.channels.RegisteredSession
 import org.wagham.utils.getChannelOfTypeOrDefault
 import org.wagham.utils.sendTextMessage
-import java.util.*
-import kotlin.concurrent.schedule
 
 @BotEvent("wagham")
 class WaghamCheckTierEvent(
@@ -141,13 +140,12 @@ class WaghamCheckTierEvent(
 	 */
 	override fun register() {
 		launchChannelDispatcher()
-		Timer(eventId).schedule(
-			Date(),
-			60 * 1000
-		) {
-			if (channelDispatcher?.isActive != true) {
-				logger.info { "Dispatcher is dead, relaunching" }
-				channelDispatcher = launchChannelDispatcher()
+		taskExecutorScope.launch {
+			doInfinity("0 * * * *") {
+				if (channelDispatcher?.isActive != true) {
+					logger.info { "Dispatcher is dead, relaunching" }
+					channelDispatcher = launchChannelDispatcher()
+				}
 			}
 		}
 	}

@@ -11,18 +11,13 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.subCommand
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
-import dev.kord.rest.builder.message.modify.embed
 import org.wagham.annotations.BotSubcommand
 import org.wagham.commands.SubCommand
 import org.wagham.commands.impl.CharacterCommand
 import org.wagham.components.CacheManager
 import org.wagham.components.MultiCharacterCommand
 import org.wagham.components.MultiCharacterManager
-import org.wagham.config.Channels
 import org.wagham.config.locale.CommonLocale
-import org.wagham.config.locale.commands.MeLocale
-import org.wagham.config.locale.commands.SetChannelLocale
-import org.wagham.config.locale.subcommands.AsCharacterLocale
 import org.wagham.config.locale.subcommands.CharacterUpdateStatusLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.db.enums.CharacterStatus
@@ -63,7 +58,7 @@ class CharacterUpdateStatus(
                 description(locale, description)
             }
             required = true
-            CharacterStatus.values().forEach {
+            CharacterStatus.entries.forEach {
                 choice(it.name, it.name)
             }
         }

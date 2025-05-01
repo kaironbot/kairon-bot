@@ -3,6 +3,7 @@ package org.wagham.events
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.RemovalCause
+import dev.inmo.krontab.doInfinity
 import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
@@ -36,7 +37,6 @@ import org.wagham.entities.channels.UpdateGuildAttendanceOperation
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.utils.*
 import java.util.*
-import kotlin.concurrent.schedule
 
 @BotEvent("all")
 class DailyAttendanceEvent(
@@ -189,7 +189,6 @@ class DailyAttendanceEvent(
 	private fun launchGuildDispatcher(guildId: Snowflake) = taskExecutorScope.launch {
 		try {
 			val channel = channels.get(guildId) { Channel(UNLIMITED) }
-				?: throw IllegalStateException("Cannot create guild $guildId channel")
 			for(message in channel) {
 				db.utilityScope.getLastAttendance(message.guildId.toString())?.let { currentAttendance ->
 					when {
@@ -345,7 +344,6 @@ class DailyAttendanceEvent(
 		}
 		kord.guilds.collect {
 			val dispatcher = channelConsumers.get(it.id) { guildId -> launchGuildDispatcher(guildId) }
-				?: throw IllegalStateException("Cannot create guild ${it.id} dispatcher")
 			if(!dispatcher.isActive) {
 				channelConsumers.put(it.id, launchGuildDispatcher(it.id))
 			}
@@ -355,30 +353,29 @@ class DailyAttendanceEvent(
 	override fun register() {
 		handleRegistration()
 		ensureAllDispatchersAreAlive()
-		Timer(eventId).schedule(
-			getStartingInstantOnNextDay(1, 0, 0).also {
-				logger.info { "$eventId will start on $it"  }
-			},
-			24 * 60 * 60 * 1000
-		) {
-			runBlocking {
-				kord.guilds.collect {
-					if (cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
-						ensureAllDispatchersAreAlive()
-						val reportDate = Calendar.getInstance().time
-						val locale = it.preferredLocale.language
-						val message = kord.getChannelOfType(it.id, Channels.ATTENDANCE_CHANNEL, cacheManager).createMessage(
-							prepareMessage(locale, it.id, true)
-						)
-						resetPreviousInteraction(it)
-						db.utilityScope.updateAttendance(
-							it.id.toString(),
-							AttendanceReport(
-								reportDate,
-								message.id.toString()
+		taskExecutorScope.launch {
+			doInfinity("0 1 * * *") {
+				try {
+					kord.guilds.collect {
+						if (cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
+							ensureAllDispatchersAreAlive()
+							val reportDate = Calendar.getInstance().time
+							val locale = it.preferredLocale.language
+							val message = kord.getChannelOfType(it.id, Channels.ATTENDANCE_CHANNEL, cacheManager).createMessage(
+								prepareMessage(locale, it.id, true)
 							)
-						)
+							resetPreviousInteraction(it)
+							db.utilityScope.updateAttendance(
+								it.id.toString(),
+								AttendanceReport(
+									reportDate,
+									message.id.toString()
+								)
+							)
+						}
 					}
+				} catch (e: Exception) {
+					logger.error(e) { "Error while publishing daily attendance" }
 				}
 			}
 		}
