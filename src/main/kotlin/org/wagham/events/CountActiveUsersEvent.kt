@@ -1,23 +1,23 @@
 package org.wagham.events
 
+import dev.inmo.krontab.doInfinity
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.asChannelOf
 import dev.kord.core.entity.channel.MessageChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.fold
 import kotlinx.coroutines.flow.takeWhile
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 import mu.KotlinLogging
 import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.utils.ActiveUsersReport
-import org.wagham.utils.getStartingInstantOnNextDay
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.Timer
-import kotlin.concurrent.schedule
 
 @BotEvent("all")
 class CountActiveUsersEvent(
@@ -27,6 +27,7 @@ class CountActiveUsersEvent(
 ) : Event {
 
 	override val eventId = "count_active_users"
+	private val taskExecutorScope = CoroutineScope(Dispatchers.Default)
 	private val logger = KotlinLogging.logger {}
 
 	private suspend fun countActiveUsersForGuild(guildId: Snowflake, yesterday: Instant) =
@@ -56,20 +57,19 @@ class CountActiveUsersEvent(
 			}?.let { ActiveUsersReport(it.first.size, it.second.average()) }
 
 	override fun register() {
-		Timer(eventId).schedule(
-			getStartingInstantOnNextDay(0, 0, 0).also {
-				logger.info { "$eventId will start on $it"  }
-			},
-			24 * 60 * 60 * 1000
-		) {
-			runBlocking {
-				val yesterday = Instant.fromEpochMilliseconds(LocalDateTime.now().minusDays(1).toInstant(ZoneOffset.UTC).toEpochMilli())
-				kord.guilds.collect {
-					if (cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
-						countActiveUsersForGuild(it.id, yesterday)?.let { report ->
-							cacheManager.storeUsersReport(it.id, report)
+		taskExecutorScope.launch {
+			doInfinity("0 0 * * *") {
+				try {
+					val yesterday = Instant.fromEpochMilliseconds(LocalDateTime.now().minusDays(1).toInstant(ZoneOffset.UTC).toEpochMilli())
+					kord.guilds.collect {
+						if (cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
+							countActiveUsersForGuild(it.id, yesterday)?.let { report ->
+								cacheManager.storeUsersReport(it.id, report)
+							}
 						}
 					}
+				} catch(e: Exception) {
+					logger.error(e) { "Error while updating building messages" }
 				}
 			}
 		}

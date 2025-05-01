@@ -100,10 +100,7 @@ class PeriodicMarketEvent(
 			CraftRequirement(cost = item.craft.first { it.label == "Craft" }.cost / 10)
 		}
 
-	private suspend fun retrieveAdditionalItems(
-		guildId: Snowflake,
-		qty: Int
-	): Map<Item, CraftRequirement> = db.itemsScope
+	private suspend fun retrieveAdditionalItems(guildId: Snowflake): Map<Item, CraftRequirement> = db.itemsScope
 		.getItemsMatching(
 			guildId.toString(),
 			labels = listOf(LabelStub("8c7f4255-f694-4bc8-ae2b-fb95bbd5bc3f", "Recipe")),
@@ -256,7 +253,7 @@ class PeriodicMarketEvent(
 			}
 		val newItems = categories.fold(emptyMap<Item, CraftRequirement>()) { acc, (label, qty, consumable) ->
 			acc + retrieveItemsForCategory(guildId, label, qty, consumable, pastFrequencies)
-		} + retrieveAdditionalItems(guildId, 1)
+		} + retrieveAdditionalItems(guildId)
 		val idToItems = newItems.keys.associate { shortId() to it.name }
 		val message = kord.getChannelOfType(guildId, Channels.MARKET_CHANNEL, cacheManager).createMessage(
 			newItems.generateMessage(guildId, idToItems)

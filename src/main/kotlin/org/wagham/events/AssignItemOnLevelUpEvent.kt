@@ -1,5 +1,6 @@
 package org.wagham.events
 
+import dev.inmo.krontab.doInfinity
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +26,6 @@ import org.wagham.utils.associateTo
 import org.wagham.utils.getChannelOfType
 import org.wagham.utils.sendTextMessage
 import java.util.*
-import kotlin.concurrent.schedule
 
 @BotEvent("wagham")
 class AssignItemOnLevelUpEvent(
@@ -129,13 +129,12 @@ class AssignItemOnLevelUpEvent(
 	 */
 	override fun register() {
 		launchChannelDispatcher()
-		Timer(eventId).schedule(
-			Date(),
-			60 * 1000
-		) {
-			if (channelDispatcher?.isActive != true) {
-				logger.info { "Dispatcher is dead, relaunching" }
-				channelDispatcher = launchChannelDispatcher()
+		taskExecutorScope.launch {
+			doInfinity("0 * * * *") {
+				if (channelDispatcher?.isActive != true) {
+					logger.info { "Dispatcher is dead, relaunching" }
+					channelDispatcher = launchChannelDispatcher()
+				}
 			}
 		}
 	}

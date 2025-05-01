@@ -1,13 +1,16 @@
 package org.wagham.events
 
+import dev.inmo.krontab.doInfinity
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.edit
 import dev.kord.core.entity.channel.MessageChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
@@ -18,11 +21,8 @@ import org.wagham.db.models.Building
 import org.wagham.db.models.BuildingMessage
 import org.wagham.db.models.PlayerBuildingsMessages
 import org.wagham.utils.getChannelOfType
-import org.wagham.utils.getStartingInstantOnNextDay
 import org.wagham.utils.sendTextMessage
 import java.lang.IllegalStateException
-import java.util.*
-import kotlin.concurrent.schedule
 
 @BotEvent("all")
 class UpdateBuildingsMessagesEvent(
@@ -33,6 +33,7 @@ class UpdateBuildingsMessagesEvent(
 
 	override val eventId = "update_buildings_messages"
 	private val logger = KotlinLogging.logger {}
+	private val taskExecutorScope = CoroutineScope(Dispatchers.Default)
 
 	private suspend fun getExistingMessages(guildId: Snowflake) =
 		db.utilityScope.getBuildingsMessages(guildId.toString())
@@ -172,17 +173,16 @@ class UpdateBuildingsMessagesEvent(
 	}
 
 	override fun register() {
-		Timer(eventId).schedule(
-			getStartingInstantOnNextDay(0, 10, 0).also {
-				logger.info { "$eventId will start on $it"  }
-			},
-			24 * 60 * 60 * 1000
-		) {
-			runBlocking {
-				kord.guilds.collect {
-					if(cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
-						updateBuildingsMessages(it.id)
+		taskExecutorScope.launch {
+			doInfinity("10 0 * * *") {
+				try {
+					kord.guilds.collect {
+						if(cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
+							updateBuildingsMessages(it.id)
+						}
 					}
+				} catch (e: Exception) {
+					logger.error(e) { "Error while updating building messages" }
 				}
 			}
 		}

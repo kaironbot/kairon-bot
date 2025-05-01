@@ -118,7 +118,7 @@ class WaghamWeeklyRewardsEvent(
 							val tier = expTable.expToTier(character.ms().toFloat())
 							character.id to (tierRewards.getValue(tier))
 						}
-				} catch (e: NoActiveCharacterException) {
+				} catch (_: NoActiveCharacterException) {
 					null
 				}
 			}?.toMap() ?: emptyMap()
