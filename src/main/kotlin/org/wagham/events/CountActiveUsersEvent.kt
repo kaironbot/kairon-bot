@@ -16,6 +16,7 @@ import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.utils.ActiveUsersReport
+import org.wagham.utils.getTimezoneOffset
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -58,7 +59,7 @@ class CountActiveUsersEvent(
 
 	override fun register() {
 		taskExecutorScope.launch {
-			doInfinity("0 0 * * *") {
+			doInfinity("0 0 0 * * ${getTimezoneOffset()}o") {
 				try {
 					val yesterday = Instant.fromEpochMilliseconds(LocalDateTime.now().minusDays(1).toInstant(ZoneOffset.UTC).toEpochMilli())
 					kord.guilds.collect {

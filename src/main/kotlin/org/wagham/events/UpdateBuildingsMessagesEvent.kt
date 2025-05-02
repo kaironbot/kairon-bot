@@ -21,6 +21,7 @@ import org.wagham.db.models.Building
 import org.wagham.db.models.BuildingMessage
 import org.wagham.db.models.PlayerBuildingsMessages
 import org.wagham.utils.getChannelOfType
+import org.wagham.utils.getTimezoneOffset
 import org.wagham.utils.sendTextMessage
 import java.lang.IllegalStateException
 
@@ -174,7 +175,7 @@ class UpdateBuildingsMessagesEvent(
 
 	override fun register() {
 		taskExecutorScope.launch {
-			doInfinity("10 0 * * *") {
+			doInfinity("0 0 0 * * ${getTimezoneOffset()}o") {
 				try {
 					kord.guilds.collect {
 						if(cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
