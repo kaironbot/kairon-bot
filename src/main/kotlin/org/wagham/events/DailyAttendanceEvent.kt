@@ -354,7 +354,7 @@ class DailyAttendanceEvent(
 		handleRegistration()
 		ensureAllDispatchersAreAlive()
 		taskExecutorScope.launch {
-			doInfinity("0 1 * * *") {
+			doInfinity("0 0 1 * * ${getTimezoneOffset()}o") {
 				try {
 					kord.guilds.collect {
 						if (cacheManager.getConfig(it.id).eventChannels[eventId]?.enabled == true) {
