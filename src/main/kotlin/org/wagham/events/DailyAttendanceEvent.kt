@@ -34,8 +34,14 @@ import org.wagham.db.models.AttendanceReport
 import org.wagham.db.models.embed.AttendanceReportPlayer
 import org.wagham.entities.channels.UpdateGuildAttendanceMessage
 import org.wagham.entities.channels.UpdateGuildAttendanceOperation
+import org.wagham.exceptions.BannedException
 import org.wagham.exceptions.GuildNotFoundException
+import org.wagham.exceptions.UnauthorizedException
 import org.wagham.utils.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.*
 
 @BotEvent("all")
@@ -46,6 +52,7 @@ class DailyAttendanceEvent(
 ) : Event, Identifiable {
 
 	override val eventId = "daily_attendance"
+	private val formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
 	private var channelDispatcher: Job? = null
 	private val logger = KotlinLogging.logger {}
 	private val taskExecutorScope = CoroutineScope(Dispatchers.Default)
@@ -254,13 +261,15 @@ class DailyAttendanceEvent(
 			if(interaction.componentId.startsWith("${this@DailyAttendanceEvent::class.qualifiedName}")) {
 				val locale = interaction.locale?.language ?: interaction.guildLocale?.language ?: "en"
 				try {
+					val playerId = interaction.user.id.toString()
+					ensurePlayerIsNotBanned(guildId, playerId)
 					when {
 						interaction.componentId.contains(UpdateGuildAttendanceOperation.ABORT_AFTERNOON.id) -> {
 							channels.getIfPresent(guildId)?.send(
 								UpdateGuildAttendanceMessage(
 									guildId,
 									UpdateGuildAttendanceOperation.ABORT_AFTERNOON,
-									interaction.user.id.toString()
+									playerId
 								)
 							)
 						}
@@ -269,7 +278,7 @@ class DailyAttendanceEvent(
 								UpdateGuildAttendanceMessage(
 									guildId,
 									UpdateGuildAttendanceOperation.ABORT_EVENING,
-									interaction.user.id.toString()
+									playerId
 								)
 							)
 						}
@@ -278,7 +287,7 @@ class DailyAttendanceEvent(
 								UpdateGuildAttendanceMessage(
 									guildId,
 									UpdateGuildAttendanceOperation.REGISTER_EVENING,
-									interaction.user.id.toString()
+									playerId
 								)
 							)
 						}
@@ -287,7 +296,7 @@ class DailyAttendanceEvent(
 								UpdateGuildAttendanceMessage(
 									guildId,
 									UpdateGuildAttendanceOperation.REGISTER_AFTERNOON,
-									interaction.user.id.toString()
+									playerId
 								)
 							)
 						}
@@ -302,6 +311,16 @@ class DailyAttendanceEvent(
 							is NoActiveCharacterException -> {
 								response.respond(
 									createGenericEmbedError(CommonLocale.NO_ACTIVE_CHARACTER.locale(locale))
+								)
+							}
+							is BannedException -> {
+								response.respond(
+									createGenericEmbedError(
+										buildString {
+											append(DailyAttendanceLocale.BANNED.locale(locale))
+											append(formatter.format(e.until))
+										}
+									)
 								)
 							}
 							else -> {
@@ -322,6 +341,21 @@ class DailyAttendanceEvent(
 
 				}
 			}
+		}
+	}
+
+	private suspend fun ensurePlayerIsNotBanned(guildId: Snowflake, playerId: String) {
+		val player = db.playersScope.getPlayer(guildId.toString(), playerId)
+			?: throw UnauthorizedException()
+		val now = Instant.now()
+		val lastStrike = player.latestStrike
+		if (
+			player.recentStrikes.size >= 3 &&
+				ChronoUnit.DAYS.between(lastStrike.date.toInstant(), now) <= 15
+		) {
+			throw BannedException(
+				LocalDate.from(lastStrike.date.toInstant()).plusDays(15)
+			)
 		}
 	}
 

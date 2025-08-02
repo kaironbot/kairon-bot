@@ -4,6 +4,12 @@ import dev.kord.common.Locale
 import org.wagham.config.locale.LocaleEnum
 
 enum class DailyAttendanceLocale(val localeMap: Map<Locale, String>): LocaleEnum {
+    BANNED(
+        mapOf(
+            Locale.ENGLISH_GREAT_BRITAIN to "You cannot register to session until: ",
+            Locale.ITALIAN to "Non puoi registrati alla disponibilità fino al: "
+        )
+    ),
     CANNOT_REGISTER(
         mapOf(
             Locale.ENGLISH_GREAT_BRITAIN to "Cannot register to the daily availability.",

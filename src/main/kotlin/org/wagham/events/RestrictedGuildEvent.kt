@@ -15,7 +15,7 @@ abstract class RestrictedGuildEvent : Event {
 				it.eventChannels[eventId] != null && it.eventChannels[eventId]!!.allowedChannels.let { channels ->
 					channels.isEmpty() || channels.contains(message.channelId.toString())
 				}
-				)
+			)
 		}
 
 	protected suspend fun isEnabled(guildId: Snowflake?) =
