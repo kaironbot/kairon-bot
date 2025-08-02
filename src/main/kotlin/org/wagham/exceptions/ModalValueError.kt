@@ -1,3 +1,3 @@
 package org.wagham.exceptions
 
-class ModalValueError(val msg: String) : Exception(msg)
+class ModalValueError(msg: String) : Exception(msg)

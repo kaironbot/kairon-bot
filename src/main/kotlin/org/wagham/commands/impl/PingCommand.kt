@@ -12,6 +12,7 @@ import org.wagham.config.Colors
 import org.wagham.config.locale.commands.PingLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.utils.defaultLocale
+import org.wagham.utils.extractCommonParameters
 
 @BotCommand("all")
 class PingCommand(
@@ -36,17 +37,17 @@ class PingCommand(
     }
 
     override suspend fun execute(event: GuildChatInputCommandInteractionCreateEvent): InteractionResponseModifyBuilder.() -> Unit {
-        val locale = event.interaction.locale?.language ?: event.interaction.guildLocale?.language ?: "en"
+        val params = event.extractCommonParameters()
         return fun InteractionResponseModifyBuilder.() {
-            val commands = cacheManager.getCommands().ifEmpty { listOf(PingLocale.NO_COMMAND_FOUND.locale(locale)) }
-            val events = cacheManager.getEvents().ifEmpty { listOf(PingLocale.NO_EVENT_FOUND.locale(locale)) }
+            val commands = cacheManager.getCommands().ifEmpty { listOf(PingLocale.NO_COMMAND_FOUND.locale(params.locale)) }
+            val events = cacheManager.getEvents().ifEmpty { listOf(PingLocale.NO_EVENT_FOUND.locale(params.locale)) }
             embed {
                 color = Colors.DEFAULT.value
                 title = "WaghamBot is online"
                 description = buildString {
-                    append("**${PingLocale.COMMANDS.locale(locale)}**\n")
+                    append("**${PingLocale.COMMANDS.locale(params.locale)}**\n")
                     append(commands.joinToString(separator = "") { "\\$it\n" })
-                    append("**${PingLocale.EVENTS.locale(locale)}**\n")
+                    append("**${PingLocale.EVENTS.locale(params.locale)}**\n")
                     append(events.joinToString(separator = "") { it+"\n" })
                 }
             }
