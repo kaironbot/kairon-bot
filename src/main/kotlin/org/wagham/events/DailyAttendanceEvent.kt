@@ -348,13 +348,12 @@ class DailyAttendanceEvent(
 		val player = db.playersScope.getPlayer(guildId.toString(), playerId)
 			?: throw UnauthorizedException()
 		val now = Instant.now()
-		val lastStrike = player.latestStrike
 		if (
 			player.recentStrikes.size >= 3 &&
-				ChronoUnit.DAYS.between(lastStrike.date.toInstant(), now) <= 15
+				ChronoUnit.DAYS.between(player.latestStrike.date.toInstant(), now) <= 15
 		) {
 			throw BannedException(
-				LocalDate.from(lastStrike.date.toInstant()).plusDays(15)
+				LocalDate.from(player.latestStrike.date.toInstant()).plusDays(15)
 			)
 		}
 	}
