@@ -38,10 +38,7 @@ import org.wagham.exceptions.BannedException
 import org.wagham.exceptions.GuildNotFoundException
 import org.wagham.exceptions.UnauthorizedException
 import org.wagham.utils.*
-import java.time.Instant
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
+import java.text.SimpleDateFormat
 import java.util.*
 
 @BotEvent("all")
@@ -52,7 +49,7 @@ class DailyAttendanceEvent(
 ) : Event, Identifiable {
 
 	override val eventId = "daily_attendance"
-	private val formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+	private val formatter = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
 	private var channelDispatcher: Job? = null
 	private val logger = KotlinLogging.logger {}
 	private val taskExecutorScope = CoroutineScope(Dispatchers.Default)
@@ -347,14 +344,8 @@ class DailyAttendanceEvent(
 	private suspend fun ensurePlayerIsNotBanned(guildId: Snowflake, playerId: String) {
 		val player = db.playersScope.getPlayer(guildId.toString(), playerId)
 			?: throw UnauthorizedException()
-		val now = Instant.now()
-		if (
-			player.recentStrikes.size >= 3 &&
-				ChronoUnit.DAYS.between(player.latestStrike.date.toInstant(), now) <= 15
-		) {
-			throw BannedException(
-				LocalDate.from(player.latestStrike.date.toInstant()).plusDays(15)
-			)
+		if (player.recentStrikes.size >= 3 && daysToToday(player.latestStrike.date) <= 15) {
+			throw BannedException(player.latestStrike.date.plusDays(15))
 		}
 	}
 

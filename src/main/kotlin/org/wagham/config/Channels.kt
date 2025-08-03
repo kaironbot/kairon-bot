@@ -9,4 +9,5 @@ enum class Channels(val description: String) {
     WELCOME_CHANNEL("Welcome channel"),
     MARKET_CHANNEL("Market channel"),
     MASTER_CHANNEL("Master channel"),
+    SESSION_CALL_CHANNEL("Session call channel"),
 }

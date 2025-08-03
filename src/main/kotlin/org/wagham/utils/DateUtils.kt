@@ -23,6 +23,13 @@ fun getStartingInstantOnNextDay(hour: Int, minute: Int, second: Int, transformer
 
 fun daysToToday(pastDate: Date) = daysInBetween(pastDate, Calendar.getInstance().time).toInt()
 
+fun Date.plusDays(days: Int): Date {
+	val calendar = Calendar.getInstance()
+	calendar.time = this
+	calendar.add(Calendar.DAY_OF_YEAR, days)
+	return calendar.time
+}
+
 fun maxOrNull(first: Date?, second: Date?): Date? =
 	when {
 		first == null && second == null -> null
