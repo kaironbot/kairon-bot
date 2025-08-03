@@ -21,11 +21,11 @@ import org.wagham.utils.createGenericEmbedSuccess
 import org.wagham.utils.defaultLocale
 import org.wagham.utils.extractCommonParameters
 import org.wagham.utils.latestStrike
+import org.wagham.utils.plusDays
 import org.wagham.utils.recentStrikes
 import org.wagham.utils.sendTextMessage
+import java.text.SimpleDateFormat
 import java.time.Instant
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.*
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -40,7 +40,7 @@ class NoShowStrike(
 	override val commandName = "strike"
 	override val defaultDescription = NoShowStrikeLocale.DESCRIPTION.locale(defaultLocale)
 	override val localeDescriptions: Map<Locale, String> = NoShowStrikeLocale.DESCRIPTION.localeMap
-	private val formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+	private val formatter = SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault())
 
 	override suspend fun registerCommand() {}
 
@@ -74,12 +74,12 @@ class NoShowStrike(
 				append(NoShowStrikeLocale.CURRENT_STRIKES.locale(locale))
 				append("\n")
 				player.recentStrikes.forEach {
-					append("${it.title} - ${formatter.format(it.date.toInstant())}\n")
+					append("${it.title} - ${formatter.format(it.date)}\n")
 				}
 				append(NoShowStrikeLocale.STRIKE_EXPIRATION.locale(locale))
 				append("\n")
 				append(NoShowStrikeLocale.BANNED_UNTIL.locale(locale))
-				append(formatter.format(LocalDate.from(player.latestStrike.date.toInstant()).plusDays(15)))
+				append(formatter.format(player.latestStrike.date.plusDays(15)))
 			})
 		}
 

@@ -17,7 +17,7 @@ import org.wagham.config.locale.subcommands.NoShowListLocale
 import org.wagham.db.KabotMultiDBClient
 import org.wagham.utils.defaultLocale
 import org.wagham.utils.extractCommonParameters
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
 import kotlin.collections.component1
 import kotlin.collections.component2
 
@@ -31,7 +31,7 @@ class NoShowList(
 	override val commandName = "list"
 	override val defaultDescription = NoShowListLocale.DESCRIPTION.locale(defaultLocale)
 	override val localeDescriptions: Map<Locale, String> = NoShowListLocale.DESCRIPTION.localeMap
-	private val formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+	private val formatter = SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault())
 
 	override suspend fun registerCommand() {}
 
@@ -63,7 +63,7 @@ class NoShowList(
 					}.reversed().forEach {
 						field {
 							name = it.title
-							value = formatter.format(it.date.toInstant())
+							value = formatter.format(it.date)
 							inline = true
 						}
 					}

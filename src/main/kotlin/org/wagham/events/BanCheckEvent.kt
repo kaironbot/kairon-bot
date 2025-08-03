@@ -7,6 +7,7 @@ import org.wagham.annotations.BotEvent
 import org.wagham.components.CacheManager
 import org.wagham.config.Channels
 import org.wagham.db.KabotMultiDBClient
+import org.wagham.utils.daysToToday
 import org.wagham.utils.getChannelOfType
 import org.wagham.utils.latestStrike
 import org.wagham.utils.recentStrikes
@@ -26,12 +27,10 @@ class BanCheckEvent(
 	override fun register() {
 		kord.on<MessageCreateEvent> {
 			if (guildId != null && isAllowed(guildId, message)) {
-				val now = Instant.now()
 				val bannedPlayers = message.mentionedUserIds.mapNotNull {
 					db.playersScope.getPlayer(guildId.toString(), it.toString())
 				}.filter {
-					it.recentStrikes.size >= 3 &&
-						ChronoUnit.DAYS.between(it.latestStrike.date.toInstant(), now) <= 15
+					it.recentStrikes.size >= 3 && daysToToday(it.latestStrike.date) <= 15
 				}
 				if (bannedPlayers.isNotEmpty()) {
 					getChannelOfType(guildId!!, Channels.MASTER_CHANNEL).sendTextMessage(
