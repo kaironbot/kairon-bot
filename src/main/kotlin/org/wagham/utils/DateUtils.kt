@@ -21,6 +21,8 @@ fun getStartingInstantOnNextDay(hour: Int, minute: Int, second: Int, transformer
 	return Date.from(ZonedDateTime.of(localDate, timeZone.toZoneId()).toInstant())
 }
 
+fun today(): Date = Calendar.getInstance().time
+
 fun daysToToday(pastDate: Date) = daysInBetween(pastDate, Calendar.getInstance().time).toInt()
 
 fun Date.plusDays(days: Int): Date {

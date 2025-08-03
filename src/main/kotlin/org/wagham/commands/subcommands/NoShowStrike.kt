@@ -24,6 +24,7 @@ import org.wagham.utils.latestStrike
 import org.wagham.utils.plusDays
 import org.wagham.utils.recentStrikes
 import org.wagham.utils.sendTextMessage
+import org.wagham.utils.today
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.util.*
@@ -93,7 +94,7 @@ class NoShowStrike(
 			guildId = params.guildId.toString(),
 			playerId = target.id.toString(),
 			strike = Strike(
-				date = Date.from(Instant.now()),
+				date = today(),
 				title = session
 			)
 		).also {
