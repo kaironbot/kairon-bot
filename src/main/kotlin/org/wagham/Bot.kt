@@ -105,14 +105,12 @@ class KaironBot(
 	@OptIn(PrivilegedIntent::class)
 	suspend fun start() = coroutineScope {
 		logger.info { "Starting KaironBot with profile $profile" }
-//		events.forEach {
-//			it.register()
-//			cacheManager.registerEvent(it.eventId)
-//			logger.info { "Registered ${it.eventId} event" }
-//		}
-		commands.filter {
-			it.commandName == "noshow"
-		}.forEach {
+		events.forEach {
+			it.register()
+			cacheManager.registerEvent(it.eventId)
+			logger.info { "Registered ${it.eventId} event" }
+		}
+		commands.forEach {
 			it.registerCommand()
 			it.registerCallback()
 			logger.info { "Registered ${it.commandName} command" }
